@@ -88,7 +88,9 @@ export const ScheduleCard: React.FC<Props> = ({
       <div className="px-6 py-3 bg-slate-50 border-b border-slate-100 flex items-center gap-4">
         <div className="flex items-center gap-1.5 shrink-0">
           <Calendar className="w-3.5 h-3.5 text-slate-400" />
-          <span className="text-[11px] font-bold text-slate-600">{schedule.phaseName}</span>
+          <span className="text-[11px] font-bold text-slate-600">
+            {schedule.phaseName} ({schedule.phaseStart} to {schedule.phaseEnd})
+          </span>
         </div>
 
         <div className="flex-1 min-w-0">
