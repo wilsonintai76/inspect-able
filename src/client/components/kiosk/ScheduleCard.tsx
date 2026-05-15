@@ -37,10 +37,10 @@ export const ScheduleCard: React.FC<Props> = ({
 
   const roleUsers = (role: AssignRole): KioskUser[] => {
     if (role === 'supervisor') {
-      return users.filter(u => u.roles.includes('Supervisor') || u.roles.includes('Coordinator'));
+      return users.filter(u => u.roles.includes('Supervisor') || u.roles.includes('Coordinator') || u.roles.includes('Admin'));
     }
     return users.filter(
-      u => u.roles.includes('Auditor') || u.roles.includes('Coordinator') || u.roles.includes('Supervisor'),
+      u => u.roles.includes('Auditor') || u.roles.includes('Coordinator') || u.roles.includes('Supervisor') || u.roles.includes('Admin'),
     );
   };
 
