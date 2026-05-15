@@ -46,7 +46,7 @@ export const ScheduleCard: React.FC<Props> = ({
 
   return (
     <div
-      className={`bg-white border rounded-3xl overflow-hidden transition-all duration-200 hover:shadow-lg hover:shadow-slate-200/80 ${
+      className={`bg-white border rounded-3xl transition-all duration-200 hover:shadow-lg hover:shadow-slate-200/80 ${
         isCompleted ? 'opacity-75' : ''
       }`}
     >
