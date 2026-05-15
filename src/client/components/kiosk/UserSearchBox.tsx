@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Search, Check, X } from 'lucide-react';
+import { Search, Check, X, Award } from 'lucide-react';
 import { KioskUser } from './types';
 
 interface Props {
