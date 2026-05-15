@@ -4,6 +4,189 @@ import { Bindings, Variables } from '../types';
 const pub = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 
 /**
+ * GET /api/public/kiosk
+ *
+ * Returns all audit schedules enriched with department, location, phase,
+ * and auditor/supervisor display names. Also returns all active users
+ * (for the searchable assignment combobox) and phases. No auth required.
+ */
+pub.get('/kiosk', async (c) => {
+  try {
+    const db = c.env.DB;
+
+    const [schedulesResult, usersResult, deptsResult, locsResult, phasesResult] = await db.batch([
+      db.prepare(`
+        SELECT s.id, s.department_id, s.location_id, s.supervisor_id,
+               s.auditor1_id, s.auditor2_id, s.date, s.status, s.phase_id,
+               d.name AS dept_name, d.abbr AS dept_abbr,
+               l.name AS loc_name, l.total_assets,
+               p.name AS phase_name, p.start_date, p.end_date
+        FROM audit_schedules s
+        LEFT JOIN departments d ON s.department_id = d.id
+        LEFT JOIN locations l ON s.location_id = l.id
+        LEFT JOIN audit_phases p ON s.phase_id = p.id
+        ORDER BY s.date ASC, dept_name ASC
+      `),
+      db.prepare(`
+        SELECT id, name, designation, department_id, roles, status, is_verified,
+               certification_issued, certification_expiry
+        FROM users
+        WHERE status = 'Active' AND is_verified = 1
+        ORDER BY name ASC
+      `),
+      db.prepare(`SELECT id, name, abbr FROM departments ORDER BY name ASC`),
+      db.prepare(`SELECT id, name, total_assets FROM locations`),
+      db.prepare(`SELECT id, name, start_date, end_date, status FROM audit_phases ORDER BY start_date ASC`),
+    ]);
+
+    // Build a lookup map for user names
+    const userMap = new Map<string, { name: string; designation: string | null; departmentId: string | null; roles: string[]; certExpiry: string | null }>();
+    for (const u of (usersResult.results ?? []) as any[]) {
+      userMap.set(u.id, {
+        name: u.name,
+        designation: u.designation,
+        departmentId: u.department_id,
+        roles: JSON.parse(u.roles || '["Staff"]'),
+        certExpiry: u.certification_expiry ?? null,
+      });
+    }
+
+    // Compute per-auditor asset count from all schedules
+    const auditorAssets = new Map<string, number>();
+    for (const s of (schedulesResult.results ?? []) as any[]) {
+      const assets = s.total_assets ?? 0;
+      if (s.auditor1_id) auditorAssets.set(s.auditor1_id, (auditorAssets.get(s.auditor1_id) ?? 0) + assets);
+      if (s.auditor2_id) auditorAssets.set(s.auditor2_id, (auditorAssets.get(s.auditor2_id) ?? 0) + assets);
+    }
+
+    const schedules = (schedulesResult.results ?? []).map((s: any) => ({
+      id: s.id,
+      departmentId: s.department_id,
+      departmentName: s.dept_name ?? '—',
+      departmentAbbr: s.dept_abbr ?? '',
+      locationId: s.location_id,
+      locationName: s.loc_name ?? '—',
+      totalAssets: s.total_assets ?? 0,
+      supervisorId: s.supervisor_id,
+      supervisorName: s.supervisor_id ? (userMap.get(s.supervisor_id)?.name ?? 'Unknown') : null,
+      auditor1Id: s.auditor1_id,
+      auditor1Name: s.auditor1_id ? (userMap.get(s.auditor1_id)?.name ?? 'Unknown') : null,
+      auditor2Id: s.auditor2_id,
+      auditor2Name: s.auditor2_id ? (userMap.get(s.auditor2_id)?.name ?? 'Unknown') : null,
+      date: s.date,
+      status: s.status,
+      phaseId: s.phase_id,
+      phaseName: s.phase_name ?? '—',
+      phaseStart: s.start_date,
+      phaseEnd: s.end_date,
+    }));
+
+    const users = (usersResult.results ?? []).map((u: any) => ({
+      id: u.id,
+      name: u.name,
+      designation: u.designation,
+      departmentId: u.department_id,
+      roles: JSON.parse(u.roles || '["Staff"]'),
+      certificationExpiry: u.certification_expiry ?? null,
+      assetsAssigned: auditorAssets.get(u.id) ?? 0,
+    }));
+
+    const phases = (phasesResult.results ?? []).map((p: any) => ({
+      id: p.id,
+      name: p.name,
+      startDate: p.start_date,
+      endDate: p.end_date,
+      status: p.status,
+    }));
+
+    c.header('Cache-Control', 'no-store');
+    return c.json({ schedules, users, phases });
+  } catch (err: any) {
+    console.error('[Public Kiosk] Error:', err);
+    return c.json({ schedules: [], users: [], phases: [] });
+  }
+});
+
+/**
+ * PATCH /api/public/kiosk/schedules/:id
+ *
+ * Allows a user to self-assign to an audit slot as auditor1, auditor2 or supervisor.
+ * Body: { userId: string, role: 'auditor1' | 'auditor2' | 'supervisor', date?: string | null }
+ * The user must exist, be Active, and be verified. No auth token required (kiosk mode).
+ */
+pub.patch('/kiosk/schedules/:id', async (c) => {
+  const scheduleId = c.req.param('id');
+  try {
+    const body = await c.req.json() as { userId?: string; role?: string; date?: string | null; action?: 'assign' | 'unassign' };
+    const { userId, role, date, action = 'assign' } = body;
+
+    if (action === 'assign') {
+      if (!userId || !role) return c.json({ error: 'userId and role are required' }, 400);
+      if (!['auditor1', 'auditor2', 'supervisor'].includes(role)) return c.json({ error: 'Invalid role' }, 400);
+
+      // Verify user is active & verified
+      const user = await c.env.DB.prepare(
+        `SELECT id, name, status, is_verified FROM users WHERE id = ?`
+      ).bind(userId).first<{ id: string; name: string; status: string; is_verified: number }>();
+
+      if (!user) return c.json({ error: 'User not found' }, 404);
+      if (user.status !== 'Active') return c.json({ error: 'Only Active users can self-assign' }, 403);
+      if (!user.is_verified) return c.json({ error: 'User account is not verified' }, 403);
+
+      const colMap: Record<string, string> = { auditor1: 'auditor1_id', auditor2: 'auditor2_id', supervisor: 'supervisor_id' };
+      const col = colMap[role];
+
+      const updates: string[] = [`${col} = ?`];
+      const values: any[] = [userId];
+
+      if (date !== undefined) {
+        updates.push('date = ?');
+        values.push(date);
+      }
+
+      await c.env.DB.prepare(
+        `UPDATE audit_schedules SET ${updates.join(', ')} WHERE id = ?`
+      ).bind(...values, scheduleId).run();
+
+      return c.json({ success: true, name: user.name });
+    } else {
+      // Unassign
+      if (!role) return c.json({ error: 'role is required' }, 400);
+      const colMap: Record<string, string> = { auditor1: 'auditor1_id', auditor2: 'auditor2_id', supervisor: 'supervisor_id' };
+      const col = colMap[role];
+      if (!col) return c.json({ error: 'Invalid role' }, 400);
+
+      await c.env.DB.prepare(
+        `UPDATE audit_schedules SET ${col} = NULL WHERE id = ?`
+      ).bind(scheduleId).run();
+
+      return c.json({ success: true });
+    }
+  } catch (err: any) {
+    return c.json({ error: err.message }, 500);
+  }
+});
+
+/**
+ * PATCH /api/public/kiosk/schedules/:id/date
+ *
+ * Public endpoint to update the audit date only.
+ * Body: { date: string | null }
+ */
+pub.patch('/kiosk/schedules/:id/date', async (c) => {
+  const scheduleId = c.req.param('id');
+  try {
+    const { date } = await c.req.json() as { date: string | null };
+    await c.env.DB.prepare(
+      `UPDATE audit_schedules SET date = ? WHERE id = ?`
+    ).bind(date ?? null, scheduleId).run();
+    return c.json({ success: true });
+  } catch (err: any) {
+    return c.json({ error: err.message }, 500);
+  }
+});
+
+/**
  * GET /api/public/stats
  *
  * Unauthenticated endpoint that returns aggregated stats for the landing page.

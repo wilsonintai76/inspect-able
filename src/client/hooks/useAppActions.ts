@@ -28,8 +28,8 @@ import { ToastMessage, ToastType } from '../components/Toast';
 interface AppActionsProps {
   currentUser: User | null;
   setCurrentUser: React.Dispatch<React.SetStateAction<User | null>>;
-  viewState: 'landing' | 'app' | 'docs';
-  setViewState: React.Dispatch<React.SetStateAction<'landing' | 'app' | 'docs'>>;
+  viewState: 'landing' | 'app' | 'docs' | 'kiosk';
+  setViewState: React.Dispatch<React.SetStateAction<'landing' | 'app' | 'docs' | 'kiosk'>>;
   activeView: AppView;
   setActiveView: React.Dispatch<React.SetStateAction<AppView>>;
   schedules: AuditSchedule[];

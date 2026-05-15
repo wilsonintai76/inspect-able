@@ -26,7 +26,13 @@ import { CrossAuditPermission, AssignmentMode } from '@shared/types';
 import { SOFTWARE_DEV_DEPT_NAME } from '../constants';
 
 export const useAppData = () => {
-  const [viewState, setViewState] = useState<'landing' | 'app' | 'docs'>('landing');
+  const [viewState, setViewState] = useState<'landing' | 'app' | 'docs' | 'kiosk'>(() => {
+    // If the user visits kiosk.domain.com, instantly route to the kiosk view.
+    if (typeof window !== 'undefined' && window.location.hostname.startsWith('kiosk.')) {
+      return 'kiosk';
+    }
+    return 'landing';
+  });
   const [activeView, setActiveView] = useState<AppView>('overview');
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isInitialLoading, setIsInitialLoading] = useState(true);

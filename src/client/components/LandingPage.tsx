@@ -28,6 +28,7 @@ import { authService } from '../services/auth';
 interface LandingPageProps {
   onEnter: () => void;
   onShowKnowledgeBase: () => void;
+  onShowKiosk: () => void;
   totalAssets?: number;
   totalPhases?: number;
   complianceProgress?: number;
@@ -47,6 +48,7 @@ function DeptComplianceBar({ compliance }: { compliance: number }) {
 export const LandingPage: React.FC<LandingPageProps> = ({ 
   onEnter, 
   onShowKnowledgeBase,
+  onShowKiosk,
   totalAssets,
   totalPhases,
   complianceProgress,
@@ -211,6 +213,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             <span className="text-xl font-black text-slate-900 tracking-tight">Inspect-<span className="text-blue-600">able</span></span>
 
           <div className="flex items-center gap-8">
+            <button
+              onClick={onShowKiosk}
+              className="text-[10px] font-black uppercase text-white tracking-widest hover:text-indigo-200 transition-colors flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-xl"
+            >
+              <CalendarCheck className="w-3 h-3" />
+              Audit Kiosk
+            </button>
             <button
               onClick={onShowKnowledgeBase}
               className="text-[10px] font-black uppercase text-slate-500 tracking-widest hover:text-blue-600 transition-colors flex items-center gap-2"
