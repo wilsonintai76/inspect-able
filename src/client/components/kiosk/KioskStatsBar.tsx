@@ -12,14 +12,15 @@ interface Props {
   totalAssets: number;
   totalSlots: number;
   assigned: number;
+  totalAuditors: number;
   completed: number;
 }
 
-export const KioskStatsBar: React.FC<Props> = ({ totalAssets, totalSlots, assigned, completed }) => {
+export const KioskStatsBar: React.FC<Props> = ({ totalAssets, totalSlots, assigned, totalAuditors, completed }) => {
   const stats: StatItem[] = [
     { label: 'Total Assets',  value: totalAssets.toLocaleString(), color: 'text-indigo-600', icon: Package  },
     { label: 'Total Slots',   value: totalSlots.toString(),        color: 'text-slate-800',  icon: Calendar  },
-    { label: 'Assigned',      value: assigned.toString(),          color: 'text-blue-600',   icon: Users     },
+    { label: 'Assigned',      value: `${assigned} / ${totalAuditors}`, color: 'text-blue-600', icon: Users     },
     { label: 'Completed',     value: completed.toString(),         color: 'text-emerald-600', icon: Check    },
   ];
 

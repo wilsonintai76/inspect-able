@@ -138,12 +138,25 @@ export const KioskPage: React.FC<Props> = ({ onBack }) => {
     return Array.from(map.values()).sort((a, b) => b.assets - a.assets).slice(0, 5);
   }, [schedules]);
 
-  const stats = {
-    totalAssets: schedules.reduce((sum, s) => sum + s.totalAssets, 0),
-    totalSlots: schedules.length,
-    assigned: schedules.filter(s => s.auditor1Id).length,
-    completed: schedules.filter(s => s.status === 'Completed').length,
-  };
+  const stats = useMemo(() => {
+    const today = new Date().toISOString().split('T')[0];
+    const certifiedAuditors = users.filter(u => u.certificationExpiry && u.certificationExpiry >= today);
+    
+    // Unique auditors assigned to at least one slot
+    const assignedAuditorsSet = new Set<string>();
+    schedules.forEach(s => {
+      if (s.auditor1Id) assignedAuditorsSet.add(s.auditor1Id);
+      if (s.auditor2Id) assignedAuditorsSet.add(s.auditor2Id);
+    });
+
+    return {
+      totalAssets: schedules.reduce((sum, s) => sum + s.totalAssets, 0),
+      totalSlots: schedules.length,
+      assigned: assignedAuditorsSet.size,
+      totalAuditors: certifiedAuditors.length,
+      completed: schedules.filter(s => s.status === 'Completed').length,
+    };
+  }, [schedules, users]);
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
