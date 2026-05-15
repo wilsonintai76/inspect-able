@@ -23,6 +23,8 @@ export const KioskPage: React.FC<Props> = ({ onBack }) => {
   const [search, setSearch] = useState('');
   const [phaseFilter, setPhaseFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [departmentFilter, setDepartmentFilter] = useState('');
+  const [locationFilter, setLocationFilter] = useState('');
 
   // ── Data loading ──────────────────────────────────────────────────────────
   const load = async () => {
@@ -90,6 +92,8 @@ export const KioskPage: React.FC<Props> = ({ onBack }) => {
     return schedules.filter(s => {
       if (phaseFilter && s.phaseId !== phaseFilter) return false;
       if (statusFilter && s.status !== statusFilter) return false;
+      if (departmentFilter && s.departmentId !== departmentFilter) return false;
+      if (locationFilter && s.locationId !== locationFilter) return false;
       if (q) {
         return (
           s.locationName.toLowerCase().includes(q) ||
@@ -101,7 +105,24 @@ export const KioskPage: React.FC<Props> = ({ onBack }) => {
       }
       return true;
     });
-  }, [schedules, search, phaseFilter, statusFilter]);
+  }, [schedules, search, phaseFilter, statusFilter, departmentFilter, locationFilter]);
+
+  const uniqueDepartments = useMemo(() => {
+    const map = new Map<string, string>();
+    schedules.forEach(s => map.set(s.departmentId, s.departmentName));
+    return Array.from(map.entries()).map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
+  }, [schedules]);
+
+  const uniqueLocations = useMemo(() => {
+    const map = new Map<string, string>();
+    schedules.forEach(s => {
+      // If a department is selected, only show locations from that department
+      if (!departmentFilter || s.departmentId === departmentFilter) {
+        map.set(s.locationId, s.locationName);
+      }
+    });
+    return Array.from(map.entries()).map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
+  }, [schedules, departmentFilter]);
 
   const auditorStats = useMemo(() => {
     const map = new Map<string, { name: string; assets: number; slots: number }>();
@@ -176,14 +197,26 @@ export const KioskPage: React.FC<Props> = ({ onBack }) => {
         <div className="grid lg:grid-cols-4 gap-6">
           <KioskSidebar
             phases={phases}
+            uniqueDepartments={uniqueDepartments}
+            uniqueLocations={uniqueLocations}
             search={search}
             phaseFilter={phaseFilter}
             statusFilter={statusFilter}
+            departmentFilter={departmentFilter}
+            locationFilter={locationFilter}
             auditorStats={auditorStats}
             onSearchChange={setSearch}
             onPhaseChange={setPhaseFilter}
             onStatusChange={setStatusFilter}
-            onClearFilters={() => { setSearch(''); setPhaseFilter(''); setStatusFilter(''); }}
+            onDepartmentChange={setDepartmentFilter}
+            onLocationChange={setLocationFilter}
+            onClearFilters={() => { 
+              setSearch(''); 
+              setPhaseFilter(''); 
+              setStatusFilter(''); 
+              setDepartmentFilter(''); 
+              setLocationFilter(''); 
+            }}
           />
 
           <div className="lg:col-span-3">

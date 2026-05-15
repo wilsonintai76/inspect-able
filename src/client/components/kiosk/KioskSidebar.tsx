@@ -10,28 +10,40 @@ interface AuditorStat {
 
 interface Props {
   phases: KioskPhase[];
+  uniqueDepartments: { id: string; name: string }[];
+  uniqueLocations: { id: string; name: string }[];
   search: string;
   phaseFilter: string;
   statusFilter: string;
+  departmentFilter: string;
+  locationFilter: string;
   auditorStats: AuditorStat[];
   onSearchChange: (v: string) => void;
   onPhaseChange: (v: string) => void;
   onStatusChange: (v: string) => void;
+  onDepartmentChange: (v: string) => void;
+  onLocationChange: (v: string) => void;
   onClearFilters: () => void;
 }
 
 export const KioskSidebar: React.FC<Props> = ({
   phases,
+  uniqueDepartments,
+  uniqueLocations,
   search,
   phaseFilter,
   statusFilter,
+  departmentFilter,
+  locationFilter,
   auditorStats,
   onSearchChange,
   onPhaseChange,
   onStatusChange,
+  onDepartmentChange,
+  onLocationChange,
   onClearFilters,
 }) => {
-  const hasFilters = !!(search || phaseFilter || statusFilter);
+  const hasFilters = !!(search || phaseFilter || statusFilter || departmentFilter || locationFilter);
 
   return (
     <div className="space-y-5">
@@ -52,6 +64,39 @@ export const KioskSidebar: React.FC<Props> = ({
             placeholder="Location, dept, name…"
             className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium outline-none focus:border-indigo-400 transition-colors"
           />
+        </div>
+
+        {/* Department select */}
+        <div className="relative">
+          <select
+            value={departmentFilter}
+            onChange={e => {
+              onDepartmentChange(e.target.value);
+              onLocationChange(''); // reset location when dept changes
+            }}
+            className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium outline-none appearance-none focus:border-indigo-400 transition-colors"
+          >
+            <option value="">All Departments</option>
+            {uniqueDepartments.map(d => (
+              <option key={d.id} value={d.id}>{d.name}</option>
+            ))}
+          </select>
+          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+        </div>
+
+        {/* Location select */}
+        <div className="relative">
+          <select
+            value={locationFilter}
+            onChange={e => onLocationChange(e.target.value)}
+            className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium outline-none appearance-none focus:border-indigo-400 transition-colors"
+          >
+            <option value="">All Locations</option>
+            {uniqueLocations.map(l => (
+              <option key={l.id} value={l.id}>{l.name}</option>
+            ))}
+          </select>
+          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
         </div>
 
         {/* Phase select */}
