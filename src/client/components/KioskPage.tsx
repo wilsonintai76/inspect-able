@@ -147,7 +147,7 @@ export const KioskPage: React.FC<Props> = ({ onBack }) => {
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div className="h-screen bg-slate-50 overflow-x-hidden overflow-y-auto">
+    <div className="min-h-[100dvh] bg-slate-50">
 
       {/* Nav */}
       <nav className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-slate-200 shadow-sm">

@@ -186,7 +186,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   ];
 
   return (
-    <div className="h-screen bg-slate-50 overflow-x-hidden overflow-y-auto relative">
+    <div className="min-h-[100dvh] bg-slate-50 overflow-x-hidden relative">
       {/* Background Decor */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
         <div 
