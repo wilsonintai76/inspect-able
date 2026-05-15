@@ -227,6 +227,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({
       case 'Admin': return 'bg-purple-50 text-purple-600 border-purple-100';
       case 'Coordinator': return 'bg-amber-50 text-amber-600 border-amber-100';
       case 'Supervisor': return 'bg-indigo-50 text-indigo-600 border-indigo-100';
+      case 'Auditor': return 'bg-emerald-50 text-emerald-600 border-emerald-100';
       default: return 'bg-blue-50 text-blue-600 border-blue-100';
     }
   };
@@ -440,8 +441,8 @@ export const UserManagement: React.FC<UserManagementProps> = ({
                   </div>
                   <div className="space-y-1 md:col-span-2">
                     <label className="text-[10px] font-black uppercase text-slate-400">Administrative Roles (RBAC)</label>
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 mt-2">
-                      {(['Admin', 'Coordinator', 'Supervisor', 'Staff'] as UserRole[]).map((r) => (
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mt-2">
+                      {(['Admin', 'Coordinator', 'Supervisor', 'Auditor', 'Staff'] as UserRole[]).map((r) => (
                         <label key={r} className={`flex items-center gap-2 p-3 rounded-xl border transition-all cursor-pointer ${
                           formData.roles.includes(r) 
                           ? 'bg-blue-50 border-blue-200 text-blue-700 shadow-sm' 

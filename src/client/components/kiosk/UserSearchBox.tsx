@@ -79,7 +79,15 @@ export const UserSearchBox: React.FC<Props> = ({
                 {u.name.charAt(0).toUpperCase()}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-xs font-bold text-slate-800 truncate">{u.name}</p>
+                <div className="flex items-center gap-2">
+                  <p className="text-xs font-bold text-slate-800 truncate">{u.name}</p>
+                  {u.certificationExpiry && new Date(u.certificationExpiry) > new Date() && (
+                    <div className="px-1.5 py-0.5 bg-blue-100 text-blue-600 rounded text-[7px] font-black uppercase flex items-center gap-1 shrink-0">
+                      <Award className="w-2 h-2" />
+                      Certified
+                    </div>
+                  )}
+                </div>
                 <p className={`text-[10px] ${u.assetsAssigned > maxAssets ? 'text-red-500 font-bold' : 'text-slate-400'}`}>
                   {u.designation ?? 'Staff'} · {u.assetsAssigned.toLocaleString()} / {maxAssets.toLocaleString()} assets
                 </p>
