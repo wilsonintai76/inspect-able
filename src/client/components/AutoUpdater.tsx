@@ -3,26 +3,32 @@ import { RefreshCw, LogOut, Sparkles } from 'lucide-react';
 import { authService } from '../services/auth';
 
 const COUNTDOWN_SEC = 30;
+const KIOSK_COUNTDOWN_SEC = 10;
 
 export const AutoUpdater: React.FC = () => {
   const [newVersion, setNewVersion] = useState<string | null>(null);
-  const [countdown, setCountdown] = useState(COUNTDOWN_SEC);
+  
+  const isKiosk = typeof window !== 'undefined' && window.location.hostname.startsWith('kiosk.');
+  const [countdown, setCountdown] = useState(isKiosk ? KIOSK_COUNTDOWN_SEC : COUNTDOWN_SEC);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
-  const doLogout = useCallback(async () => {
+  const doAction = useCallback(async () => {
     setIsLoggingOut(true);
-    // Full logout: evicts KV session, clears local storage, signs out of Supabase
-    await authService.logout();
-    window.location.href = '/';
-  }, []);
+    if (isKiosk) {
+      window.location.reload();
+    } else {
+      await authService.logout();
+      window.location.href = '/';
+    }
+  }, [isKiosk]);
 
   // Countdown timer — fires once newVersion is set
   useEffect(() => {
     if (!newVersion) return;
-    if (countdown <= 0) { doLogout(); return; }
+    if (countdown <= 0) { doAction(); return; }
     const t = setTimeout(() => setCountdown(c => c - 1), 1000);
     return () => clearTimeout(t);
-  }, [newVersion, countdown, doLogout]);
+  }, [newVersion, countdown, doAction]);
 
   // Version poller
   useEffect(() => {
@@ -58,10 +64,10 @@ export const AutoUpdater: React.FC = () => {
   const currentVersion = import.meta.env.VITE_APP_VERSION;
 
   return (
-    <div className="fixed inset-0 z-9999 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[9999] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
       <div className="bg-white rounded-3xl shadow-2xl max-w-sm w-full overflow-hidden">
         {/* Header */}
-        <div className="bg-linear-to-br from-blue-600 to-blue-700 px-8 pt-8 pb-6 text-center">
+        <div className="bg-gradient-to-br from-blue-600 to-blue-700 px-8 pt-8 pb-6 text-center">
           <div className="w-14 h-14 bg-white/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
             <Sparkles className="w-7 h-7 text-white" />
           </div>
@@ -74,10 +80,13 @@ export const AutoUpdater: React.FC = () => {
         {/* Body */}
         <div className="px-8 py-6 text-center">
           <p className="text-slate-600 text-sm mb-1">
-            A new version has been deployed. Sign out to apply the update — you'll be redirected to log back in.
+            {isKiosk 
+              ? "A new version has been deployed. The kiosk will refresh automatically to apply the update."
+              : "A new version has been deployed. Sign out to apply the update — you'll be redirected to log back in."
+            }
           </p>
           <p className="text-slate-400 text-xs mt-3">
-            Auto sign-out in{' '}
+            {isKiosk ? "Auto refresh in " : "Auto sign-out in "}
             <span className="font-bold text-blue-600 tabular-nums">{countdown}s</span>
           </p>
         </div>
@@ -85,18 +94,24 @@ export const AutoUpdater: React.FC = () => {
         {/* Actions */}
         <div className="px-8 pb-8 flex flex-col gap-3">
           <button
-            onClick={doLogout}
+            onClick={doAction}
             disabled={isLoggingOut}
             className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white font-bold text-sm rounded-xl transition-colors"
           >
             {isLoggingOut
               ? <RefreshCw className="w-4 h-4 animate-spin" />
-              : <LogOut className="w-4 h-4" />}
-            {isLoggingOut ? 'Signing out…' : 'Sign out & update now'}
+              : (isKiosk ? <RefreshCw className="w-4 h-4" /> : <LogOut className="w-4 h-4" />)
+            }
+            {isLoggingOut 
+              ? (isKiosk ? 'Refreshing…' : 'Signing out…') 
+              : (isKiosk ? 'Refresh Now' : 'Sign out & update now')
+            }
           </button>
-          <p className="text-center text-[10px] text-slate-400 font-medium uppercase tracking-widest">
-            Your session will end — please sign back in
-          </p>
+          {!isKiosk && (
+            <p className="text-center text-[10px] text-slate-400 font-medium uppercase tracking-widest">
+              Your session will end — please sign back in
+            </p>
+          )}
         </div>
       </div>
     </div>
