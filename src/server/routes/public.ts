@@ -99,7 +99,12 @@ pub.get('/kiosk', async (c) => {
       status: p.status,
     }));
 
-    const strategyStr = await c.env.SETTINGS.get('audit_strategy');
+    let strategyStr = await c.env.SETTINGS.get('audit_strategy');
+    if (!strategyStr) {
+      // Fallback to D1 if KV is empty
+      const dbRes = await c.env.DB.prepare('SELECT value FROM system_settings WHERE id = ?').bind('audit_strategy').first<{ value: string }>();
+      if (dbRes?.value) strategyStr = dbRes.value;
+    }
     const strategy = strategyStr ? JSON.parse(strategyStr) : {};
     const maxAssets = strategy.openAuditThreshold || 500;
 

@@ -1705,6 +1705,10 @@ db.post('/system-settings/:id', rbacGuard('system:settings'), async (c) => {
     await c.env.DB.prepare(
       'INSERT INTO system_settings (id, value, updated_at) VALUES (?, ?, ?) ON CONFLICT(id) DO UPDATE SET value=EXCLUDED.value, updated_at=EXCLUDED.updated_at'
     ).bind(id, JSON.stringify(value), new Date().toISOString()).run();
+
+    // Also sync to KV for public API performance
+    await c.env.SETTINGS.put(id, JSON.stringify(value));
+
     return c.json({ success: true });
   } catch (err: any) {
     return c.json({ error: err.message }, 500);
