@@ -51,7 +51,7 @@ export const ScheduleCard: React.FC<Props> = ({
       }`}
     >
       {/* ── Header ───────────────────────────────────────────────────── */}
-      <div className="px-6 pt-5 pb-4 border-b border-slate-100">
+      <div className="px-4 sm:px-6 pt-5 pb-4 border-b border-slate-100">
         <div className="flex items-start justify-between gap-3">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1 flex-wrap">
@@ -85,7 +85,7 @@ export const ScheduleCard: React.FC<Props> = ({
       </div>
 
       {/* ── Phase & Date ─────────────────────────────────────────────── */}
-      <div className="px-6 py-3 bg-slate-50 border-b border-slate-100 flex flex-col gap-2">
+      <div className="px-4 sm:px-6 py-3 bg-slate-50 border-b border-slate-100 flex flex-col gap-2">
         {/* Phase Info */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1.5 shrink-0">
@@ -123,7 +123,7 @@ export const ScheduleCard: React.FC<Props> = ({
       </div>
 
       {/* ── Assignments ──────────────────────────────────────────────── */}
-      <div className="px-6 py-4 space-y-3">
+      <div className="px-4 sm:px-6 py-4 space-y-3">
         {(['supervisor', 'auditor1', 'auditor2'] as AssignRole[]).map(role => {
           const currentName = schedule[`${role}Name` as keyof KioskSchedule] as string | null;
 

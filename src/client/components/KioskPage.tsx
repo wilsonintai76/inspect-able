@@ -150,18 +150,18 @@ export const KioskPage: React.FC<Props> = ({ onBack }) => {
     <div className="min-h-screen bg-slate-50 overflow-y-auto">
 
       {/* Nav */}
-      <nav className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-slate-200">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
+      <nav className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-slate-200 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3 sm:gap-4">
             <button
               onClick={onBack}
-              className="flex items-center gap-2 text-slate-500 hover:text-slate-900 transition-colors"
+              className="flex items-center gap-1.5 sm:gap-2 text-slate-500 hover:text-slate-900 transition-colors bg-slate-100/50 hover:bg-slate-100 px-2 sm:px-3 py-1.5 rounded-lg"
             >
               <ArrowLeft className="w-4 h-4" />
-              <span className="text-xs font-bold">Back</span>
+              <span className="text-xs font-bold hidden sm:inline">Back</span>
             </button>
 
-            <div className="w-px h-5 bg-slate-200" />
+            <div className="w-px h-5 bg-slate-200 hidden sm:block" />
 
             <div className="flex items-center gap-2">
               <div className="w-7 h-7 rounded-xl bg-indigo-600 flex items-center justify-center">
@@ -193,10 +193,10 @@ export const KioskPage: React.FC<Props> = ({ onBack }) => {
       </nav>
 
       {/* Body */}
-      <div className="max-w-7xl mx-auto px-6 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-8 space-y-4 sm:space-y-6">
         <KioskStatsBar {...stats} />
 
-        <div className="grid lg:grid-cols-4 gap-6">
+        <div className="grid lg:grid-cols-4 gap-4 sm:gap-6">
           <KioskSidebar
             phases={phases}
             uniqueDepartments={uniqueDepartments}
