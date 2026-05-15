@@ -85,32 +85,41 @@ export const ScheduleCard: React.FC<Props> = ({
       </div>
 
       {/* ── Phase & Date ─────────────────────────────────────────────── */}
-      <div className="px-6 py-3 bg-slate-50 border-b border-slate-100 flex items-center gap-4">
-        <div className="flex items-center gap-1.5 shrink-0">
-          <Calendar className="w-3.5 h-3.5 text-slate-400" />
-          <span className="text-[11px] font-bold text-slate-600">
-            {schedule.phaseName} ({schedule.phaseStart} to {schedule.phaseEnd})
+      <div className="px-6 py-3 bg-slate-50 border-b border-slate-100 flex flex-col gap-2">
+        {/* Phase Info */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1.5 shrink-0">
+            <Calendar className="w-3.5 h-3.5 text-slate-400" />
+            <span className="text-[11px] font-bold text-slate-700">{schedule.phaseName}</span>
+          </div>
+          <span className="text-[10px] font-medium text-slate-400">
+            {schedule.phaseStart} <span className="mx-1">to</span> {schedule.phaseEnd}
           </span>
         </div>
 
-        <div className="flex-1 min-w-0">
-          {!isCompleted ? (
-            <input
-              type="date"
-              defaultValue={schedule.date ?? ''}
-              min={schedule.phaseStart}
-              max={schedule.phaseEnd}
-              onChange={e => onDateChange(schedule.id, e.target.value)}
-              className="w-full text-[11px] font-bold bg-transparent text-slate-700 border-0 outline-none cursor-pointer"
-            />
-          ) : (
-            <span className="text-[11px] font-bold text-slate-600">
-              {schedule.date ?? 'No date set'}
-            </span>
-          )}
+        {/* Specific Date Setter */}
+        <div className="flex items-center gap-2 pl-5">
+          <span className="text-[10px] font-black uppercase text-indigo-400 tracking-widest shrink-0">
+            Set Date:
+          </span>
+          <div className="flex-1 min-w-0 bg-white border border-slate-200 rounded-lg px-2 py-1">
+            {!isCompleted ? (
+              <input
+                type="date"
+                defaultValue={schedule.date ?? ''}
+                min={schedule.phaseStart}
+                max={schedule.phaseEnd}
+                onChange={e => onDateChange(schedule.id, e.target.value)}
+                className="w-full text-[11px] font-bold bg-transparent text-slate-700 border-0 outline-none cursor-pointer"
+              />
+            ) : (
+              <span className="text-[11px] font-bold text-slate-600 block py-0.5">
+                {schedule.date ?? 'No date set'}
+              </span>
+            )}
+          </div>
+          {isSaving && <Loader2 className="w-3.5 h-3.5 text-indigo-500 animate-spin shrink-0" />}
         </div>
-
-        {isSaving && <Loader2 className="w-3.5 h-3.5 text-indigo-500 animate-spin shrink-0" />}
       </div>
 
       {/* ── Assignments ──────────────────────────────────────────────── */}
