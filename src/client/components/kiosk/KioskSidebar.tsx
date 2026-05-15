@@ -109,7 +109,9 @@ export const KioskSidebar: React.FC<Props> = ({
           >
             <option value="">All Phases</option>
             {phases.map(p => (
-              <option key={p.id} value={p.id}>{p.name}</option>
+              <option key={p.id} value={p.id}>
+                {p.name} ({p.startDate} to {p.endDate})
+              </option>
             ))}
           </select>
           <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />

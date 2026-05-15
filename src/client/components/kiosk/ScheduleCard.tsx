@@ -13,6 +13,7 @@ const ROLE_LABELS: Record<AssignRole, string> = {
 interface Props {
   schedule: KioskSchedule;
   users: KioskUser[];
+  maxAssets: number;
   saving: string | null;
   onAssign: (scheduleId: string, userId: string, role: AssignRole) => Promise<void>;
   onUnassign: (scheduleId: string, role: AssignRole) => Promise<void>;
@@ -22,6 +23,7 @@ interface Props {
 export const ScheduleCard: React.FC<Props> = ({
   schedule,
   users,
+  maxAssets,
   saving,
   onAssign,
   onUnassign,
@@ -127,6 +129,7 @@ export const ScheduleCard: React.FC<Props> = ({
               ) : (
                 <UserSearchBox
                   users={roleUsers(role)}
+                  maxAssets={maxAssets}
                   placeholder={`Search ${ROLE_LABELS[role]}…`}
                   currentName={currentName}
                   onSelect={u => onAssign(schedule.id, u.id, role)}

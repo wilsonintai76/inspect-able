@@ -6,6 +6,7 @@ import { ScheduleCard } from './ScheduleCard';
 interface Props {
   schedules: KioskSchedule[];
   users: KioskUser[];
+  maxAssets: number;
   loading: boolean;
   saving: string | null;
   onAssign: (scheduleId: string, userId: string, role: AssignRole) => Promise<void>;
@@ -16,6 +17,7 @@ interface Props {
 export const KioskGrid: React.FC<Props> = ({
   schedules,
   users,
+  maxAssets,
   loading,
   saving,
   onAssign,
@@ -51,6 +53,7 @@ export const KioskGrid: React.FC<Props> = ({
             key={s.id}
             schedule={s}
             users={users}
+            maxAssets={maxAssets}
             saving={saving}
             onAssign={onAssign}
             onUnassign={onUnassign}

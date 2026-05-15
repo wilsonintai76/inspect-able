@@ -18,6 +18,7 @@ export const KioskPage: React.FC<Props> = ({ onBack }) => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
   const [lastRefresh, setLastRefresh] = useState(new Date());
+  const [maxAssets, setMaxAssets] = useState(500);
 
   // ── Filter state ──────────────────────────────────────────────────────────
   const [search, setSearch] = useState('');
@@ -31,10 +32,11 @@ export const KioskPage: React.FC<Props> = ({ onBack }) => {
     setLoading(true);
     try {
       const res = await fetch('/api/public/kiosk');
-      const data = await res.json() as { schedules: KioskSchedule[]; users: KioskUser[]; phases: KioskPhase[] };
+      const data = await res.json() as { schedules: KioskSchedule[]; users: KioskUser[]; phases: KioskPhase[]; maxAssets: number };
       setSchedules(data.schedules ?? []);
       setUsers(data.users ?? []);
       setPhases(data.phases ?? []);
+      if (data.maxAssets) setMaxAssets(data.maxAssets);
       setLastRefresh(new Date());
     } catch { /* graceful – keep previous data */ } finally {
       setLoading(false);
@@ -223,6 +225,7 @@ export const KioskPage: React.FC<Props> = ({ onBack }) => {
             <KioskGrid
               schedules={filtered}
               users={users}
+              maxAssets={maxAssets}
               loading={loading}
               saving={saving}
               onAssign={handleAssign}

@@ -4,6 +4,7 @@ import { KioskUser } from './types';
 
 interface Props {
   users: KioskUser[];
+  maxAssets: number;
   placeholder: string;
   currentName: string | null;
   onSelect: (user: KioskUser) => void;
@@ -12,6 +13,7 @@ interface Props {
 
 export const UserSearchBox: React.FC<Props> = ({
   users,
+  maxAssets,
   placeholder,
   currentName,
   onSelect,
@@ -78,8 +80,8 @@ export const UserSearchBox: React.FC<Props> = ({
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-xs font-bold text-slate-800 truncate">{u.name}</p>
-                <p className="text-[10px] text-slate-400">
-                  {u.designation ?? 'Staff'} · {u.assetsAssigned.toLocaleString()} assets
+                <p className={`text-[10px] ${u.assetsAssigned > maxAssets ? 'text-red-500 font-bold' : 'text-slate-400'}`}>
+                  {u.designation ?? 'Staff'} · {u.assetsAssigned.toLocaleString()} / {maxAssets.toLocaleString()} assets
                 </p>
               </div>
               <span className="text-[10px] font-black text-indigo-400 opacity-0 group-hover:opacity-100 transition-opacity">

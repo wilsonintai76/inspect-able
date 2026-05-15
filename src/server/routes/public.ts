@@ -99,11 +99,15 @@ pub.get('/kiosk', async (c) => {
       status: p.status,
     }));
 
+    const strategyStr = await c.env.SETTINGS.get('audit_strategy');
+    const strategy = strategyStr ? JSON.parse(strategyStr) : {};
+    const maxAssets = strategy.openAuditThreshold || 500;
+
     c.header('Cache-Control', 'no-store');
-    return c.json({ schedules, users, phases });
+    return c.json({ schedules, users, phases, maxAssets });
   } catch (err: any) {
     console.error('[Public Kiosk] Error:', err);
-    return c.json({ schedules: [], users: [], phases: [] });
+    return c.json({ schedules: [], users: [], phases: [], maxAssets: 500 });
   }
 });
 
