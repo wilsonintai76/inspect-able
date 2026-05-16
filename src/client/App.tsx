@@ -19,7 +19,6 @@ import { DepartmentManagement } from './components/DepartmentManagement';
 import { LocationManagement } from './components/LocationManagement';
 import { UserProfile } from './components/UserProfile';
 import { LandingPage } from './components/LandingPage';
-import { KioskPage } from './components/KioskPage';
 import { KnowledgeBase } from './components/KnowledgeBase';
 import { AutoUpdater } from './components/AutoUpdater';
 import { AdminDashboard } from './components/AdminDashboard';
@@ -131,7 +130,6 @@ const App: React.FC = () => {
           const user = await authService.getCurrentUser();
           if (user) handleLoginSuccess(user);
         }}
-        onShowKiosk={() => appData.setViewState('kiosk')}
         onShowKnowledgeBase={() => appData.setViewState('docs')}
         totalAssets={hasLiveData ? liveTotalAssets : publicStats?.totalAssets}
         totalPhases={hasLiveData ? auditPhases.length : publicStats?.totalPhases}
@@ -141,10 +139,6 @@ const App: React.FC = () => {
         topDepartments={hasLiveData ? appData.topDepartments : (publicStats?.topDepartments || [])}
       />
     );
-  }
-
-  if (viewState === 'kiosk') {
-    return <KioskPage onBack={() => appData.setViewState('landing')} />;
   }
 
   if (viewState === 'docs') {

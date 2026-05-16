@@ -54,7 +54,7 @@ export const ScheduleCard: React.FC<Props> = ({
       <div className="px-3 sm:px-6 pt-4 sm:pt-5 pb-3 sm:pb-4 border-b border-slate-100">
         <div className="flex items-start justify-between gap-3">
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1 flex-wrap">
+            <div className="flex items-center gap-2 mb-1.5 flex-wrap">
               <span className="px-2 py-0.5 bg-slate-100 text-slate-600 text-[10px] font-black rounded-lg uppercase tracking-wide">
                 {schedule.departmentAbbr}
               </span>
@@ -65,10 +65,10 @@ export const ScheduleCard: React.FC<Props> = ({
                 </span>
               )}
             </div>
-            <h3 className="font-black text-slate-900 text-sm leading-tight truncate">
+            <h3 className="font-black text-slate-900 text-sm leading-tight mb-0.5 line-clamp-2 break-words">
               {schedule.locationName}
             </h3>
-            <p className="text-[11px] text-slate-500 font-medium truncate">
+            <p className="text-[11px] text-slate-500 font-medium line-clamp-2 break-words">
               {schedule.departmentName}
             </p>
           </div>

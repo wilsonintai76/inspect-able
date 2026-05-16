@@ -1,13 +1,13 @@
 {
   "name": "asset-audit-pro",
   "private": true,
-  "version": "1.10.398",
+  "version": "1.10.400",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build:client": "vite build",
     "build:worker": "vite build --ssr src/server/index.ts",
-    "build": "vite build",
+    "build": "npm run build:client && npm run build:worker",
     "preview": "npm run build && wrangler dev",
     "lint": "tsc --noEmit",
     "deploy": "npm version patch --no-git-tag-version && npm run build && wrangler deploy",

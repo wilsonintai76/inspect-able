@@ -1,16 +1,18 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { ShieldCheck, ArrowLeft, RefreshCw, Filter } from 'lucide-react';
+import { ShieldCheck, ArrowLeft, RefreshCw } from 'lucide-react';
 
-import { KioskSchedule, KioskUser, KioskPhase, AssignRole } from './kiosk/types';
-import { KioskStatsBar } from './kiosk/KioskStatsBar';
-import { KioskSidebar } from './kiosk/KioskSidebar';
-import { KioskGrid } from './kiosk/KioskGrid';
+import { KioskSchedule, KioskUser, KioskPhase, AssignRole } from './components/types';
+import { KioskStatsBar } from './components/KioskStatsBar';
+import { KioskSidebar } from './components/KioskSidebar';
+import { KioskGrid } from './components/KioskGrid';
+import { KioskTabs, KioskTab } from './components/KioskTabs';
+import { KioskAuditorStats } from './components/KioskAuditorStats';
 
 interface Props {
   onBack: () => void;
 }
 
-export const KioskPage: React.FC<Props> = ({ onBack }) => {
+export const KioskApp: React.FC<Props> = ({ onBack }) => {
   // ── Data state ────────────────────────────────────────────────────────────
   const [schedules, setSchedules] = useState<KioskSchedule[]>([]);
   const [users, setUsers] = useState<KioskUser[]>([]);
@@ -20,15 +22,13 @@ export const KioskPage: React.FC<Props> = ({ onBack }) => {
   const [lastRefresh, setLastRefresh] = useState(new Date());
   const [maxAssets, setMaxAssets] = useState(500);
 
-  // ── Filter state ──────────────────────────────────────────────────────────
+  // ── UI state ────────────────────────────────────────────────────────────
+  const [activeTab, setActiveTab] = useState<KioskTab>('schedule');
   const [search, setSearch] = useState('');
   const [phaseFilter, setPhaseFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [departmentFilter, setDepartmentFilter] = useState('');
   const [locationFilter, setLocationFilter] = useState('');
-
-  // ── UI state ────────────────────────────────────────────────────────────
-  const [showFilters, setShowFilters] = useState(false);
 
   // ── Data loading ──────────────────────────────────────────────────────────
   const load = async () => {
@@ -112,6 +112,16 @@ export const KioskPage: React.FC<Props> = ({ onBack }) => {
     });
   }, [schedules, search, phaseFilter, statusFilter, departmentFilter, locationFilter]);
 
+  const activeFiltersCount = useMemo(() => {
+    let count = 0;
+    if (search) count++;
+    if (phaseFilter) count++;
+    if (statusFilter) count++;
+    if (departmentFilter) count++;
+    if (locationFilter) count++;
+    return count;
+  }, [search, phaseFilter, statusFilter, departmentFilter, locationFilter]);
+
   const uniqueDepartments = useMemo(() => {
     const map = new Map<string, string>();
     schedules.forEach(s => map.set(s.departmentId, s.departmentName));
@@ -121,7 +131,6 @@ export const KioskPage: React.FC<Props> = ({ onBack }) => {
   const uniqueLocations = useMemo(() => {
     const map = new Map<string, string>();
     schedules.forEach(s => {
-      // If a department is selected, only show locations from that department
       if (!departmentFilter || s.departmentId === departmentFilter) {
         map.set(s.locationId, s.locationName);
       }
@@ -138,14 +147,12 @@ export const KioskPage: React.FC<Props> = ({ onBack }) => {
         map.set(id, { name, assets: prev.assets + s.totalAssets, slots: prev.slots + 1 });
       });
     });
-    return Array.from(map.values()).sort((a, b) => b.assets - a.assets).slice(0, 5);
+    return Array.from(map.values()).sort((a, b) => b.assets - a.assets).slice(0, 10);
   }, [schedules]);
 
   const stats = useMemo(() => {
     const today = new Date().toISOString().split('T')[0];
     const certifiedAuditors = users.filter(u => u.certificationExpiry && u.certificationExpiry >= today);
-    
-    // Unique auditors assigned to at least one slot
     const assignedAuditorsSet = new Set<string>();
     schedules.forEach(s => {
       if (s.auditor1Id) assignedAuditorsSet.add(s.auditor1Id);
@@ -163,11 +170,11 @@ export const KioskPage: React.FC<Props> = ({ onBack }) => {
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-[100dvh] bg-slate-50">
+    <div className="min-h-[100dvh] bg-slate-50 pb-20 lg:pb-0">
 
       {/* Nav */}
-      <nav className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-slate-200 shadow-sm">
-        <div className="max-w-7xl mx-auto px-3 sm:px-6 py-2 sm:py-4 flex items-center justify-between">
+      <nav className="sticky top-0 z-[60] bg-white/90 backdrop-blur-md border-b border-slate-200 shadow-sm">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 py-2 sm:py-3.5 flex items-center justify-between">
           <div className="flex items-center gap-2 sm:gap-4">
             <button
               onClick={onBack}
@@ -177,54 +184,46 @@ export const KioskPage: React.FC<Props> = ({ onBack }) => {
               <span className="text-[11px] font-bold hidden sm:inline">Back</span>
             </button>
 
-            <div className="w-px h-5 bg-slate-200 hidden sm:block" />
-
             <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-xl bg-indigo-600 flex items-center justify-center">
+              <div className="w-7 h-7 rounded-xl bg-indigo-600 flex items-center justify-center shrink-0">
                 <ShieldCheck className="w-4 h-4 text-white" />
               </div>
-              <span className="text-sm font-black text-slate-900">
-                Audit <span className="text-indigo-600">Kiosk</span>
-              </span>
+              <div className="flex flex-col min-w-0">
+                <span className="text-xs sm:text-sm font-black text-slate-900 truncate">
+                  Audit <span className="text-indigo-600">Kiosk</span>
+                </span>
+                <span className="text-[7px] font-bold text-slate-400 tracking-wider uppercase">v{import.meta.env.VITE_APP_VERSION}</span>
+              </div>
             </div>
           </div>
 
           <div className="flex items-center gap-3">
-            <span className="text-[10px] text-slate-400 font-bold hidden md:block">
-              Updated {lastRefresh.toLocaleTimeString()}
-            </span>
             <button
               onClick={load}
               disabled={loading}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-xl text-xs font-bold text-slate-600 transition-colors disabled:opacity-50"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 rounded-xl text-[10px] font-black text-indigo-700 transition-colors disabled:opacity-50"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
               Refresh
             </button>
-            <div className="px-3 py-1 bg-emerald-50 border border-emerald-200 rounded-full text-[10px] font-black text-emerald-700 uppercase tracking-wider hidden xs:block">
-              Public View
-            </div>
           </div>
         </div>
       </nav>
 
+      <KioskTabs activeTab={activeTab} onTabChange={setActiveTab} badgeCount={activeFiltersCount} />
+
       {/* Body */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-8 space-y-4 sm:space-y-6">
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex-1">
-            <KioskStatsBar {...stats} />
-          </div>
-          <button
-            onClick={() => setShowFilters(!showFilters)}
-            className="lg:hidden flex items-center gap-2 px-4 py-3 bg-white border border-slate-200 rounded-2xl text-slate-600 font-bold text-sm shadow-sm hover:bg-slate-50 transition-colors shrink-0"
-          >
-            <Filter className={`w-4 h-4 ${showFilters ? 'text-indigo-600' : ''}`} />
-            {showFilters ? 'Hide' : 'Filters'}
-          </button>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-6">
+        
+        {/* Stats Tab / Desktop Stats Bar */}
+        <div className={`${activeTab === 'stats' ? 'block animate-in fade-in slide-in-from-bottom-4 duration-300' : 'hidden'} lg:block mb-6`}>
+          <KioskStatsBar {...stats} />
+          <KioskAuditorStats stats={auditorStats} />
         </div>
 
-        <div className="flex flex-col lg:grid lg:grid-cols-4 gap-4 sm:gap-6">
-          <div className={`${showFilters ? 'block' : 'hidden'} lg:block`}>
+        <div className="flex flex-col lg:grid lg:grid-cols-4 gap-6">
+          {/* Filters Tab / Desktop Sidebar */}
+          <div className={`${activeTab === 'filters' ? 'block animate-in fade-in slide-in-from-bottom-4 duration-300' : 'hidden'} lg:block`}>
             <KioskSidebar
               phases={phases}
               uniqueDepartments={uniqueDepartments}
@@ -248,9 +247,18 @@ export const KioskPage: React.FC<Props> = ({ onBack }) => {
                 setLocationFilter(''); 
               }}
             />
+            {activeTab === 'filters' && (
+              <button 
+                onClick={() => setActiveTab('schedule')}
+                className="w-full mt-4 py-4 bg-indigo-600 text-white font-black text-sm rounded-2xl shadow-lg shadow-indigo-200 active:scale-95 transition-all"
+              >
+                Apply Filters
+              </button>
+            )}
           </div>
 
-          <div className="lg:col-span-3">
+          {/* Schedule Tab / Desktop Grid */}
+          <div className={`${activeTab === 'schedule' ? 'block animate-in fade-in slide-in-from-bottom-4 duration-300' : 'hidden'} lg:block lg:col-span-3`}>
             <KioskGrid
               schedules={filtered}
               users={users}

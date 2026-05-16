@@ -8,20 +8,30 @@ import { cloudflare } from "@cloudflare/vite-plugin";
 
 const packageJson = JSON.parse(fs.readFileSync('./package.json', 'utf-8'));
 
-export default defineConfig(({ mode }) => {
+export default defineConfig(({ mode, ssrBuild }) => {
     const env = loadEnv(mode, '.', '');
+    const isSSR = ssrBuild || process.env.VITE_SSR_BUILD === 'true';
+
     return {
       server: {
         port: 3000,
         host: '0.0.0.0',
       },
       build: {
-        emptyOutDir: mode === 'client' || !process.env.VITE_SSR_BUILD,
+        // Output worker to 'dist' and client to 'dist/client' to avoid conflicts
+        outDir: isSSR ? 'dist' : 'dist/client',
+        emptyOutDir: true,
+        rollupOptions: isSSR ? {} : {
+          input: {
+            main: path.resolve(__dirname, 'index.html'),
+            kiosk: path.resolve(__dirname, 'kiosk.html'),
+          },
+        },
       },
       plugins: [
         react(), 
         tailwindcss(), 
-        cloudflare(),
+        isSSR ? cloudflare() : null,
         {
           name: 'generate-version-json',
           buildStart() {
@@ -36,20 +46,18 @@ export default defineConfig(({ mode }) => {
             fs.writeFileSync('public/version.json', versionData);
           },
           closeBundle() {
-            if (fs.existsSync('dist')) {
+            const clientDist = path.resolve(__dirname, 'dist/client');
+            if (fs.existsSync(clientDist)) {
               const versionData = { 
                 version: packageJson.version,
                 buildTime: new Date().toISOString()
               };
-              if (!fs.existsSync('dist/client')) {
-                fs.mkdirSync('dist/client', { recursive: true });
-              }
-              fs.writeFileSync(path.resolve(__dirname, 'dist/client/version.json'), JSON.stringify(versionData, null, 2));
-              console.log('✅ Generated version.json in public/ and dist/client/');
+              fs.writeFileSync(path.join(clientDist, 'version.json'), JSON.stringify(versionData, null, 2));
+              console.log('✅ Generated version.json in dist/client/');
             }
           }
         }
-      ],
+      ].filter(Boolean),
       define: {
         'import.meta.env.VITE_APP_VERSION': JSON.stringify(packageJson.version)
       },
