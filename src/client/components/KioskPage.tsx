@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { ShieldCheck, ArrowLeft, RefreshCw } from 'lucide-react';
+import { ShieldCheck, ArrowLeft, RefreshCw, Filter } from 'lucide-react';
 
 import { KioskSchedule, KioskUser, KioskPhase, AssignRole } from './kiosk/types';
 import { KioskStatsBar } from './kiosk/KioskStatsBar';
@@ -26,6 +26,9 @@ export const KioskPage: React.FC<Props> = ({ onBack }) => {
   const [statusFilter, setStatusFilter] = useState('');
   const [departmentFilter, setDepartmentFilter] = useState('');
   const [locationFilter, setLocationFilter] = useState('');
+
+  // ── UI state ────────────────────────────────────────────────────────────
+  const [showFilters, setShowFilters] = useState(false);
 
   // ── Data loading ──────────────────────────────────────────────────────────
   const load = async () => {
@@ -164,14 +167,14 @@ export const KioskPage: React.FC<Props> = ({ onBack }) => {
 
       {/* Nav */}
       <nav className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-slate-200 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3 sm:gap-4">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 py-2 sm:py-4 flex items-center justify-between">
+          <div className="flex items-center gap-2 sm:gap-4">
             <button
               onClick={onBack}
-              className="flex items-center gap-1.5 sm:gap-2 text-slate-500 hover:text-slate-900 transition-colors bg-slate-100/50 hover:bg-slate-100 px-2 sm:px-3 py-1.5 rounded-lg"
+              className="flex items-center gap-1.5 text-slate-500 hover:text-slate-900 transition-colors bg-slate-100/50 hover:bg-slate-100 px-2 py-1.5 rounded-lg"
             >
               <ArrowLeft className="w-4 h-4" />
-              <span className="text-xs font-bold hidden sm:inline">Back</span>
+              <span className="text-[11px] font-bold hidden sm:inline">Back</span>
             </button>
 
             <div className="w-px h-5 bg-slate-200 hidden sm:block" />
@@ -198,7 +201,7 @@ export const KioskPage: React.FC<Props> = ({ onBack }) => {
               <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
               Refresh
             </button>
-            <div className="px-3 py-1 bg-emerald-50 border border-emerald-200 rounded-full text-[10px] font-black text-emerald-700 uppercase tracking-wider">
+            <div className="px-3 py-1 bg-emerald-50 border border-emerald-200 rounded-full text-[10px] font-black text-emerald-700 uppercase tracking-wider hidden xs:block">
               Public View
             </div>
           </div>
@@ -207,32 +210,45 @@ export const KioskPage: React.FC<Props> = ({ onBack }) => {
 
       {/* Body */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-8 space-y-4 sm:space-y-6">
-        <KioskStatsBar {...stats} />
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex-1">
+            <KioskStatsBar {...stats} />
+          </div>
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className="lg:hidden flex items-center gap-2 px-4 py-3 bg-white border border-slate-200 rounded-2xl text-slate-600 font-bold text-sm shadow-sm hover:bg-slate-50 transition-colors shrink-0"
+          >
+            <Filter className={`w-4 h-4 ${showFilters ? 'text-indigo-600' : ''}`} />
+            {showFilters ? 'Hide' : 'Filters'}
+          </button>
+        </div>
 
-        <div className="grid lg:grid-cols-4 gap-4 sm:gap-6">
-          <KioskSidebar
-            phases={phases}
-            uniqueDepartments={uniqueDepartments}
-            uniqueLocations={uniqueLocations}
-            search={search}
-            phaseFilter={phaseFilter}
-            statusFilter={statusFilter}
-            departmentFilter={departmentFilter}
-            locationFilter={locationFilter}
-            auditorStats={auditorStats}
-            onSearchChange={setSearch}
-            onPhaseChange={setPhaseFilter}
-            onStatusChange={setStatusFilter}
-            onDepartmentChange={setDepartmentFilter}
-            onLocationChange={setLocationFilter}
-            onClearFilters={() => { 
-              setSearch(''); 
-              setPhaseFilter(''); 
-              setStatusFilter(''); 
-              setDepartmentFilter(''); 
-              setLocationFilter(''); 
-            }}
-          />
+        <div className="flex flex-col lg:grid lg:grid-cols-4 gap-4 sm:gap-6">
+          <div className={`${showFilters ? 'block' : 'hidden'} lg:block`}>
+            <KioskSidebar
+              phases={phases}
+              uniqueDepartments={uniqueDepartments}
+              uniqueLocations={uniqueLocations}
+              search={search}
+              phaseFilter={phaseFilter}
+              statusFilter={statusFilter}
+              departmentFilter={departmentFilter}
+              locationFilter={locationFilter}
+              auditorStats={auditorStats}
+              onSearchChange={setSearch}
+              onPhaseChange={setPhaseFilter}
+              onStatusChange={setStatusFilter}
+              onDepartmentChange={setDepartmentFilter}
+              onLocationChange={setLocationFilter}
+              onClearFilters={() => { 
+                setSearch(''); 
+                setPhaseFilter(''); 
+                setStatusFilter(''); 
+                setDepartmentFilter(''); 
+                setLocationFilter(''); 
+              }}
+            />
+          </div>
 
           <div className="lg:col-span-3">
             <KioskGrid

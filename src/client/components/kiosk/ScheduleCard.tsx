@@ -51,7 +51,7 @@ export const ScheduleCard: React.FC<Props> = ({
       }`}
     >
       {/* ── Header ───────────────────────────────────────────────────── */}
-      <div className="px-4 sm:px-6 pt-5 pb-4 border-b border-slate-100">
+      <div className="px-3 sm:px-6 pt-4 sm:pt-5 pb-3 sm:pb-4 border-b border-slate-100">
         <div className="flex items-start justify-between gap-3">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1 flex-wrap">
@@ -76,16 +76,16 @@ export const ScheduleCard: React.FC<Props> = ({
           {/* Asset count */}
           <div className="text-right shrink-0">
             <div className="flex items-center gap-1 text-slate-800">
-              <Package className="w-3.5 h-3.5 text-indigo-500" />
-              <span className="text-lg font-black">{schedule.totalAssets.toLocaleString()}</span>
+              <Package className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-indigo-500" />
+              <span className="text-base sm:text-lg font-black">{schedule.totalAssets.toLocaleString()}</span>
             </div>
-            <p className="text-[10px] text-slate-400 font-bold uppercase">assets</p>
+            <p className="text-[9px] sm:text-[10px] text-slate-400 font-bold uppercase">assets</p>
           </div>
         </div>
       </div>
 
       {/* ── Phase & Date ─────────────────────────────────────────────── */}
-      <div className="px-4 sm:px-6 py-3 bg-slate-50 border-b border-slate-100 flex flex-col gap-2">
+      <div className="px-3 sm:px-6 py-2 sm:py-3 bg-slate-50 border-b border-slate-100 flex flex-col gap-1.5 sm:gap-2">
         {/* Phase Info */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1.5 shrink-0">
@@ -98,7 +98,7 @@ export const ScheduleCard: React.FC<Props> = ({
         </div>
 
         {/* Specific Date Setter */}
-        <div className="flex items-center gap-2 pl-5">
+        <div className="flex items-center gap-2 pl-2 sm:pl-5">
           <span className="text-[10px] font-black uppercase text-indigo-400 tracking-widest shrink-0">
             Set Date:
           </span>
@@ -123,7 +123,7 @@ export const ScheduleCard: React.FC<Props> = ({
       </div>
 
       {/* ── Assignments ──────────────────────────────────────────────── */}
-      <div className="px-4 sm:px-6 py-4 space-y-3">
+      <div className="px-3 sm:px-6 py-3 sm:py-4 space-y-2.5 sm:space-y-3">
         {(['supervisor', 'auditor1', 'auditor2'] as AssignRole[]).map(role => {
           const currentName = schedule[`${role}Name` as keyof KioskSchedule] as string | null;
 

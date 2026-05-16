@@ -25,15 +25,15 @@ export const KioskStatsBar: React.FC<Props> = ({ totalAssets, totalSlots, assign
   ];
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4">
       {stats.map(({ label, value, color, icon: Icon }) => (
-        <div key={label} className="bg-white border border-slate-200 rounded-2xl sm:rounded-3xl p-3 sm:p-5 flex items-center gap-3 sm:gap-4">
-          <div className={`p-2 sm:p-2.5 rounded-xl sm:rounded-2xl bg-slate-50 ${color}`}>
-            <Icon className="w-4 h-4 sm:w-5 sm:h-5" />
+        <div key={label} className="bg-white border border-slate-200 rounded-xl sm:rounded-3xl p-2 sm:p-5 flex items-center gap-2 sm:gap-4 min-w-0 shadow-sm">
+          <div className={`p-1.5 sm:p-2.5 rounded-lg sm:rounded-2xl bg-slate-50 ${color} shrink-0`}>
+            <Icon className="w-3.5 h-3.5 sm:w-5 sm:h-5" />
           </div>
-          <div>
-            <p className="text-xl sm:text-2xl font-black text-slate-900">{value}</p>
-            <p className="text-[9px] sm:text-[10px] font-bold uppercase text-slate-400 tracking-widest">{label}</p>
+          <div className="min-w-0">
+            <p className="text-sm sm:text-2xl font-black text-slate-900 truncate tracking-tight">{value}</p>
+            <p className="text-[7px] sm:text-[10px] font-bold uppercase text-slate-400 tracking-widest truncate">{label}</p>
           </div>
         </div>
       ))}

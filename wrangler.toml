@@ -2,6 +2,19 @@ name = "inspect-able"
 main = "src/server/index.ts"
 compatibility_date = "2025-02-14"
 compatibility_flags = ["nodejs_compat"]
+account_id = "0a95bd1dec2ca90909a8a41fe077dce5"
+
+[[routes]]
+pattern = "kiosk.inspect-able.com"
+custom_domain = true
+
+[[routes]]
+pattern = "www.inspect-able.com"
+custom_domain = true
+
+[[routes]]
+pattern = "inspect-able.com"
+custom_domain = true
 
 [triggers]
 crons = ["0 2 * * *"]  # Daily backup at 02:00 UTC
@@ -37,4 +50,3 @@ bucket_name = "inspect-able-media"
 [[kv_namespaces]]
 binding = "SETTINGS"
 id = "19aabea7e6584cbb9aa912be4409312a"
-
