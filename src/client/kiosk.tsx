@@ -8,7 +8,15 @@ if (container) {
   const root = createRoot(container);
   root.render(
     <React.StrictMode>
-      <KioskApp onBack={() => { window.location.href = '/'; }} />
+      <KioskApp />
     </React.StrictMode>
   );
+}
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js')
+      .then(reg => console.log('Kiosk ServiceWorker registered successfully:', reg.scope))
+      .catch(err => console.error('Kiosk ServiceWorker registration failed:', err));
+  });
 }

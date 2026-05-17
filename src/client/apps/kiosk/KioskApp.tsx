@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { ShieldCheck, ArrowLeft, RefreshCw } from 'lucide-react';
+import { ShieldCheck, RefreshCw, Download, Smartphone, X } from 'lucide-react';
 
 import { KioskSchedule, KioskUser, KioskPhase, AssignRole } from './components/types';
 import { KioskStatsBar } from './components/KioskStatsBar';
@@ -8,11 +8,13 @@ import { KioskGrid } from './components/KioskGrid';
 import { KioskTabs, KioskTab } from './components/KioskTabs';
 import { KioskAuditorStats } from './components/KioskAuditorStats';
 
-interface Props {
-  onBack: () => void;
-}
+export const KioskApp: React.FC = () => {
+  // ── PWA Installation state ──────────────────────────────────────────────
+  const [installPrompt, setInstallPrompt] = useState<any>(null);
+  const [isIOS, setIsIOS] = useState(false);
+  const [isStandalone, setIsStandalone] = useState(false);
+  const [showIOSBanner, setShowIOSBanner] = useState(true);
 
-export const KioskApp: React.FC<Props> = ({ onBack }) => {
   // ── Data state ────────────────────────────────────────────────────────────
   const [schedules, setSchedules] = useState<KioskSchedule[]>([]);
   const [users, setUsers] = useState<KioskUser[]>([]);
@@ -46,7 +48,38 @@ export const KioskApp: React.FC<Props> = ({ onBack }) => {
     }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { 
+    load(); 
+
+    // Detect if iOS device
+    const userAgent = window.navigator.userAgent.toLowerCase();
+    setIsIOS(/iphone|ipad|ipod/.test(userAgent));
+
+    // Detect if running in standalone mode (installed PWA)
+    const isStandaloneMode = window.matchMedia('(display-mode: standalone)').matches 
+      || (window.navigator as any).standalone === true;
+    setIsStandalone(isStandaloneMode);
+
+    // Listen for browser beforeinstallprompt
+    const handleBeforeInstallPrompt = (e: Event) => {
+      e.preventDefault();
+      setInstallPrompt(e);
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    };
+  }, []);
+
+  const handleInstallApp = async () => {
+    if (!installPrompt) return;
+    installPrompt.prompt();
+    const { outcome } = await installPrompt.userChoice;
+    if (outcome === 'accepted') {
+      setInstallPrompt(null);
+    }
+  };
 
   // ── Mutations ─────────────────────────────────────────────────────────────
   const handleAssign = async (scheduleId: string, userId: string, role: AssignRole) => {
@@ -176,14 +209,6 @@ export const KioskApp: React.FC<Props> = ({ onBack }) => {
       <nav className="sticky top-0 z-[60] bg-white/90 backdrop-blur-md border-b border-slate-200 shadow-sm">
         <div className="max-w-7xl mx-auto px-3 sm:px-6 py-2 sm:py-3.5 flex items-center justify-between">
           <div className="flex items-center gap-2 sm:gap-4">
-            <button
-              onClick={onBack}
-              className="flex items-center gap-1.5 text-slate-500 hover:text-slate-900 transition-colors bg-slate-100/50 hover:bg-slate-100 px-2 py-1.5 rounded-lg"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              <span className="text-[11px] font-bold hidden sm:inline">Back</span>
-            </button>
-
             <div className="flex items-center gap-2">
               <div className="w-7 h-7 rounded-xl bg-indigo-600 flex items-center justify-center shrink-0">
                 <ShieldCheck className="w-4 h-4 text-white" />
@@ -198,6 +223,16 @@ export const KioskApp: React.FC<Props> = ({ onBack }) => {
           </div>
 
           <div className="flex items-center gap-3">
+            {installPrompt && (
+              <button
+                onClick={handleInstallApp}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-[10px] font-black transition-colors shadow-sm animate-pulse"
+              >
+                <Download className="w-3.5 h-3.5" />
+                Install App
+              </button>
+            )}
+
             <button
               onClick={load}
               disabled={loading}
@@ -209,6 +244,26 @@ export const KioskApp: React.FC<Props> = ({ onBack }) => {
           </div>
         </div>
       </nav>
+
+      {/* iOS Installation Banner */}
+      {isIOS && !isStandalone && showIOSBanner && (
+        <div className="bg-indigo-600 text-white px-4 py-3 shadow-md relative animate-in fade-in slide-in-from-top-4 duration-300">
+          <div className="max-w-7xl mx-auto flex items-center justify-between gap-3 text-[11px] sm:text-xs font-bold pr-8">
+            <div className="flex items-center gap-2">
+              <Smartphone className="w-4 h-4 shrink-0 text-indigo-200" />
+              <span>
+                Install Standalone Kiosk: Tap the <span className="bg-indigo-700 px-1.5 py-0.5 rounded text-white font-extrabold">Share button</span> ↗️ in Safari, then scroll down and select <span className="bg-indigo-700 px-1.5 py-0.5 rounded text-white font-extrabold">Add to Home Screen</span>.
+              </span>
+            </div>
+            <button 
+              onClick={() => setShowIOSBanner(false)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-indigo-200 hover:text-white transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
 
       <KioskTabs activeTab={activeTab} onTabChange={setActiveTab} badgeCount={activeFiltersCount} />
 

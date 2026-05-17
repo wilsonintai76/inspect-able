@@ -1,4 +1,4 @@
-import { D1Database, R2Bucket, KVNamespace } from '@cloudflare/workers-types';
+import { D1Database, R2Bucket, KVNamespace, Fetcher } from '@cloudflare/workers-types';
 
 export type Bindings = {
   DB: D1Database;
@@ -8,6 +8,7 @@ export type Bindings = {
   AI: any;
   JWT_SECRET: string;
   ALLOWED_DOMAIN: string;
+  ASSETS: Fetcher;
 };
 
 export type Variables = {

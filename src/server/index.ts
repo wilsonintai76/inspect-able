@@ -75,9 +75,9 @@ baseApp.get('/', async (c) => {
   
   // Serve the appropriate HTML file from ASSETS
   const filename = isKiosk ? 'kiosk.html' : 'index.html';
-  const asset = await c.env.ASSETS.fetch(new URL(`/${filename}`, c.req.url));
+  const asset = await c.env.ASSETS.fetch(new URL(`/${filename}`, c.req.url).toString());
   
-  if (asset.ok) return asset;
+  if (asset.ok) return asset as any;
   return c.text('Not Found', 404);
 });
 
@@ -86,7 +86,7 @@ baseApp.route('/api', app);
 
 // Fallback to ASSETS for everything else (JS, CSS, images, etc.)
 baseApp.all('*', async (c) => {
-  return c.env.ASSETS.fetch(c.req.raw);
+  return c.env.ASSETS.fetch(c.req.raw as any) as any;
 });
 
 export type AppType = typeof routes;

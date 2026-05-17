@@ -24,6 +24,7 @@ import { AutoUpdater } from './components/AutoUpdater';
 import { AdminDashboard } from './components/AdminDashboard';
 import { MainAppLayout } from './components/MainAppLayout';
 import { GlobalModals } from './components/GlobalModals';
+import { KioskApp } from './apps/kiosk/KioskApp';
 
 // Hooks
 import { useAppData } from './hooks/useAppData';
@@ -159,6 +160,11 @@ const App: React.FC = () => {
       </div>
     );
   }
+
+  if (viewState === 'kiosk') {
+    return <KioskApp />;
+  }
+
 
   if (!currentUser) {
     return (

@@ -8,7 +8,8 @@ import { cloudflare } from "@cloudflare/vite-plugin";
 
 const packageJson = JSON.parse(fs.readFileSync('./package.json', 'utf-8'));
 
-export default defineConfig(({ mode, ssrBuild }) => {
+export default defineConfig((configEnv) => {
+    const { mode, ssrBuild } = configEnv as any;
     const env = loadEnv(mode, '.', '');
     const isSSR = ssrBuild || process.env.VITE_SSR_BUILD === 'true';
 
@@ -20,7 +21,7 @@ export default defineConfig(({ mode, ssrBuild }) => {
       build: {
         // Output worker to 'dist' and client to 'dist/client' to avoid conflicts
         outDir: isSSR ? 'dist' : 'dist/client',
-        emptyOutDir: true,
+        emptyOutDir: false,
         rollupOptions: isSSR ? {} : {
           input: {
             main: path.resolve(__dirname, 'index.html'),
@@ -32,6 +33,17 @@ export default defineConfig(({ mode, ssrBuild }) => {
         react(), 
         tailwindcss(), 
         isSSR ? cloudflare() : null,
+        {
+          name: 'dev-kiosk-rewrite',
+          configureServer(server) {
+            server.middlewares.use((req, res, next) => {
+              if (req.headers.host && req.headers.host.startsWith('kiosk.') && (req.url === '/' || req.url === '/index.html')) {
+                req.url = '/kiosk.html';
+              }
+              next();
+            });
+          }
+        },
         {
           name: 'generate-version-json',
           buildStart() {
