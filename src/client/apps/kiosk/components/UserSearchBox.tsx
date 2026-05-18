@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Search, Check, X, Award } from 'lucide-react';
+import { Search, Check, X, Award, Phone } from 'lucide-react';
 import { KioskUser } from './types';
 
 interface Props {
   users: KioskUser[];
   maxAssets: number;
+  scheduleAssets?: number;
   placeholder: string;
   currentName: string | null;
+  currentContact?: string | null;
   onSelect: (user: KioskUser) => void;
   onClear: () => void;
 }
@@ -14,8 +16,10 @@ interface Props {
 export const UserSearchBox: React.FC<Props> = ({
   users,
   maxAssets,
+  scheduleAssets = 0,
   placeholder,
   currentName,
+  currentContact,
   onSelect,
   onClear,
 }) => {
@@ -39,9 +43,19 @@ export const UserSearchBox: React.FC<Props> = ({
   // ── Assigned state ────────────────────────────────────────────────────────
   if (currentName) {
     return (
-      <div className="flex items-center gap-2 px-3 py-2 bg-indigo-50 border border-indigo-200 rounded-xl">
-        <Check className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
-        <span className="text-xs font-bold text-indigo-800 truncate flex-1">{currentName}</span>
+      <div className="flex items-center justify-between gap-2 px-3 py-2 bg-indigo-50 border border-indigo-200 rounded-xl">
+        <div className="flex-1 min-w-0 flex flex-col gap-0.5">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <Check className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+            <span className="text-xs font-bold text-indigo-800 truncate">{currentName}</span>
+          </div>
+          {currentContact && (
+            <div className="text-[10px] text-indigo-600/70 flex items-center gap-1 font-bold font-mono pl-5">
+              <Phone className="w-2.5 h-2.5 opacity-60" />
+              {currentContact}
+            </div>
+          )}
+        </div>
         <button
           onClick={onClear}
           title="Remove assignment"
@@ -88,8 +102,9 @@ export const UserSearchBox: React.FC<Props> = ({
                     </div>
                   )}
                 </div>
-                <p className={`text-[10px] ${u.assetsAssigned > maxAssets ? 'text-red-500 font-bold' : 'text-slate-400'}`}>
-                  {u.designation ?? 'Staff'} · {u.assetsAssigned.toLocaleString()} / {maxAssets.toLocaleString()} assets
+                <p className={`text-[10px] ${(u.assetsAssigned + scheduleAssets) > maxAssets ? 'text-rose-600 font-extrabold' : 'text-slate-500 font-medium'}`}>
+                  {u.designation ?? 'Staff'} · {u.assetsAssigned.toLocaleString()} assets
+                  {scheduleAssets > 0 && ` (Proj: ${(u.assetsAssigned + scheduleAssets).toLocaleString()} / ${maxAssets.toLocaleString()})`}
                 </p>
               </div>
               <span className="text-[10px] font-black text-indigo-400 opacity-0 group-hover:opacity-100 transition-opacity">

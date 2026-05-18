@@ -37,7 +37,16 @@ export const bulkManagement = {
     const newLocs = uniqueLocsFiltered.filter(loc => !existingLocKeys.has(`${loc.locationId}|${loc.departmentId}`));
 
     // 2.5 Process Supervisors (Create temporary users if they don't exist)
-    const uniqueSupervisors = Array.from(new Set(newAudits.map(a => a.supervisorId).filter(id => id && id !== 'To be filled')));
+    const splitSupervisorNames = (raw: string) => {
+      if (!raw || raw === 'To be filled') return [];
+      return raw.split(/[/\&,]+/).map(name => name.trim()).filter(Boolean);
+    };
+
+    const allSupervisorNames: string[] = [];
+    newAudits.forEach(a => {
+      allSupervisorNames.push(...splitSupervisorNames(a.supervisorId || ''));
+    });
+    const uniqueSupervisors = Array.from(new Set(allSupervisorNames));
     const newUsersCreated: User[] = [];
 
     for (const supName of uniqueSupervisors) {
@@ -59,15 +68,19 @@ export const bulkManagement = {
 
     const getAllUsers = () => [...currentUsers, ...newUsersCreated];
 
-    const getSupervisorId = (name: string) => {
-      if (!name || name === 'To be filled') return '';
-      const user = getAllUsers().find(u => u.name.toLowerCase() === name.toLowerCase());
-      return user ? user.id : '';
+    const getSupervisorIds = (rawName: string) => {
+      const names = splitSupervisorNames(rawName);
+      if (names.length === 0) return '';
+      const ids = names.map(name => {
+        const user = getAllUsers().find(u => u.name.toLowerCase() === name.toLowerCase());
+        return user ? user.id : '';
+      }).filter(Boolean);
+      return ids.join(',');
     };
 
     const processedAudits = newAudits.map(a => ({
       ...a,
-      supervisorId: getSupervisorId(a.supervisorId || '')
+      supervisorId: getSupervisorIds(a.supervisorId || '')
     }));
 
     // 3. Add new departments
@@ -160,13 +173,24 @@ export const bulkManagement = {
     }
 
     const userNameToId = new Map(currentUsers.map(u => [u.name.toUpperCase().trim(), u.id]));
-    const uniqueSupervisorNames = Array.from(new Set(newLocs.map(l => (l.supervisorId || '').trim()).filter(n => n && n !== 'To be filled')));
+    
+    // Split and flatten all supervisor names from locations
+    const allSupervisorNames: string[] = [];
+    newLocs.forEach(l => {
+      const names = l.supervisorId ? l.supervisorId.split(/[/\&,]+/).map(name => name.trim()).filter(Boolean) : [];
+      allSupervisorNames.push(...names);
+    });
+    const uniqueSupervisorNames = Array.from(new Set(allSupervisorNames.filter(n => n && n !== 'To be filled')));
     const missingSupervisors = uniqueSupervisorNames.filter(name => !userNameToId.has(name.toUpperCase().trim()));
 
     const newUsersCreated: User[] = [];
     for (const name of missingSupervisors) {
       const tempId = `T-${Math.floor(1000 + Math.random() * 9000)}`;
-      const locMatch = newLocs.find(l => (l.supervisorId || '').trim() === name);
+      // Find the first location that had this supervisor to extract department context
+      const locMatch = newLocs.find(l => {
+        const names = l.supervisorId ? l.supervisorId.split(/[/\&,]+/).map(name => name.trim()).filter(Boolean) : [];
+        return names.some(n => n.toLowerCase() === name.toLowerCase());
+      });
       const deptName = locMatch?.departmentId || '';
       const deptId = deptNameToId.get(deptName.toUpperCase().trim());
       const newUser: User = {
@@ -203,7 +227,12 @@ export const bulkManagement = {
       const mappedId = mappingLookup.get(rawName);
       
       let finalDeptId = deptNameToId.get(loc.departmentId.toUpperCase().trim()) || loc.departmentId;
-      let finalSupervisorId = userNameToId.get((loc.supervisorId || '').toUpperCase().trim()) || null;
+      let finalSupervisorId = (() => {
+        const names = loc.supervisorId ? loc.supervisorId.split(/[/\&,]+/).map(name => name.trim()).filter(Boolean) : [];
+        if (names.length === 0) return null;
+        const ids = names.map(name => userNameToId.get(name.toUpperCase().trim())).filter(Boolean);
+        return ids.length > 0 ? ids.join(',') : null;
+      })();
 
       const description = `Original: ${loc.name}`;
 

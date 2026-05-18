@@ -146,7 +146,7 @@ export const TierDistributionTable: React.FC<TierDistributionTableProps> = ({
             <tr>
               <th className="px-6 py-4 text-[10px] font-black uppercase text-slate-400 tracking-widest">Department</th>
               <th id="header-auditors-tier" className="px-6 py-4 text-[10px] font-black uppercase text-slate-400 tracking-widest text-center">Certified Officers</th>
-              <th className="px-6 py-4 text-[10px] font-black uppercase text-slate-400 tracking-widest text-center">Required Staffing</th>
+              <th className="px-6 py-4 text-[10px] font-black uppercase text-slate-400 tracking-widest text-center">Required Auditors</th>
               <th className="px-6 py-4 text-[10px] font-black uppercase text-slate-400 tracking-widest">Assets / Tier</th>
               {sortedPhases.map(phase => (
                 <th key={phase.id} className="px-4 py-4 text-[10px] font-black uppercase text-slate-400 tracking-widest text-center">
@@ -169,12 +169,12 @@ export const TierDistributionTable: React.FC<TierDistributionTableProps> = ({
                 <td className="px-6 py-4 text-center">
                     <div className="flex flex-col items-center">
                        <span className="text-xs font-black text-indigo-600">
-                         {row.auditorsRequiredOverride ?? (() => {
-                            const assets = row.totalAssets || 0;
-                            if (assets === 0) return 0;
-                            const raw = Math.max(Math.ceil(assets / openAuditThreshold), 2);
-                            return raw % 2 === 0 ? raw : raw + 1;
-                         })()}
+                          {row.auditorsRequiredOverride ?? (() => {
+                             const assets = row.totalAssets || 0;
+                             if (assets === 0) return 0;
+                             const raw = Math.ceil(assets / openAuditThreshold);
+                             return Math.max(2, raw * 2);
+                          })()}
                        </span>
                     </div>
                 </td>

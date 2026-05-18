@@ -81,28 +81,31 @@ export const authMiddleware = async (
   // 3. Load user roles + departmentId — KV cache first, D1 fallback
   let roles: string[]             = [];
   let departmentId: string | null = null;
+  let certificationExpiry: string | null = null;
   let userExists                  = true;
 
   try {
     const cached = await c.env.SETTINGS.get(`ucache:${userId}`, { cacheTtl: USER_CACHE_TTL });
     if (cached) {
-      const parsed = JSON.parse(cached) as { roles: string[]; departmentId: string | null };
+      const parsed = JSON.parse(cached) as { roles: string[]; departmentId: string | null; certificationExpiry?: string | null };
       roles = parsed.roles;
       departmentId = parsed.departmentId;
+      certificationExpiry = parsed.certificationExpiry || null;
     } else {
       const dbUser = await c.env.DB
-        .prepare('SELECT roles, department_id FROM users WHERE id = ?')
+        .prepare('SELECT roles, department_id, certification_expiry FROM users WHERE id = ?')
         .bind(userId)
-        .first<{ roles: string; department_id: string | null }>();
+        .first<{ roles: string; department_id: string | null; certification_expiry: string | null }>();
 
       if (dbUser) {
         if (dbUser.roles) roles = JSON.parse(dbUser.roles);
         departmentId = dbUser.department_id ?? null;
+        certificationExpiry = dbUser.certification_expiry ?? null;
         
         // Write through to KV
         await c.env.SETTINGS.put(
           `ucache:${userId}`,
-          JSON.stringify({ roles, departmentId }),
+          JSON.stringify({ roles, departmentId, certificationExpiry }),
           { expirationTtl: USER_CACHE_TTL },
         );
       } else {
@@ -115,6 +118,13 @@ export const authMiddleware = async (
 
   if (!userExists) {
     return c.json({ success: false, message: 'User not found' }, 401);
+  }
+
+  // Dynamic Certified Officer Role Injection
+  const today = new Date().toISOString().split('T')[0];
+  const isCertified = certificationExpiry && certificationExpiry >= today;
+  if (isCertified && !roles.includes('Auditor')) {
+    roles = [...roles, 'Auditor'];
   }
 
   // 4. Populate context

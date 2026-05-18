@@ -1,36 +1,17 @@
 
-import React, { useState, useRef, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { AuditSchedule, User, UserRole, Department, Location, CrossAuditPermission, AuditPhase, Building as BuildingType } from '@shared/types';
 import { useRBAC } from '../contexts/RBACContext';
 import { AuditReportModal } from './AuditReportModal';
 import { AuditUploadModal } from './AuditUploadModal';
-import {
-  ShieldOff,
-  Loader2,
-  X,
-  ChevronDown,
-  Building,
-  Layers,
-  UserCheck,
-  Phone,
-  Lock,
-  Unlock,
-  AlertTriangle,
-  RotateCcw,
-  FileText,
-  Search,
-  Filter,
-  Calendar,
-  Zap,
-  Package,
-  FileSpreadsheet,
-  ExternalLink
-} from 'lucide-react';
+import { Search, Calendar, Zap, FileSpreadsheet } from 'lucide-react';
 import { PageHeader } from './PageHeader';
-import { AuditorAssignmentSlot } from './AuditorAssignmentSlot';
 import { PrintButton } from './PrintButton';
 import { printInspectionSchedule, exportInspectionSchedule } from '../lib/printUtils';
-import { ConfirmationModal } from './ConfirmationModal';
+import { CertificationBanner } from './audit-table/CertificationBanner';
+import { AuditFiltersBar } from './audit-table/AuditFiltersBar';
+import { AuditPhaseFilter } from './audit-table/AuditPhaseFilter';
+import { AuditTableRow } from './audit-table/AuditTableRow';
 
 interface AuditTableProps {
   schedules: AuditSchedule[];
@@ -280,8 +261,9 @@ export const AuditTable: React.FC<AuditTableProps> = ({
     }
 
     // 2. ABSOLUTE LOCK: Supervisor cannot be the Auditor for the same location
-    if (assignUserId === audit.supervisorId) {
-      alert(`CONFLICT OF INTEREST: ${isSelf ? 'You are' : 'The selected officer is'} the designated Site Supervisor for this location and cannot act as its inspector.`);
+    const supervisorIds = audit.supervisorId ? audit.supervisorId.split(',').map(id => id.trim()).filter(Boolean) : [];
+    if (supervisorIds.includes(assignUserId)) {
+      alert(`CONFLICT OF INTEREST: ${isSelf ? 'You are' : 'The selected officer is'} a designated Site Supervisor for this location and cannot act as its inspector.`);
       return;
     }
 
@@ -360,7 +342,8 @@ export const AuditTable: React.FC<AuditTableProps> = ({
           }
 
           // 3. ABSOLUTE LOCK: Supervisor cannot be the Auditor for the same location
-          if (officer.id === audit.supervisorId) return false;
+          const supervisorIds = audit.supervisorId ? audit.supervisorId.split(',').map(id => id.trim()).filter(Boolean) : [];
+          if (supervisorIds.includes(officer.id)) return false;
 
           const auditsOnDate = schedules.filter(s => s.date === audit.date && (s.auditor1Id === officer.id || s.auditor2Id === officer.id));
           const totalAssetsOnDate = auditsOnDate.reduce((sum, s) => {
@@ -455,7 +438,7 @@ export const AuditTable: React.FC<AuditTableProps> = ({
         activePhase={activePhase}
         description="Plan and manage institutional inspection windows and inspecting officer assignments."
       >
-        <PrintButton 
+        <PrintButton
           onPrint={() => printInspectionSchedule(displaySchedules, allDepartments, allLocations, users, auditPhases, selectedDept, buildings)}
           title="Print Inspection Schedule"
         />
@@ -479,133 +462,29 @@ export const AuditTable: React.FC<AuditTableProps> = ({
       </PageHeader>
 
       {hasFieldRole && !isCertified && (
-        <div className="bg-rose-600 text-white px-6 py-4 rounded-3xl shadow-xl shadow-rose-500/20 flex flex-col sm:flex-row items-center justify-between gap-4 animate-in fade-in slide-in-from-top-2">
-          <div className="flex items-center gap-4">
-            <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center text-xl">
-              <ShieldOff className="w-6 h-6" />
-            </div>
-            <div>
-              <h4 className="font-black text-sm uppercase tracking-widest">Self-Assignment Locked</h4>
-              <p className="text-xs text-rose-100 font-medium">
-                {isSupervisor || isCoordinator || isAuditor ? 'Management override disabled.' : 'Authorization revoked.'} Your inspecting officer certification is expired.
-              </p>
-            </div>
-          </div>
-          <button 
-            onClick={() => window.location.hash = '#profile'}
-            className="px-4 py-2 bg-white text-rose-600 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-rose-50 transition-colors shrink-0"
-          >
-            Check Status
-          </button>
-        </div>
+        <CertificationBanner isSupervisor={isSupervisor} isCoordinator={isCoordinator} />
       )}
 
-      {/* Filters Bar */}
-      <div className="bg-white rounded-[32px] p-4 border border-slate-200 shadow-sm">
-          <div className="flex flex-col lg:flex-row gap-4">
-              <div className="flex items-center gap-2 text-slate-400 text-xs font-bold uppercase tracking-widest mb-2 lg:mb-0 lg:mr-4">
-                  <Filter className="w-4 h-4" />
-                  Filters
-              </div>
-              
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 grow">
-                  {/* Department Filter */}
-                  <div className="relative">
-                    <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest ml-1 mb-1 block">Department</label>
-                    <div className="relative">
-                        <select
-                        title="Department"
-                        className="w-full pl-4 pr-8 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:ring-2 focus:ring-blue-500/20 outline-none transition-all appearance-none cursor-pointer hover:bg-white"
-                        value={selectedDept}
-                        onChange={(e) => onDeptChange(e.target.value)}
-                        >
-                        {departments.map(d => (
-                            <option key={d} value={d}>{d === 'All' ? 'All Departments' : d}</option>
-                        ))}
-                        </select>
-                        <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 w-3 h-3 pointer-events-none" />
-                    </div>
-                  </div>
+      <AuditFiltersBar
+        departments={departments}
+        selectedDept={selectedDept}
+        onDeptChange={onDeptChange}
+        uniqueBlocks={uniqueBlocks}
+        selectedBlock={selectedBlock}
+        onBlockChange={setSelectedBlock}
+        uniqueLevels={uniqueLevels}
+        selectedLevel={selectedLevel}
+        onLevelChange={setSelectedLevel}
+        selectedStatus={selectedStatus}
+        onStatusChange={onStatusChange}
+        buildings={buildings}
+      />
 
-                  {/* Block Filter */}
-                  <div className="relative">
-                    <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest ml-1 mb-1 block">Block / Building</label>
-                    <div className="relative">
-                        <select
-                        title="Block / Building"
-                        className="w-full pl-4 pr-8 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:ring-2 focus:ring-blue-500/20 outline-none transition-all appearance-none cursor-pointer hover:bg-white"
-                        value={selectedBlock}
-                        onChange={(e) => setSelectedBlock(e.target.value)}
-                        >
-                        {uniqueBlocks.map(b => {
-                            if (b === 'All') return <option key={b} value={b}>All Blocks</option>;
-                            const fullBuilding = buildings.find(building => building.abbr === b);
-                            const displayName = fullBuilding ? `${b} | ${fullBuilding.name}` : b;
-                            return <option key={b} value={b}>{displayName}</option>;
-                        })}
-                        </select>
-                        <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 w-3 h-3 pointer-events-none" />
-                    </div>
-                  </div>
-
-                  {/* Level Filter */}
-                  <div className="relative">
-                    <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest ml-1 mb-1 block">Level</label>
-                    <div className="relative">
-                        <select
-                        title="Level"
-                        className="w-full pl-4 pr-8 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:ring-2 focus:ring-blue-500/20 outline-none transition-all appearance-none cursor-pointer hover:bg-white"
-                        value={selectedLevel}
-                        onChange={(e) => setSelectedLevel(e.target.value)}
-                        >
-                        {uniqueLevels.map(l => (
-                            <option key={l} value={l}>{l === 'All' ? 'All Levels' : l}</option>
-                        ))}
-                        </select>
-                        <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 w-3 h-3 pointer-events-none" />
-                    </div>
-                  </div>
-
-                  {/* Status Filter */}
-                  <div className="relative">
-                    <label className="text-[9px] font-black uppercase text-slate-400 tracking-widest ml-1 mb-1 block">Status</label>
-                    <div className="relative">
-                        <select
-                        title="Status"
-                        className="w-full pl-4 pr-8 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:ring-2 focus:ring-blue-500/20 outline-none transition-all appearance-none cursor-pointer hover:bg-white"
-                        value={selectedStatus}
-                        onChange={(e) => onStatusChange(e.target.value)}
-                        >
-                        <option value="All">All Statuses</option>
-                        <option value="Pending">Pending</option>
-                        <option value="In Progress">In Progress</option>
-                        <option value="Completed">Completed</option>
-                        </select>
-                        <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 w-3 h-3 pointer-events-none" />
-                    </div>
-                  </div>
-              </div>
-          </div>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-2 px-2">
-         {['All', ...auditPhases.map(p => ({ id: p.id, name: p.name }))].map(phase => {
-             const isAll = typeof phase === 'string';
-             const phaseId = isAll ? 'All' : (phase as any).id;
-             const phaseName = isAll ? 'All Phases' : (phase as any).name;
-             
-             return (
-              <button 
-                key={phaseId} 
-                onClick={() => onPhaseChange(phaseId)} 
-                className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all border ${selectedPhaseId === phaseId ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'}`}
-              >
-                 {phaseName}
-              </button>
-             );
-         })}
-         
-      </div>
+      <AuditPhaseFilter
+        auditPhases={auditPhases}
+        selectedPhaseId={selectedPhaseId}
+        onPhaseChange={onPhaseChange}
+      />
 
       <div className="bg-white rounded-[40px] border border-slate-200 shadow-sm flex flex-col flex-1 min-h-0 overflow-hidden">
         <div className="w-full overflow-auto scrollbar-thumb-slate-300 rounded-[40px] flex-1">
@@ -621,277 +500,55 @@ export const AuditTable: React.FC<AuditTableProps> = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
-              {displaySchedules.map(audit => {
-                const loc = allLocations.find(l => l.id === audit.locationId);
-                const isCurrentUserAssigned = audit.auditor1Id === currentUser?.id || audit.auditor2Id === currentUser?.id;
-                
-                // Calculate assets assigned on this date
-                const auditsOnDate = schedules.filter(s => s.date === audit.date && (s.auditor1Id === currentUser?.id || s.auditor2Id === currentUser?.id));
-                const totalAssetsOnDate = auditsOnDate.reduce((sum, s) => {
-                  const loc = allLocations.find(l => l.id === s.locationId);
-                  return sum + (loc?.totalAssets || 0);
-                }, 0);
-                
-                const currentLoc = allLocations.find(l => l.id === audit.locationId);
-                const isUserOverLimit = !isCurrentUserAssigned && (totalAssetsOnDate + (currentLoc?.totalAssets || 0) > maxAssetsPerDay);
-                
-                const isPast = audit.date && audit.date < todayStr;
-                const userCanAudit = canAuditDepartment(audit.departmentId);
-                const isDateValid = isDateInValidPhase(audit.date, audit.phaseId);
-                const locationLevel = loc?.level;
-
-                const isLocked = isAuditLocked(audit);
-
-                return (
-                  <tr key={audit.id} className={`hover:bg-slate-50/50 transition-colors ${isLocked ? 'bg-slate-50/30 opacity-90' : ''}`}>
-                    <td className="px-8 py-6 align-top sticky left-0 bg-white z-10 border-r border-slate-100">
-                      <div className="flex flex-col gap-2">
-                        <div className="relative group flex items-center gap-2">
-                          <div className="relative flex-1 min-w-32.5">
-                            <Calendar className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none z-10 ${
-                              !audit.date ? 'text-amber-500' : 'text-slate-400'
-                            }`} />
-                            <input 
-                              type="date"
-                              title="Audit Date"
-                              placeholder="YYYY-MM-DD"
-                              value={audit.date || ''}
-                              disabled={!hasPhases || !canEditDates}
-                              onChange={(e) => handleDateChange(audit.id, e.target.value, audit.phaseId)}
-                              className={`w-full pl-10 pr-4 py-2.5 rounded-xl text-xs font-bold border outline-none transition-all ${
-                                !canEditDates
-                                  ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed'
-                                  : !hasPhases
-                                  ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed'
-                                  : !audit.date 
-                                  ? 'bg-amber-50 border-amber-100 text-amber-600 focus:ring-amber-500/20' 
-                                  : !isDateValid
-                                  ? 'bg-rose-50 border-rose-200 text-rose-600'
-                                  : 'bg-slate-50 border-slate-200 text-slate-900 focus:ring-blue-500/20 group-hover:bg-white'
-                              }`}
-                            />
-                            {isLocked && (
-                              <div className="absolute -top-3 right-0 z-20">
-                                <div className="px-1.5 py-0.5 bg-slate-800 text-white text-[8px] font-black uppercase rounded flex items-center gap-1 shadow-sm">
-                                  <Lock className="w-2 h-2" /> Locked
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                          
-                          {!isLocked && canEditDates && hasPhases && !audit.date && (
-                            <button
-                              onClick={() => {
-                                const today = new Date().toISOString().split('T')[0];
-                                const phase = auditPhases.find(p => p.id === audit.phaseId);
-                                if (isDateInValidPhase(today, audit.phaseId)) {
-                                  handleDateChange(audit.id, today, audit.phaseId);
-                                } else if (phase) {
-                                  handleDateChange(audit.id, phase.startDate, audit.phaseId);
-                                }
-                              }}
-                              className="shrink-0 px-3 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/20 text-[10px] font-black uppercase tracking-widest active:scale-95"
-                              title="Quick Pick: Set to Today or Phase Start"
-                            >
-                              Pick
-                            </button>
-                          )}
-
-                          {canEditDates && (
-                            <button
-                              onClick={() => onToggleLock(audit.id)}
-                              className={`shrink-0 w-10 h-10 flex items-center justify-center rounded-xl transition-all border ${
-                                isAuditLocked(audit) 
-                                  ? 'bg-slate-800 border-slate-700 text-amber-400 shadow-lg' 
-                                  : 'bg-white border-slate-200 text-slate-400 hover:border-slate-300 hover:bg-slate-50'
-                              }`}
-                              title={isAuditLocked(audit) ? "Unlock Phase Assignment" : "Manually Lock Phase Assignment"}
-                            >
-                              {isAuditLocked(audit) ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
-                            </button>
-                          )}
-                        </div>
-                        {isDateValid === false && audit.date && (
-                          <div className="text-[9px] font-bold text-red-500 whitespace-nowrap bg-red-50 px-2 py-1 rounded-lg border border-red-100 w-fit">
-                            Outside phase window
-                          </div>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-8 py-6 align-top sticky left-48 bg-white z-10 border-r border-slate-100">
-                      <div className="flex flex-col gap-1.5">
-                        <div className="font-bold text-slate-900 text-base">{loc?.name || audit.locationId}</div>
-                        {(() => {
-                           const bDisplay = getBuildingAbbr(loc?.buildingId, loc?.building);
-                           if (!bDisplay) return null;
-                           return (
-                             <div className="text-[11px] text-slate-400 font-medium flex items-center gap-1.5 uppercase tracking-tight">
-                               <Building className="w-3 h-3 opacity-40 text-blue-500" />
-                               {bDisplay}
-                             </div>
-                           );
-                        })()}
-                        {locationLevel && (
-                          <div className="text-[11px] text-slate-400 font-medium flex items-center gap-1.5">
-                            <Layers className="w-3 h-3 opacity-40" />
-                            {locationLevel}
-                          </div>
-                        )}
-                        <span className="inline-flex w-fit px-2.5 py-1 bg-slate-100 text-slate-600 text-[9px] font-black uppercase rounded-lg border border-slate-200 mt-1 tracking-widest">
-                          {allDepartments.find(d => d.id === audit.departmentId)?.name || audit.departmentId}
-                        </span>
-                        <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                          {(loc?.totalAssets || 0) > 0 ? (
-                            <span className="px-2 py-0.5 rounded-md bg-slate-100 text-[9px] text-slate-500 font-bold border border-slate-200 flex items-center gap-1">
-                              <Package className="w-2.5 h-2.5" /> {(loc!.totalAssets || 0).toLocaleString()}
-                            </span>
-                          ) : (
-                            <div className="flex items-center gap-1.5 px-2 py-1 bg-amber-50 text-amber-700 border border-amber-100 rounded-lg animate-pulse" title="Warning: This location has 0 documented assets. Rebalancing will use equal-distribution fallback.">
-                              <AlertTriangle className="w-3 h-3 text-amber-500" />
-                              <span className="text-[9px] font-black uppercase tracking-tight">Zero Assets Recorded</span>
-                            </div>
-                          )}
-                          {(loc?.uninspectedAssetCount || 0) > 0 && (
-                            <span className="px-2 py-0.5 rounded-md bg-rose-50 text-[9px] text-rose-600 font-bold border border-rose-100 flex items-center gap-1">
-                              <span className="w-1.5 h-1.5 rounded-full bg-rose-400 inline-block" />
-                              {(loc!.uninspectedAssetCount || 0).toLocaleString()} uninspected
-                            </span>
-                          )}
-                        </div>
-                        
-                        {(() => {
-                           const dept = allDepartments.find(d => d.id === audit.departmentId);
-                           const deptOfficers = users.filter(u => u.departmentId === dept?.id && u.certificationExpiry && new Date(u.certificationExpiry) > new Date());
-                           const officerCapacity = deptOfficers.length * maxAssetsPerDay;
-                           const totalAssets = dept?.totalAssets || 0;
-                           const isAtRisk = totalAssets > officerCapacity && deptOfficers.length > 0;
-                           
-                           if (isAtRisk) {
-                             return (
-                               <div className="mt-2 p-2 bg-rose-50 border border-rose-100 rounded-xl flex items-start gap-2 max-w-xs shadow-sm">
-                                 <AlertTriangle className="w-3.5 h-3.5 text-rose-500 shrink-0 mt-0.5" />
-                                 <div>
-                                   <div className="text-[9px] font-black text-rose-700 uppercase tracking-widest leading-none mb-1">Capacity Deficit</div>
-                                   <div className="text-[9px] text-rose-600 font-medium leading-tight">
-                                     {totalAssets.toLocaleString()} assets exceeds department capacity ({officerCapacity.toLocaleString()} max/day). Assignments may bottleneck.
-                                   </div>
-                                 </div>
-                               </div>
-                             );
-                           }
-                           return null;
-                        })()}
-                      </div>
-                    </td>
-
-                    <td className="px-8 py-6 align-top">
-                      <div className="flex flex-col gap-1.5">
-                        <div className="font-bold text-slate-700 text-xs flex items-center gap-2.5">
-                           <div className="w-8 h-8 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400 shrink-0">
-                             <UserCheck className="w-4 h-4" />
-                           </div>
-                           {users.find(u => u.id === audit.supervisorId)?.name || audit.supervisorId}
-                        </div>
-                        {loc?.contact && (
-                          <div className="flex items-center gap-2 pl-10.5">
-                            <Phone className="w-3 h-3 text-slate-300" />
-                            <span className="text-[10px] text-slate-400 font-bold font-mono tracking-tighter">{loc.contact}</span>
-                          </div>
-                        )}
-                      </div>
-                    </td>
-
-                    <td className="px-8 py-6 align-top">
-                      <div className="space-y-3">
-                        {[1, 2].map(slotNum => (
-                          <AuditorAssignmentSlot
-                            key={slotNum}
-                            slotNum={slotNum as 1 | 2}
-                            audit={audit}
-                            users={users}
-                            currentUser={currentUser}
-                            allDepartments={allDepartments}
-                            canManageAssignments={(canEditDates || canSelfAssignPerm || canAssignOthers) && !isLocked}
-                            canAssignOthers={canAssignOthers && !isLocked}
-                            canSelfAssignSelf={canSelfAssignSelf && !isLocked}
-                            userCanAudit={userCanAudit}
-                            isCurrentUserAssigned={isCurrentUserAssigned}
-                            isPast={isPast}
-                            isDateValid={isDateValid}
-                            hasPhases={hasPhases}
-                            isUserOverLimit={isUserOverLimit}
-                            hasFieldRole={hasFieldRole}
-                            isCertified={isCertified}
-                            isSupervisor={isSupervisor}
-                            isCoordinator={isCoordinator}
-                            isAuditor={isAuditor}
-                            onAssign={handleSelfAssign}
-                            onUnassign={onUnassign}
-                            getUserContact={getUserContact}
-                            getEntityName={getEntityName}
-                            maxAssetsPerDay={maxAssetsPerDay}
-                            assignmentMode={assignmentMode}
-                          />
-                        ))}
-                      </div>
-                    </td>
-
-                    <td className="px-8 py-6 align-top text-center">
-                      {(() => {
-                        const canComplete = isAdmin || isCoordinator || (isCurrentUserAssigned && isCertified && isAuditor);
-                        return (
-                          <button 
-                            onClick={() => {
-                              if (audit.status === 'In Progress' || audit.status === 'Completed') {
-                                setUploadAudit(audit);
-                              }
-                            }}
-                            disabled={!canComplete || audit.status === 'Pending'}
-                            className={`inline-flex items-center px-4 py-2 rounded-xl text-[10px] font-black uppercase border tracking-widest transition-all active:scale-95 ${getStatusBadgeStyles(audit.status)} ${!canComplete && 'opacity-50 pointer-events-none'}`}
-                          >
-                            {audit.status}
-                            {canComplete && audit.status !== 'Pending' && <RotateCcw className="w-2 h-2 ml-2 opacity-40" />}
-                          </button>
-                        );
-                      })()}
-                    </td>
-
-                    <td className="px-8 py-6 align-top text-center">
-                        <div className="flex items-center justify-center gap-2">
-                          {audit.reportPath && (
-                            <a
-                              href={audit.reportPath}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="w-8 h-8 flex items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100 hover:text-emerald-700 transition-colors border border-emerald-100 hover:border-emerald-200 shadow-sm"
-                              title="Download/View Uploaded KEW-PA 11 PDF"
-                            >
-                              <ExternalLink className="w-4 h-4" />
-                            </a>
-                          )}
-                          {audit.status === 'Completed' && (
-                              <button
-                                  onClick={() => setReportAudit(audit)}
-                                  className="w-8 h-8 flex items-center justify-center rounded-lg bg-slate-50 text-slate-400 hover:bg-blue-50 hover:text-blue-600 transition-colors border border-slate-100 hover:border-blue-100 shadow-sm"
-                                  title="Generate Formal Completion Report (AI)"
-                              >
-                                  <FileText className="w-4 h-4" />
-                              </button>
-                          )}
-                        </div>
-                    </td>
-                  </tr>
-                );
-              })}
-              {(!displaySchedules || displaySchedules.length === 0) && (
+              {displaySchedules.map(audit => (
+                <AuditTableRow
+                  key={audit.id}
+                  audit={audit}
+                  users={users}
+                  currentUser={currentUser}
+                  allDepartments={allDepartments}
+                  allLocations={allLocations}
+                  buildings={buildings}
+                  schedules={schedules}
+                  todayStr={todayStr}
+                  canEditDates={canEditDates}
+                  canSelfAssignPerm={canSelfAssignPerm}
+                  canAssignOthers={canAssignOthers}
+                  hasPhases={hasPhases}
+                  auditPhases={auditPhases}
+                  maxAssetsPerDay={maxAssetsPerDay}
+                  canSelfAssignSelf={canSelfAssignSelf}
+                  isAdmin={isAdmin}
+                  isCoordinator={isCoordinator}
+                  isSupervisor={isSupervisor}
+                  isAuditor={isAuditor}
+                  hasFieldRole={hasFieldRole}
+                  isCertified={isCertified}
+                  assignmentMode={assignmentMode}
+                  isAuditLocked={isAuditLocked}
+                  isDateInValidPhase={isDateInValidPhase}
+                  getBuildingAbbr={getBuildingAbbr}
+                  getEntityName={getEntityName}
+                  getUserContact={getUserContact}
+                  canAuditDepartment={canAuditDepartment}
+                  getStatusBadgeStyles={getStatusBadgeStyles}
+                  onDateChange={handleDateChange}
+                  onToggleLock={onToggleLock}
+                  onAssign={handleSelfAssign}
+                  onUnassign={onUnassign}
+                  onSetReportAudit={setReportAudit}
+                  onSetUploadAudit={setUploadAudit}
+                />
+              ))}
+              {displaySchedules.length === 0 && (
                 <tr>
                   <td colSpan={6} className="px-8 py-24 text-center">
                     <div className="max-w-xs mx-auto">
-                        <div className="w-20 h-20 bg-slate-50 rounded-[24px] flex items-center justify-center mx-auto mb-6">
-                          <Search className="w-10 h-10 text-slate-200" />
-                        </div>
-                        <h4 className="text-slate-900 font-bold mb-2">No Inspections Found</h4>
-                        <p className="text-xs text-slate-400 font-medium">Try adjusting your filters or search terms.</p>
+                      <div className="w-20 h-20 bg-slate-50 rounded-[24px] flex items-center justify-center mx-auto mb-6">
+                        <Search className="w-10 h-10 text-slate-200" />
+                      </div>
+                      <h4 className="text-slate-900 font-bold mb-2">No Inspections Found</h4>
+                      <p className="text-xs text-slate-400 font-medium">Try adjusting your filters or search terms.</p>
                     </div>
                   </td>
                 </tr>
@@ -902,9 +559,9 @@ export const AuditTable: React.FC<AuditTableProps> = ({
       </div>
 
       {reportAudit && (
-        <AuditReportModal 
-            audit={reportAudit}
-            onClose={() => setReportAudit(null)}
+        <AuditReportModal
+          audit={reportAudit}
+          onClose={() => setReportAudit(null)}
         />
       )}
 
@@ -918,8 +575,6 @@ export const AuditTable: React.FC<AuditTableProps> = ({
           }}
         />
       )}
-
-
     </div>
   );
 };

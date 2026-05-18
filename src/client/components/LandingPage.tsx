@@ -22,7 +22,7 @@ import {
   Loader2
 } from 'lucide-react';
 import { AuditPhase, SystemActivity, UserRole, AppView } from '@shared/types';
-import { BRANDING } from '../constants';
+import { BRAND, BRANDING } from '../constants';
 import { authService } from '../services/auth';
 
 interface LandingPageProps {
@@ -35,6 +35,68 @@ interface LandingPageProps {
   activities?: SystemActivity[];
   topDepartments?: { name: string, compliance: number }[];
 }
+
+const formatDateRange = (startStr: string, endStr: string) => {
+  if (!startStr || !endStr) return '';
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  
+  const parseDate = (str: string) => {
+    const parts = str.split('-');
+    if (parts.length === 3) {
+      const year = parts[0];
+      const monthIndex = parseInt(parts[1], 10) - 1;
+      const day = parseInt(parts[2], 10);
+      return { day, month: months[monthIndex], year };
+    }
+    const d = new Date(str);
+    return { day: d.getDate(), month: months[d.getMonth()], year: d.getFullYear() };
+  };
+
+  try {
+    const s = parseDate(startStr);
+    const e = parseDate(endStr);
+    
+    if (s.month === e.month && s.year === e.year) {
+      return `${s.day} - ${e.day} ${s.month}`;
+    }
+    if (s.year === e.year) {
+      return `${s.day} ${s.month} - ${e.day} ${e.month}`;
+    }
+    return `${s.day} ${s.month} ${String(s.year).slice(-2)} - ${e.day} ${e.month} ${String(e.year).slice(-2)}`;
+  } catch (err) {
+    return `${startStr} to ${endStr}`;
+  }
+};
+
+const formatActivityMessage = (msg: string) => {
+  if (!msg) return '';
+  const uuidRegex = /[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/g;
+  let cleanMsg = msg;
+  
+  if (uuidRegex.test(msg)) {
+    cleanMsg = msg.replace(uuidRegex, '').replace(/:\s*$/, '').trim();
+    if (cleanMsg.endsWith(':')) {
+      cleanMsg = cleanMsg.slice(0, -1).trim();
+    }
+    const upper = cleanMsg.toUpperCase();
+    if (upper.startsWith('UPDATED DEPARTMENT')) {
+      return 'DEPARTMENT COMPLIANCE MATRIX RE-EVALUATED';
+    }
+    if (upper.startsWith('ADDED DEPARTMENT') || upper.startsWith('CREATED DEPARTMENT')) {
+      return 'NEW DEPARTMENT ADDED TO SYSTEM';
+    }
+    if (upper.startsWith('UPDATED LOCATION')) {
+      return 'LOCATION GEOMETRY AND THRESHOLDS SYNCHRONIZED';
+    }
+    if (upper.startsWith('ADDED LOCATION') || upper.startsWith('CREATED LOCATION')) {
+      return 'NEW AUDITING LOCATION CONFIGURED';
+    }
+    if (upper.startsWith('DELETED')) {
+      return `${upper} REGISTER CLEARED`;
+    }
+  }
+  return cleanMsg.toUpperCase();
+};
 
 function DeptComplianceBar({ compliance }: { compliance: number }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -86,6 +148,30 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   useEffect(() => {
     progressRef.current?.style.setProperty('--w', `${complianceProgress ?? 0}%`);
   }, [complianceProgress]);
+
+  const tickerItems = React.useMemo(() => {
+    const items: string[] = [];
+    
+    if (totalAssets !== undefined) {
+      items.push(`📊 PLATFORM METRICS: ${totalAssets.toLocaleString()} TOTAL INSTITUTIONAL ASSETS SECURED`);
+    }
+    if (complianceProgress !== undefined) {
+      items.push(`🎯 COMPLIANCE TARGET: ${complianceProgress}% OVERALL OPERATIONAL INTEGRITY RATE`);
+    }
+    if (totalPhases !== undefined) {
+      items.push(`⏱️ SCHEDULER STATUS: ${totalPhases} ACTIVE COMPLIANCE PHASES ENFORCED`);
+    }
+    items.push(`🔒 SYSTEM STATUS: CONFLICT-OF-INTEREST MATRIX ACTIVE AND VERIFIED`);
+
+    (activities || []).slice(0, 10).forEach(act => {
+      const formatted = formatActivityMessage(act.message);
+      if (formatted) {
+        items.push(`🔔 UPDATE: ${formatted}`);
+      }
+    });
+
+    return items;
+  }, [activities, totalAssets, complianceProgress, totalPhases]);
 
   const handleAuthSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -201,14 +287,19 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       {/* Navigation */}
       <nav className="fixed top-0 left-0 right-0 z-100 bg-white/80 backdrop-blur-md border-b border-slate-200">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-            <div className="h-10 flex items-center justify-center">
-               <img 
-                 src={BRANDING.logoHorizontal} 
-                 alt="Institutional Logo" 
-                 className="h-8 w-auto object-contain" 
-               />
+            <div className="flex items-center gap-3">
+               <div className="h-12 flex items-center justify-center">
+                  <img 
+                    src={BRANDING.logoBrand} 
+                    alt="Brand Logo" 
+                    className="h-10 w-auto object-contain" 
+                  />
+               </div>
+               <div className="flex flex-col">
+                  <span className="text-xl font-black text-slate-900 tracking-tight leading-none">Inspect-<span className="text-blue-600">able</span></span>
+                  <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest mt-0.5">v{import.meta.env.VITE_APP_VERSION || '1.0.0'}</span>
+               </div>
             </div>
-            <span className="text-xl font-black text-slate-900 tracking-tight">Inspect-<span className="text-blue-600">able</span></span>
 
           <div className="flex items-center gap-8">
             <button
@@ -218,8 +309,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               <BookOpen className="w-3 h-3" />
               Knowledge Base
             </button>
-            <div className="hidden lg:block h-6 w-px bg-slate-200"></div>
-            <span className="hidden lg:block text-[10px] font-black uppercase text-slate-400 tracking-widest">v{import.meta.env.VITE_APP_VERSION || '1.0.0'} Institutional Edition</span>
           </div>
         </div>
       </nav>
@@ -241,7 +330,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                           : 'bg-white text-slate-400 border-slate-200'
                       }`}>
                         {active && <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>}
-                        {p.name}
+                        <span>{p.name}</span>
+                        {p.startDate && p.endDate && (
+                          <span className={`ml-1.5 font-black normal-case ${active ? 'text-blue-100' : 'text-slate-400/80'}`}>
+                            ({formatDateRange(p.startDate, p.endDate)})
+                          </span>
+                        )}
                       </div>
                       {i < phases.length - 1 && <div className="w-4 h-px bg-slate-200"></div>}
                     </div>
@@ -269,11 +363,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                   onClick={() => setIsAuthModalOpen(true)}
                   className="group flex items-center justify-center gap-4 px-10 py-5 bg-slate-900 text-white rounded-2xl text-lg font-bold hover:bg-slate-800 transition-all shadow-xl shadow-slate-900/10 active:scale-95"
                 >
-                  Enterprise Login
+                  Official Email Login
                   <ArrowRight className="w-6 h-6 group-hover:translate-x-1 transition-transform" />
                 </button>
                 <p className="text-xs text-slate-400 text-center">
-                  Sign in with your <span className="font-bold text-slate-500">Institutional ID</span>
+                  Sign in with your <span className="font-bold text-slate-500">name@poliku.edu.my</span>
                 </p>
 
               </div>
@@ -361,24 +455,24 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         </div>
 
         {/* Live Activity Ticker (Feature 3) */}
-        {activities.length > 0 && (
+        {tickerItems.length > 0 && (
           <div className="mt-20 py-4 border-y border-slate-200 bg-white/50 backdrop-blur-sm overflow-hidden flex items-center gap-8 group">
             <div className="flex items-center gap-2 px-6 border-r border-slate-200 shrink-0">
               <History className="w-4 h-4 text-blue-600" />
               <span className="text-[10px] font-black uppercase tracking-widest text-slate-900">Activity</span>
             </div>
             <div className="flex gap-12 animate-marquee-slower whitespace-nowrap">
-              {activities.slice(0, 5).map((act, i) => (
+              {tickerItems.map((item, i) => (
                 <div key={i} className="flex items-center gap-3">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{act.message}</span>
+                  <span className="w-1.5 h-1.5 rounded-full bg-blue-600"></span>
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{item}</span>
                 </div>
               ))}
               {/* Duplicate for seamless scroll */}
-              {activities.slice(0, 5).map((act, i) => (
+              {tickerItems.map((item, i) => (
                 <div key={`dup-${i}`} className="flex items-center gap-3">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{act.message}</span>
+                  <span className="w-1.5 h-1.5 rounded-full bg-blue-600"></span>
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{item}</span>
                 </div>
               ))}
             </div>
@@ -422,7 +516,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               <div className="flex justify-between items-center mb-8">
                 <div>
                   <h3 className="text-2xl font-black text-slate-900">
-                    {authMode === 'login' ? 'Enterprise Login' : authMode === 'register' ? 'Staff Registration' : 'Recover Access'}
+                    {authMode === 'login' ? 'Official Email Login' : authMode === 'register' ? 'Staff Registration' : 'Recover Access'}
                   </h3>
                   <p className="text-slate-500 text-sm">
                     {authMode === 'login' ? 'Welcome back, Auditor.' : authMode === 'register' ? 'Request your digital identity.' : 'Notify admin to reset your credentials.'}
@@ -613,11 +707,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       {/* Footer */}
       <footer className="border-t border-slate-200 py-16 bg-white relative z-10">
         <div className="max-w-7xl mx-auto px-6 text-center">
-            <div className="h-8 flex items-center justify-center">
+            <div className="h-16 flex items-center justify-center mb-2">
               <img 
-                src={BRANDING.logoHorizontal} 
+                src={BRANDING.logoInstitution} 
                 alt="Institutional Logo" 
-                className="h-6 w-auto object-contain" 
+                className="h-12 w-auto object-contain" 
               />
             </div>
             <span className="text-sm font-black text-slate-900 tracking-tight">Inspect-<span className="text-blue-600">able</span></span>

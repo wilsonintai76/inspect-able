@@ -65,12 +65,17 @@ export const AuditorAssignmentSlot: React.FC<AuditorAssignmentSlotProps> = ({
   
   const canRemove = isAssigned && (canAssignOthers || (isMe && !isPast));
   
+  const supervisorIds = audit.supervisorId ? audit.supervisorId.split(',').map(id => id.trim()).filter(Boolean) : [];
+  const isUserSupervisor = supervisorIds.includes(currentUser?.id || '');
+
   // Check eligibility: Has field role + Valid Cert + No Conflict
-  const isDisabled = isAssigned || !canSelfAssignSelf || !userCanAudit || isCurrentUserAssigned || isPast || !isDateValid || !hasPhases || isUserOverLimit;
+  const isDisabled = isAssigned || !canSelfAssignSelf || !userCanAudit || isCurrentUserAssigned || isPast || !isDateValid || !hasPhases || isUserOverLimit || isUserSupervisor;
   
   let disableReason = "";
-    if (isAssigned) {
+  if (isAssigned) {
     disableReason = "Slot already occupied";
+  } else if (isUserSupervisor) {
+    disableReason = "Conflict of Interest: You are a designated Site Supervisor for this location and cannot act as its inspector.";
   } else if (isUserOverLimit) {
     disableReason = `Assignment Limit: Adding this inspection exceeds your daily asset limit of ${maxAssetsPerDay} assets.`;
   } else if (!hasFieldRole) {
@@ -131,7 +136,8 @@ export const AuditorAssignmentSlot: React.FC<AuditorAssignmentSlotProps> = ({
       }
 
       // 3. ABSOLUTE LOCK: Supervisor cannot be the Auditor for the same location (Integrity Rule)
-      if (officer.id === audit.supervisorId) return false;
+      const supervisorIds = audit.supervisorId ? audit.supervisorId.split(',').map(id => id.trim()).filter(Boolean) : [];
+      if (supervisorIds.includes(officer.id)) return false;
 
       // 4. Already in this audit?
       if (audit.auditor1Id === officer.id || audit.auditor2Id === officer.id) return false;
@@ -141,7 +147,7 @@ export const AuditorAssignmentSlot: React.FC<AuditorAssignmentSlotProps> = ({
   }, [users, canAssignOthers, audit, getEntityName, isPast, allDepartments]);
 
   return (
-    <div className="min-h-[44px]">
+    <div className="min-h-11">
       {isAssigned ? (
         <div className="flex items-center justify-between w-full bg-blue-50/50 rounded-xl p-2 border border-blue-100 group transition-all">
           <div className="min-w-0 pr-2">
@@ -171,6 +177,7 @@ export const AuditorAssignmentSlot: React.FC<AuditorAssignmentSlotProps> = ({
         <div className="flex flex-col gap-2">
           {canAssignOthers && (
             <select
+              title="Assign Officer"
               className={`w-full px-3 py-2 rounded-xl text-[10px] font-bold border-2 transition-all outline-none ${
                 isPast || !audit.date
                   ? 'bg-slate-50 border-slate-200 text-slate-400 cursor-not-allowed'

@@ -14,6 +14,7 @@ interface LocationModalProps {
   isCoordinator?: boolean;
   isSupervisor?: boolean;
   userDeptId?: string;
+  currentUser?: User;
   buildings: Building[];
 }
 
@@ -28,6 +29,7 @@ export const LocationModal: React.FC<LocationModalProps> = ({
   isCoordinator,
   isSupervisor,
   userDeptId,
+  currentUser,
   buildings,
 }) => {
   const [formData, setFormData] = useState({
@@ -101,10 +103,22 @@ export const LocationModal: React.FC<LocationModalProps> = ({
     return [...base].sort((a, b) => a.name.localeCompare(b.name));
   }, [users, formData.departmentId, searchQuery]);
 
-  const selectedSupervisor = useMemo(() =>
-    users.find(u => u.id === formData.supervisorId),
-    [users, formData.supervisorId]
-  );
+  const selectedSupervisors = useMemo(() => {
+    const ids = formData.supervisorId ? formData.supervisorId.split(',').map(id => id.trim()).filter(Boolean) : [];
+    return ids.map(id => users.find(u => u.id === id)).filter((u): u is User => !!u);
+  }, [users, formData.supervisorId]);
+
+  const handleToggleSupervisor = (userId: string) => {
+    const ids = formData.supervisorId ? formData.supervisorId.split(',').map(id => id.trim()).filter(Boolean) : [];
+    if (ids.includes(userId)) {
+      const updated = ids.filter(id => id !== userId);
+      setFormData({ ...formData, supervisorId: updated.join(',') });
+    } else {
+      if (ids.length >= 2) return;
+      const updated = [...ids, userId];
+      setFormData({ ...formData, supervisorId: updated.join(',') });
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -249,10 +263,47 @@ export const LocationModal: React.FC<LocationModalProps> = ({
             <div className="space-y-1.5 relative">
               <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Supervisor Name (Department Filtered)</label>
               {isSupervisor ? (
-                <div className="w-full pl-11 pr-4 py-3 bg-slate-100 border border-slate-200 rounded-2xl text-sm font-bold text-slate-500 opacity-60 relative">
-                  <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 w-4 h-4" />
-                  {selectedSupervisor ? selectedSupervisor.name : 'Not assigned'}
-                </div>
+                formData.departmentId === currentUser?.departmentId ? (
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1 pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold text-slate-800 relative">
+                      <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 w-4 h-4" />
+                      {selectedSupervisors.length > 0 
+                        ? selectedSupervisors.map(s => s.name).join(' / ') 
+                        : 'Not assigned'}
+                    </div>
+                    {formData.supervisorId?.split(',').includes(currentUser?.id || '') ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const ids = formData.supervisorId ? formData.supervisorId.split(',').filter(id => id !== currentUser?.id) : [];
+                          setFormData({ ...formData, supervisorId: ids.join(','), contact: '' });
+                        }}
+                        className="px-4 py-2.5 bg-rose-50 border border-rose-200 text-rose-600 rounded-2xl text-xs font-black hover:bg-rose-100 transition-colors uppercase tracking-widest active:scale-95 whitespace-nowrap"
+                      >
+                        Unassign Self
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled={formData.supervisorId?.split(',').filter(Boolean).length >= 2}
+                        onClick={() => {
+                          const ids = formData.supervisorId ? formData.supervisorId.split(',').filter(Boolean) : [];
+                          if (ids.length >= 2) return;
+                          ids.push(currentUser?.id || '');
+                          setFormData({ ...formData, supervisorId: ids.join(','), contact: currentUser?.contactNumber || '' });
+                        }}
+                        className="px-4 py-2.5 bg-blue-50 border border-blue-200 text-blue-600 rounded-2xl text-xs font-black hover:bg-blue-100 transition-colors uppercase tracking-widest active:scale-95 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Assign Self
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <div className="w-full pl-11 pr-4 py-3 bg-slate-100 border border-slate-200 rounded-2xl text-sm font-bold text-slate-500 opacity-60 relative">
+                    <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 w-4 h-4" />
+                    {selectedSupervisors.length > 0 ? selectedSupervisors.map(s => s.name).join(' / ') : 'Not assigned'}
+                  </div>
+                )
               ) : (
                 <>
                   <div
@@ -261,10 +312,25 @@ export const LocationModal: React.FC<LocationModalProps> = ({
                   >
                     <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 w-4 h-4" />
                     <div className={`w-full pl-11 pr-10 py-3 bg-slate-50 border rounded-2xl text-sm font-bold transition-all cursor-pointer flex items-center min-h-[48px] ${isSupervisorDropdownOpen ? 'border-blue-500 ring-2 ring-blue-500/20' : 'border-slate-200'}`}>
-                      {selectedSupervisor ? (
-                        <span className="text-slate-900">{selectedSupervisor.name}</span>
+                      {selectedSupervisors.length > 0 ? (
+                        <div className="flex flex-wrap gap-1.5" onClick={e => e.stopPropagation()}>
+                          {selectedSupervisors.map(s => (
+                            <span key={s.id} className="bg-blue-50 border border-blue-200 text-blue-700 px-2 py-0.5 rounded-lg text-xs font-bold flex items-center gap-1">
+                              {s.name}
+                              <span 
+                                className="hover:text-blue-900 cursor-pointer ml-1 text-sm font-black"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleToggleSupervisor(s.id);
+                                }}
+                              >
+                                &times;
+                              </span>
+                            </span>
+                          ))}
+                        </div>
                       ) : (
-                        <span className="text-slate-400 font-medium">Select Supervisor...</span>
+                        <span className="text-slate-400 font-medium">Select Supervisors (Max 2)...</span>
                       )}
                     </div>
                     <ChevronDown className={`absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4 transition-transform duration-200 ${isSupervisorDropdownOpen ? 'rotate-180' : ''}`} />
@@ -287,27 +353,34 @@ export const LocationModal: React.FC<LocationModalProps> = ({
                       </div>
                       <div className="max-h-48 overflow-y-auto">
                         {filteredSupervisors.length > 0 ? (
-                          filteredSupervisors.map(u => (
-                            <button
-                              key={u.id}
-                              type="button"
-                              className="w-full px-4 py-3 text-left hover:bg-blue-50 transition-colors flex items-center justify-between group"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setFormData({ ...formData, supervisorId: u.id, contact: u.contactNumber || '' });
-                                setIsSupervisorDropdownOpen(false);
-                                setSearchQuery('');
-                              }}
-                            >
-                              <div>
-                                <div className="text-sm font-bold text-slate-900 group-hover:text-blue-700">{u.name}</div>
-                                <div className="text-[10px] text-slate-400 font-medium">{u.roles.join(', ')}</div>
-                              </div>
-                              {formData.supervisorId === u.id && (
-                                <div className="w-2 h-2 bg-blue-500 rounded-full shadow-sm shadow-blue-500/50"></div>
-                              )}
-                            </button>
-                          ))
+                          filteredSupervisors.map(u => {
+                            const isSelected = formData.supervisorId?.split(',').includes(u.id);
+                            const count = formData.supervisorId ? formData.supervisorId.split(',').filter(Boolean).length : 0;
+                            const isMaxReached = count >= 2 && !isSelected;
+                            
+                            return (
+                              <button
+                                key={u.id}
+                                type="button"
+                                disabled={isMaxReached}
+                                className="w-full px-4 py-3 text-left hover:bg-blue-50 transition-colors flex items-center justify-between group disabled:opacity-50 disabled:cursor-not-allowed"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleToggleSupervisor(u.id);
+                                }}
+                              >
+                                <div>
+                                  <div className="text-sm font-bold text-slate-900 group-hover:text-blue-700">{u.name}</div>
+                                  <div className="text-[10px] text-slate-400 font-medium">{u.roles.join(', ')}</div>
+                                </div>
+                                {isSelected ? (
+                                  <div className="w-4 h-4 bg-blue-500 text-white rounded-md flex items-center justify-center text-[10px] font-black shadow-sm shrink-0">✓</div>
+                                ) : (
+                                  <div className="w-4 h-4 border border-slate-300 rounded-md shrink-0"></div>
+                                )}
+                              </button>
+                            );
+                          })
                         ) : (
                           <div className="px-4 py-8 text-center bg-white">
                             <UserIcon className="w-8 h-8 text-slate-100 mx-auto mb-2" />

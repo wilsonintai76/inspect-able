@@ -130,10 +130,11 @@ export const auditAssignmentGuard = async (
     }
 
     // Rule 2d: Site Supervisor Conflict (Integrity Rule)
-    if (auditorId === supervisorId) {
+    const supervisorIds = supervisorId ? supervisorId.split(',').map(id => id.trim()).filter(Boolean) : [];
+    if (supervisorIds.includes(auditorId)) {
       return c.json(
         {
-          error: 'Conflict of interest: the selected officer is the site supervisor for this location and cannot act as its inspector',
+          error: 'Conflict of interest: the selected officer is a site supervisor for this location and cannot act as its inspector',
           code: 'SUPERVISOR_CONFLICT_INTERNAL',
         },
         409,

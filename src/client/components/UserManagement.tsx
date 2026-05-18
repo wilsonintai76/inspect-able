@@ -5,9 +5,10 @@ import { User, UserRole, Department } from '@shared/types';
 import { useRBAC } from '../contexts/RBACContext';
 import { IssueCertificateModal } from './IssueCertificateModal';
 import { gateway } from '../services/dataGateway';
-import { Filter, Plus, User as UserIcon, Check, X, Award, Stamp, Pencil, Trash2, Key, ChevronDown } from 'lucide-react';
+import { Filter, Plus, User as UserIcon, Check, X, Award, Stamp, Pencil, Trash2, Key, ChevronDown, Printer } from 'lucide-react';
 import { PageHeader } from './PageHeader';
 import { AuditPhase } from '@shared/types';
+import { printTeamList } from '../lib/printUtils';
 interface UserManagementProps {
   users: User[];
   onAddMember: (user: User) => void;
@@ -43,6 +44,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({
   };
 
   const [selectedStatusFilter, setSelectedStatusFilter] = useState('All');
+  const [selectedRoleFilter, setSelectedRoleFilter] = useState('All');
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [certifyingUser, setCertifyingUser] = useState<User | null>(null);
@@ -90,19 +92,30 @@ export const UserManagement: React.FC<UserManagementProps> = ({
           // 3. Dept Filtering
           if (selectedDeptFilter !== 'All' && u.departmentId !== selectedDeptFilter) return false;
           
-          // 4. Superadmin Privacy (Safety check in UI)
+          // 4. Role Filtering
+          if (selectedRoleFilter !== 'All') {
+            if (!u.roles.includes(selectedRoleFilter as UserRole)) return false;
+          }
+          
+          // 5. Superadmin Privacy (Safety check in UI)
           if (u.email?.toLowerCase() === 'admin@poliku.edu.my' && currentUserId !== u.id && !users.find(curr => curr.id === currentUserId)?.email?.toLowerCase().includes('admin@poliku.edu.my')) {
               return false;
           }
           
           return true;
       });
-  }, [users, selectedDeptFilter, selectedStatusFilter, canViewAll, canViewOwn, currentUserData]);
+  }, [users, selectedDeptFilter, selectedStatusFilter, selectedRoleFilter, canViewAll, canViewOwn, currentUserData]);
 
   const handleVerify = async (user: User) => {
       try {
           await gateway.verifyUser(user.id);
-          onUpdateMember(user.id, { isVerified: true, status: 'Active' });
+          let autoRoles: UserRole[] = ['Staff'];
+          if (user.designation === 'Coordinator') autoRoles = ['Coordinator'];
+          else if (user.designation === 'Supervisor') autoRoles = ['Supervisor'];
+          else if (user.designation === 'Head Of Department') autoRoles = ['Staff'];
+          
+          await gateway.updateUser(user.id, { roles: autoRoles, isVerified: true, status: 'Active' });
+          onUpdateMember(user.id, { roles: autoRoles, isVerified: true, status: 'Active' });
       } catch (e) {
           console.error("Verification failed", e);
           alert("Failed to verify user.");
@@ -113,15 +126,17 @@ export const UserManagement: React.FC<UserManagementProps> = ({
     for (const user of pendingUsers) {
       try {
         await gateway.verifyUser(user.id);
-        onUpdateMember(user.id, { isVerified: true, status: 'Active' });
+        let autoRoles: UserRole[] = ['Staff'];
+        if (user.designation === 'Coordinator') autoRoles = ['Coordinator'];
+        else if (user.designation === 'Supervisor') autoRoles = ['Supervisor'];
+        else if (user.designation === 'Head Of Department') autoRoles = ['Staff'];
+        
+        await gateway.updateUser(user.id, { roles: autoRoles, isVerified: true, status: 'Active' });
+        onUpdateMember(user.id, { roles: autoRoles, isVerified: true, status: 'Active' });
       } catch (e) {
         console.error(`Failed to approve ${user.name}`, e);
       }
     }
-  };
-
-  const setSingleRole = (role: UserRole) => {
-    setFormData(prev => ({ ...prev, roles: [role] }));
   };
 
   const getCertStatus = (expiry?: string) => {
@@ -215,12 +230,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({
     setEditingId(null);
   };
 
-  const getHighestRole = (user: User): UserRole => {
-    if (user.roles.includes('Admin')) return 'Admin';
-    if (user.roles.includes('Coordinator')) return 'Coordinator';
-    if (user.roles.includes('Supervisor')) return 'Supervisor';
-    return 'Staff';
-  };
+
 
   const getRoleBadgeStyle = (role: UserRole) => {
     switch(role) {
@@ -268,23 +278,29 @@ export const UserManagement: React.FC<UserManagementProps> = ({
         <div>
           <h3 className="text-2xl font-black text-slate-900 tracking-tight">Institutional Team</h3>
           <p className="text-slate-500 text-sm mt-1">Manage credentials, certification status, and access levels.</p>
-          <div className="mt-3 flex items-center gap-2 text-[10px] font-bold text-blue-600 bg-blue-50/50 px-3 py-1.5 rounded-xl border border-blue-100/50 w-fit">
-            <Key className="w-3.5 h-3.5" />
-            <span className="uppercase tracking-tight">SSO Enabled: Accounts auto-provisioned via Google Sign-in</span>
-          </div>
         </div>
 
-        {canEditTeam && (
+        <div className="flex items-center gap-3 flex-wrap">
           <button 
-            onClick={() => { resetForm(); setIsFormOpen(true); }}
-            className="group px-8 py-3.5 bg-slate-900 text-white rounded-[20px] text-xs font-black uppercase tracking-widest shadow-2xl shadow-slate-900/10 hover:bg-blue-600 hover:-translate-y-1 transition-all flex items-center gap-3 active:scale-95"
+            onClick={() => printTeamList(filteredUsers, departments, selectedStatusFilter, selectedDeptFilter, selectedRoleFilter)}
+            className="group px-6 py-3.5 bg-white border border-slate-200 text-slate-700 rounded-[20px] text-xs font-black uppercase tracking-widest shadow-sm hover:bg-slate-50 transition-all flex items-center gap-2 active:scale-95"
           >
-            <div className="w-6 h-6 rounded-lg bg-white/10 flex items-center justify-center group-hover:bg-white/20 transition-colors">
-               <Plus className="w-4 h-4" />
-            </div>
-            Add Team Member
+            <Printer className="w-4 h-4 text-slate-500" />
+            Print List (PDF)
           </button>
-        )}
+
+          {canEditTeam && (
+            <button 
+              onClick={() => { resetForm(); setIsFormOpen(true); }}
+              className="group px-8 py-3.5 bg-slate-900 text-white rounded-[20px] text-xs font-black uppercase tracking-widest shadow-2xl shadow-slate-900/10 hover:bg-blue-600 hover:-translate-y-1 transition-all flex items-center gap-3 active:scale-95"
+            >
+              <div className="w-6 h-6 rounded-lg bg-white/10 flex items-center justify-center group-hover:bg-white/20 transition-colors">
+                 <Plus className="w-4 h-4" />
+              </div>
+              Add Team Member
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="flex flex-col lg:flex-row lg:items-center justify-end gap-3">
@@ -306,6 +322,23 @@ export const UserManagement: React.FC<UserManagementProps> = ({
                 <option value="Inactive">Inactive</option>
                 <option value="Pending">Pending Approval</option>
                 <option value="Suspended">Suspended</option>
+              </select>
+              <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 w-3 h-3 pointer-events-none" />
+            </div>
+
+            <div className="relative min-w-45">
+              <select
+                title="Role Filter"
+                className="w-full pl-4 pr-10 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold shadow-sm appearance-none outline-none hover:border-blue-300 transition-colors cursor-pointer"
+                value={selectedRoleFilter}
+                onChange={(e) => setSelectedRoleFilter(e.target.value)}
+              >
+                <option value="All">All Access Roles</option>
+                <option value="Admin">Admin</option>
+                <option value="Coordinator">Coordinator</option>
+                <option value="Supervisor">Supervisor</option>
+                <option value="Auditor">Certified Officer</option>
+                <option value="Staff">Staff</option>
               </select>
               <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 w-3 h-3 pointer-events-none" />
             </div>
@@ -425,10 +458,28 @@ export const UserManagement: React.FC<UserManagementProps> = ({
                       <option value="">Select Dept</option>
                       {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
                     </select>
-                  </div>
-                  <div className="space-y-1">
+                  </div>                   <div className="space-y-1">
                     <label className="text-[10px] font-black uppercase text-slate-400">Designation</label>
-                    <select required title="Designation" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm" value={formData.designation} onChange={e => setFormData({ ...formData, designation: e.target.value })}>
+                    <select 
+                      required 
+                      title="Designation" 
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm" 
+                      value={formData.designation} 
+                      onChange={e => {
+                        const nextDesignation = e.target.value;
+                        let autoRoles: UserRole[] = ['Staff'];
+                        if (nextDesignation === 'Coordinator') autoRoles = ['Coordinator'];
+                        else if (nextDesignation === 'Supervisor') autoRoles = ['Supervisor'];
+                        else if (nextDesignation === 'Head Of Department') autoRoles = ['Staff'];
+                        else if (nextDesignation === 'Staff') autoRoles = ['Staff'];
+
+                        setFormData(prev => ({ 
+                          ...prev, 
+                          designation: nextDesignation,
+                          roles: autoRoles
+                        }));
+                      }}
+                    >
                       <option value="">Select Designation</option>
                       <option value="Head Of Department">Head Of Department</option>
                       <option value="Coordinator">Coordinator</option>
@@ -441,19 +492,37 @@ export const UserManagement: React.FC<UserManagementProps> = ({
                   </div>
                   <div className="space-y-1 md:col-span-2">
                     <label className="text-[10px] font-black uppercase text-slate-400">Administrative Roles (RBAC)</label>
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mt-2">
-                      {(['Admin', 'Coordinator', 'Supervisor', 'Auditor', 'Staff'] as UserRole[]).map((r) => (
-                        <label key={r} className={`flex items-center gap-2 p-3 rounded-xl border transition-all cursor-pointer ${
+                    <div className="flex flex-wrap gap-3 mt-2">
+                      {(['Admin', 'Coordinator', 'Supervisor', 'Staff'] as UserRole[]).map((r) => (
+                        <label key={r} className={`flex items-center gap-2 p-3 rounded-xl border transition-all cursor-pointer whitespace-nowrap ${
                           formData.roles.includes(r) 
                           ? 'bg-blue-50 border-blue-200 text-blue-700 shadow-sm' 
                           : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'
                         }`}>
                           <input 
-                            type="radio" 
-                            name="userRole"
-                            className="w-4 h-4 text-blue-600 focus:ring-blue-500 border-slate-300"
+                            type="checkbox" 
+                            className="w-4 h-4 text-blue-600 focus:ring-blue-500 border-slate-300 rounded"
                             checked={formData.roles.includes(r)}
-                            onChange={() => setSingleRole(r)}
+                            onChange={() => {
+                              setFormData(prev => {
+                                let nextRoles = [...prev.roles];
+                                if (nextRoles.includes(r)) {
+                                  nextRoles = nextRoles.filter(x => x !== r);
+                                } else {
+                                  nextRoles.push(r);
+                                }
+                                if (nextRoles.length === 0) {
+                                  nextRoles = ['Staff'];
+                                } else if (nextRoles.length > 1) {
+                                  if (r === 'Staff') {
+                                    nextRoles = ['Staff'];
+                                  } else {
+                                    nextRoles = nextRoles.filter(x => x !== 'Staff');
+                                  }
+                                }
+                                return { ...prev, roles: nextRoles };
+                              });
+                            }}
                           />
                           <span className="text-xs font-bold">{r}</span>
                         </label>
@@ -501,7 +570,6 @@ export const UserManagement: React.FC<UserManagementProps> = ({
             </thead>
             <tbody className="divide-y divide-slate-50">
               {filteredUsers.map(user => {
-                const highestRole = getHighestRole(user);
                 const cert = getCertStatus(user.certificationExpiry);
                 
                 return (
@@ -513,14 +581,22 @@ export const UserManagement: React.FC<UserManagementProps> = ({
                         </div>
                         <div>
                           <div className="text-sm font-bold text-slate-900">{user.name}</div>
-                          <div className="flex items-center gap-2 mt-1">
-                             <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase border ${getRoleBadgeStyle(highestRole)}`}>
-                               {highestRole}
-                             </span>
+                          <div className="flex items-center gap-1.5 flex-wrap mt-1">
+                             {user.roles.map(r => (
+                               <span key={r} className={`px-2 py-0.5 rounded text-[8px] font-black uppercase border ${getRoleBadgeStyle(r)}`}>
+                                 {r === 'Auditor' ? 'Certified Officer' : r}
+                               </span>
+                             ))}
                              <span className="text-[9px] text-slate-400 font-bold uppercase">{user.designation}</span>
                              <span className="text-[9px] text-slate-400 font-bold uppercase">•</span>
                              <span className="text-[9px] text-slate-400 font-bold uppercase">{departments.find(d => d.id === user.departmentId)?.name || user.departmentId}</span>
                            </div>
+                           {user.contactNumber && (
+                             <div className="flex items-center gap-2 mt-1 text-[9px] text-slate-400 font-bold font-mono">
+                               <span className="uppercase text-slate-300">TEL:</span>
+                               <span className="text-slate-500">{user.contactNumber}</span>
+                             </div>
+                           )}
                         </div>
                       </div>
                     </td>

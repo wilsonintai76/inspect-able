@@ -1,3 +1,4 @@
+import { User, Department } from '@shared/types';
 /**
  * Print Utilities — window.print() popup approach
  * Zero Worker CPU, zero free-tier requests consumed.
@@ -282,8 +283,8 @@ export function printKPIPhasePlan(
     const assets = row.totalAssets || 0;
     const recommended = row.auditorsRequiredOverride ?? (() => {
       if (assets === 0) return 0;
-      const raw = Math.max(Math.ceil(assets / openAuditThreshold), 2);
-      return raw % 2 === 0 ? raw : raw + 1;
+      const raw = Math.ceil(assets / openAuditThreshold);
+      return Math.max(2, raw * 2);
     })();
 
     const status = row.hasNoAssets
@@ -340,7 +341,7 @@ export function printKPIPhasePlan(
     <tr>
       <th>Department</th>
       <th class="center" style="width:70pt;">Certified Officers</th>
-      <th class="center" style="width:70pt;">Required Staffing</th>
+      <th class="center" style="width:70pt;">Required Auditors</th>
       <th style="width:80pt;">Assets / Tier</th>
       ${phaseHeaders}
       <th class="right" style="width:80pt;">Status</th>
@@ -1365,4 +1366,105 @@ export function printStrategicInspectionPlanApproval(
     maxLocationsPerDay
   );
   openPrint('Strategic Audit Plan Approval Memo', html);
+}
+
+export function printTeamList(
+  users: User[],
+  departments: Department[],
+  selectedStatus: string,
+  selectedDept: string,
+  selectedRole: string
+): void {
+  const getDept = (id?: string) => departments.find(d => d.id === id)?.name || id || '—';
+  
+  const statusBadge = (s: string) => {
+    if (s === 'Active') return `<span class="badge badge-green">${s}</span>`;
+    if (s === 'Pending') return `<span class="badge badge-amber">${s}</span>`;
+    return `<span class="badge badge-slate">${s}</span>`;
+  };
+
+  const certStatus = (expiry?: string) => {
+    if (!expiry) return '<span class="badge badge-slate">Uncertified</span>';
+    const expiryDate = new Date(expiry);
+    const today = new Date();
+    if (expiryDate > today) return `<span class="badge badge-green">Certified (Exp: ${expiry})</span>`;
+    return `<span class="badge badge-amber">Expired (${expiry})</span>`;
+  };
+
+  const bodyRows = users.map((u, i) => {
+    const rolesStr = u.roles.map(r => r === 'Auditor' ? 'Certified Officer' : r).join(', ');
+    return `<tr>
+      <td class="center">${i + 1}</td>
+      <td><strong>${u.name}</strong><br><span style="font-size:7.5pt;color:#666;">${u.email}</span></td>
+      <td>${u.designation || '—'}</td>
+      <td>${getDept(u.departmentId)}</td>
+      <td>${rolesStr}</td>
+      <td class="center">${certStatus(u.certificationExpiry)}</td>
+      <td>${u.contactNumber || '—'}</td>
+    </tr>`;
+  }).join('');
+
+  const activeCount = users.filter(u => u.status === 'Active').length;
+  const pendingCount = users.filter(u => u.status === 'Pending').length;
+  const certifiedCount = users.filter(u => u.roles.includes('Auditor')).length;
+
+  const html = `
+<div class="header">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+    <div>
+      <h1>Institutional Team Report</h1>
+      <p class="subtitle">Platform: Inspect-able Asset Audit System</p>
+    </div>
+    <div style="text-align:right;">
+      <div style="font-size:12pt;font-weight:900;color:#2563eb;">POLITEKNIK KUCHING SARAWAK</div>
+      <div style="font-size:8pt;color:#94a3b8;margin-top:2pt;">Asset Audit Platform</div>
+    </div>
+  </div>
+</div>
+
+<div class="stat-row">
+  <div class="stat-box">
+    <div class="stat-label">Total Officers</div>
+    <div class="stat-value">${users.length}</div>
+    <div class="stat-sub">Active in filter</div>
+  </div>
+  <div class="stat-box">
+    <div class="stat-label">Active Duty</div>
+    <div class="stat-value text-green">${activeCount}</div>
+  </div>
+  <div class="stat-box">
+    <div class="stat-label">Pending Approval</div>
+    <div class="stat-value text-amber">${pendingCount}</div>
+  </div>
+  <div class="stat-box">
+    <div class="stat-label">Certified Officers</div>
+    <div class="stat-value text-green">${certifiedCount}</div>
+  </div>
+</div>
+
+<div class="section">
+  <h2>Officer Directory Listing</h2>
+  <table>
+    <thead>
+      <tr>
+        <th style="width:30pt;" class="center">Bil</th>
+        <th>Full Name & Email</th>
+        <th>Designation</th>
+        <th>Department</th>
+        <th>System Roles</th>
+        <th class="center">Certification</th>
+        <th>Contact</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${bodyRows || '<tr><td colspan="7" style="text-align:center;color:#888;">No team members found matching the active filters.</td></tr>'}
+    </tbody>
+  </table>
+</div>
+
+<div class="footer" style="margin-top:18pt;text-align:center;font-size:8pt;color:#94a3b8;border-top:1pt solid #e2e8f0;padding-top:8pt;">
+  Inspect-able &copy; ${new Date().getFullYear()} &nbsp;|&nbsp; Internal Regulatory Document &nbsp;|&nbsp; Page 1 of 1
+</div>`;
+
+  openPrint('Institutional Team Report', html, true);
 }

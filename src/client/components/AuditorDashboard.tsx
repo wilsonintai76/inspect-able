@@ -19,8 +19,11 @@ import {
   ChevronRight,
   MapPin,
   Building2,
-  Trophy
+  Trophy,
+  UploadCloud,
+  ExternalLink
 } from 'lucide-react';
+import { AuditUploadModal } from './AuditUploadModal';
 
 interface AuditorDashboardProps {
   schedules: AuditSchedule[];
@@ -31,6 +34,8 @@ interface AuditorDashboardProps {
   locations: Location[];
   institutionKPIs: InstitutionKPITarget[];
   onRequestRenewal: () => void;
+  onUpdateDate: (id: string, newDate: string) => void;
+  onUpdateAudit: (id: string, updates: Partial<AuditSchedule>) => Promise<void>;
 }
 
 export const AuditorDashboard: React.FC<AuditorDashboardProps> = ({ 
@@ -42,7 +47,11 @@ export const AuditorDashboard: React.FC<AuditorDashboardProps> = ({
   locations,
   institutionKPIs,
   onRequestRenewal,
+  onUpdateDate,
+  onUpdateAudit,
 }) => {
+  const [uploadAudit, setUploadAudit] = React.useState<AuditSchedule | null>(null);
+
   // Filter audits assigned to the current user
   const myAudits = useMemo(() => {
     return schedules.filter(s => 
@@ -216,17 +225,51 @@ export const AuditorDashboard: React.FC<AuditorDashboardProps> = ({
                     </div>
                   </div>
                   
-                  <div className="flex items-center gap-4">
-                    <div className={`px-3 py-1 rounded-full text-[10px] font-black uppercase border ${
-                      audit.status === 'In Progress' 
-                        ? 'bg-amber-50 text-amber-600 border-amber-100' 
-                        : 'bg-slate-50 text-slate-600 border-slate-100'
-                    }`}>
-                      {audit.status}
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 shrink-0">
+                    <div className="flex flex-col gap-1 items-end">
+                      <label className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Tarikh Pemeriksaan</label>
+                      <input
+                        type="date"
+                        value={audit.date || ''}
+                        onChange={(e) => onUpdateDate(audit.id, e.target.value)}
+                        className="px-3 py-1.5 bg-slate-50 border border-slate-200 text-xs font-bold text-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all cursor-pointer"
+                      />
                     </div>
-                    <button title="View details" className="w-10 h-10 rounded-xl bg-slate-100 text-slate-400 hover:bg-blue-600 hover:text-white transition-all flex items-center justify-center">
-                      <ChevronRight className="w-5 h-5" />
-                    </button>
+                    
+                    <div className="flex items-center gap-4">
+                      {audit.status === 'In Progress' && (
+                        <button
+                          onClick={() => setUploadAudit(audit)}
+                          className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white transition-all flex items-center justify-center border border-emerald-100 shadow-sm"
+                          title="Upload KEW-PA 11 PDF to Complete Inspection"
+                        >
+                          <UploadCloud className="w-5 h-5" />
+                        </button>
+                      )}
+
+                      {audit.reportPath && (
+                        <a
+                          href={audit.reportPath}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white transition-all flex items-center justify-center border border-emerald-100 shadow-sm"
+                          title="View Stored KEW-PA 11 PDF"
+                        >
+                          <ExternalLink className="w-4 h-4" />
+                        </a>
+                      )}
+
+                      <div className={`px-3 py-1 rounded-full text-[10px] font-black uppercase border ${
+                        audit.status === 'In Progress' 
+                          ? 'bg-amber-50 text-amber-600 border-amber-100' 
+                          : 'bg-slate-50 text-slate-600 border-slate-100'
+                      }`}>
+                        {audit.status}
+                      </div>
+                      <button title="View details" className="w-10 h-10 rounded-xl bg-slate-100 text-slate-400 hover:bg-blue-600 hover:text-white transition-all flex items-center justify-center">
+                        <ChevronRight className="w-5 h-5" />
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -381,6 +424,16 @@ export const AuditorDashboard: React.FC<AuditorDashboardProps> = ({
           </div>
         </div>
       </div>
+      {uploadAudit && (
+        <AuditUploadModal
+          audit={uploadAudit}
+          locationName={locations.find(l => l.id === uploadAudit.locationId)?.name || uploadAudit.locationId}
+          onClose={() => setUploadAudit(null)}
+          onComplete={async (id, reportPath) => {
+            await onUpdateAudit(id, { status: 'Completed', reportPath });
+          }}
+        />
+      )}
     </div>
   );
 };

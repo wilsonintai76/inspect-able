@@ -2,7 +2,7 @@
 import React from 'react';
 import { UserRole, AppView } from '@shared/types';
 import { useRBAC } from '../contexts/RBACContext';
-import { BRANDING } from '../constants';
+import { BRAND, BRANDING } from '../constants';
 import { 
   ShieldCheck, 
   X, 
@@ -68,14 +68,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const hasPerm = (perm: string) => hasPermission(perm, userRoles);
 
   // Show Auditor Dashboard if user is certified, regardless of role.
-  const showAuditorDashboard = isCertified && isProfileComplete && hasPerm('view:audit:assigned');
+  const showAuditorDashboard = isCertified && hasPerm('view:audit:assigned');
   
-  const canAccessSchedule = (hasPerm('view:schedule:all') || hasPerm('view:schedule:own')) && isProfileComplete;
-  const canAccessLocations = hasPerm('manage:locations') && isProfileComplete;
-  const canAccessTeam = (hasPerm('view:team:all') || hasPerm('view:team:own')) && isProfileComplete;
-  const canAccessDepartments = hasPerm('manage:departments') && isProfileComplete;
+  const canAccessSchedule = hasPerm('view:schedule:all') || hasPerm('view:schedule:own');
+  const canAccessLocations = hasPerm('manage:locations');
+  const canAccessTeam = hasPerm('view:team:all') || hasPerm('view:team:own');
+  const canAccessDepartments = hasPerm('manage:departments');
   const canAccessAdminSettings = hasPerm('manage:system');
-  const showMainDashboard = (isProfileComplete || isAdmin) && hasPerm('view:overview');
+  const showMainDashboard = hasPerm('view:overview');
 
   return (
     <>
@@ -95,14 +95,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <div className="flex items-center gap-3 mb-10 px-2">
             <div className="w-10 h-10 rounded-xl flex items-center justify-center overflow-hidden shrink-0">
               <img 
-                src={BRANDING.logoSquare} 
+                src={BRANDING.logoBrand} 
                 alt="Logo" 
                 className="w-full h-full object-contain" 
               />
             </div>
             <div>
               <h1 className="text-xl font-black tracking-tight text-slate-900 leading-tight">Inspect-<span className="text-blue-600">able</span></h1>
-              <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">v{import.meta.env.VITE_APP_VERSION || '1.0.0'} Institutional Edition</p>
+              <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">v{import.meta.env.VITE_APP_VERSION || '1.0.0'}</p>
             </div>
             <button 
               onClick={onClose}

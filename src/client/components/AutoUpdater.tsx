@@ -5,10 +5,17 @@ import { authService } from '../services/auth';
 const COUNTDOWN_SEC = 30;
 const KIOSK_COUNTDOWN_SEC = 10;
 
-export const AutoUpdater: React.FC = () => {
+interface AutoUpdaterProps {
+  isKioskApp?: boolean;
+}
+
+export const AutoUpdater: React.FC<AutoUpdaterProps> = ({ isKioskApp }) => {
   const [newVersion, setNewVersion] = useState<string | null>(null);
   
-  const isKiosk = typeof window !== 'undefined' && window.location.hostname.startsWith('kiosk.');
+  const isKiosk = isKioskApp !== undefined ? isKioskApp : (typeof window !== 'undefined' && (
+    window.location.hostname.startsWith('kiosk.') ||
+    window.location.pathname.includes('kiosk')
+  ));
   const [countdown, setCountdown] = useState(isKiosk ? KIOSK_COUNTDOWN_SEC : COUNTDOWN_SEC);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 

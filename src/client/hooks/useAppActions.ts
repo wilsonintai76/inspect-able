@@ -68,6 +68,7 @@ interface AppActionsProps {
   setShowForcePasswordModal: React.Dispatch<React.SetStateAction<boolean>>;
   setShowProfileCompleteModal: React.Dispatch<React.SetStateAction<boolean>>;
   loadAllData: () => Promise<void>;
+  loadPublicStats?: () => Promise<void>;
   setConnectionErrorMessage: (msg: string | null) => void;
   departmentsWithAssets: any[];
   auditPhases: AuditPhase[];
@@ -106,7 +107,7 @@ export const useAppActions = (props: AppActionsProps) => {
     setIsGroupSimulatorActive, setSimulatedGroups,
     isProcessing, setIsProcessing,
     certRenewalModalUser, setCertRenewalModalUser, setShowForcePasswordModal, setShowProfileCompleteModal,
-    loadAllData, setConnectionErrorMessage, rbacMatrix, departmentsWithAssets, auditPhases, kpiTiers, kpiTierTargets, maxAssetsPerDay,
+    loadAllData, loadPublicStats, setConnectionErrorMessage, rbacMatrix, departmentsWithAssets, auditPhases, kpiTiers, kpiTierTargets, maxAssetsPerDay,
     setAssignmentMode, setOpenAuditThreshold,
     locationMappings, buildings
   } = props;
@@ -142,21 +143,27 @@ export const useAppActions = (props: AppActionsProps) => {
   }, [currentUser, setActivities]);
 
   const handleLogout = async () => {
-    try { await authService.logout(); } finally { setCurrentUser(null); setViewState('landing'); setIsSidebarOpen(false); }
+    try { 
+      await authService.logout(); 
+    } finally { 
+      setCurrentUser(null); 
+      setViewState('landing'); 
+      setIsSidebarOpen(false); 
+      if (loadPublicStats) {
+        loadPublicStats();
+      }
+    }
   };
 
   const handleLoginSuccess = useCallback(async (userProfile: User) => {
     setCurrentUser(userProfile);
     setViewState('app'); 
     const isAdminUser = (userProfile.roles || []).includes('Admin');
-    if (userProfile.mustChangePIN || userProfile.status === 'Pending') setActiveView('profile');
-    else setActiveView(isAdminUser ? 'overview' : 'auditor-dashboard');
+    setActiveView(isAdminUser ? 'overview' : 'auditor-dashboard');
     localStorage.setItem('audit_pro_session', JSON.stringify(userProfile));
     if (isAdminUser) await gateway.initializeDefaults();
     loadAllData();
-    if (userProfile.mustChangePIN) setShowForcePasswordModal(true);
-    else if (!userProfile.departmentId || !userProfile.contactNumber) setShowProfileCompleteModal(true);
-  }, [setCurrentUser, setViewState, setActiveView, loadAllData, setShowForcePasswordModal, setShowProfileCompleteModal]);
+  }, [setCurrentUser, setViewState, setActiveView, loadAllData]);
 
   const refreshDepartmentTotals = useCallback(async () => {
     try {

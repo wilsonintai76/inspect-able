@@ -77,7 +77,8 @@ export const UserProfile: React.FC<UserProfileProps> = ({ user, departments, onU
       // We use the standard onUpdate but specifically pass the new password
       // The backend will handle the hashing
       await onUpdate(user.id, { 
-        password: passwordData.newPassword 
+        password: passwordData.newPassword,
+        mustChangePIN: false
       } as any);
       
       setPasswordSuccess(true);

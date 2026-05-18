@@ -11,6 +11,7 @@ import { Zap, Sliders, AlertCircle, Eye, Calendar, UserCheck, Users, UserPlus, E
 import { BackupButton } from './BackupButton';
 import { PageHeader } from './PageHeader';
 import { AuditConstraints } from './AuditConstraints';
+import { BrandingSettings } from './BrandingSettings';
 
 interface SystemSettingsProps {
   departments: Department[];
@@ -578,6 +579,8 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
       )}
 
       {isAdmin && <RBACMatrix showToast={showToast} />}
+
+      {isAdmin && <BrandingSettings showToast={showToast} />}
 
       {isAdmin && <BackupButton />}
 

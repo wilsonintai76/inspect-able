@@ -17,9 +17,9 @@ pub.get('/kiosk', async (c) => {
     const [schedulesResult, usersResult, deptsResult, locsResult, phasesResult] = await db.batch([
       db.prepare(`
         SELECT s.id, s.department_id, s.location_id, s.supervisor_id,
-               s.auditor1_id, s.auditor2_id, s.date, s.status, s.phase_id,
+               s.auditor1_id, s.auditor2_id, s.date, s.status, s.phase_id, s.is_locked,
                d.name AS dept_name, d.abbr AS dept_abbr,
-               l.name AS loc_name, l.total_assets,
+               l.name AS loc_name, l.total_assets, l.contact AS loc_contact,
                p.name AS phase_name, p.start_date, p.end_date
         FROM audit_schedules s
         LEFT JOIN departments d ON s.department_id = d.id
@@ -29,7 +29,7 @@ pub.get('/kiosk', async (c) => {
       `),
       db.prepare(`
         SELECT id, name, designation, department_id, roles, status, is_verified,
-               certification_issued, certification_expiry
+               certification_issued, certification_expiry, contact_number
         FROM users
         WHERE status = 'Active' AND is_verified = 1
         ORDER BY name ASC
@@ -40,7 +40,7 @@ pub.get('/kiosk', async (c) => {
     ]);
 
     // Build a lookup map for user names
-    const userMap = new Map<string, { name: string; designation: string | null; departmentId: string | null; roles: string[]; certExpiry: string | null }>();
+    const userMap = new Map<string, { name: string; designation: string | null; departmentId: string | null; roles: string[]; certExpiry: string | null; contactNumber: string | null }>();
     for (const u of (usersResult.results ?? []) as any[]) {
       userMap.set(u.id, {
         name: u.name,
@@ -48,6 +48,7 @@ pub.get('/kiosk', async (c) => {
         departmentId: u.department_id,
         roles: JSON.parse(u.roles || '["Staff"]'),
         certExpiry: u.certification_expiry ?? null,
+        contactNumber: u.contact_number ?? null,
       });
     }
 
@@ -69,16 +70,20 @@ pub.get('/kiosk', async (c) => {
       totalAssets: s.total_assets ?? 0,
       supervisorId: s.supervisor_id,
       supervisorName: s.supervisor_id ? (userMap.get(s.supervisor_id)?.name ?? 'Unknown') : null,
+      supervisorContact: s.supervisor_id ? (userMap.get(s.supervisor_id)?.contactNumber || s.loc_contact || '') : (s.loc_contact || ''),
       auditor1Id: s.auditor1_id,
       auditor1Name: s.auditor1_id ? (userMap.get(s.auditor1_id)?.name ?? 'Unknown') : null,
+      auditor1Contact: s.auditor1_id ? (userMap.get(s.auditor1_id)?.contactNumber || '') : '',
       auditor2Id: s.auditor2_id,
       auditor2Name: s.auditor2_id ? (userMap.get(s.auditor2_id)?.name ?? 'Unknown') : null,
+      auditor2Contact: s.auditor2_id ? (userMap.get(s.auditor2_id)?.contactNumber || '') : '',
       date: s.date,
       status: s.status,
       phaseId: s.phase_id,
       phaseName: s.phase_name ?? '—',
       phaseStart: s.start_date,
       phaseEnd: s.end_date,
+      isLocked: s.is_locked === null ? undefined : (s.is_locked === 1),
     }));
 
     const users = (usersResult.results ?? []).map((u: any) => ({
@@ -89,6 +94,7 @@ pub.get('/kiosk', async (c) => {
       roles: JSON.parse(u.roles || '["Staff"]'),
       certificationExpiry: u.certification_expiry ?? null,
       assetsAssigned: auditorAssets.get(u.id) ?? 0,
+      contactNumber: u.contact_number ?? null,
     }));
 
     const phases = (phasesResult.results ?? []).map((p: any) => ({
@@ -131,13 +137,13 @@ pub.patch('/kiosk/schedules/:id', async (c) => {
 
     // Get the schedule details
     const schedule = await c.env.DB.prepare(
-      `SELECT department_id, date, auditor1_id, auditor2_id FROM audit_schedules WHERE id = ?`
-    ).bind(scheduleId).first<{ department_id: string; date: string | null; auditor1_id: string | null; auditor2_id: string | null }>();
+      `SELECT department_id, date, auditor1_id, auditor2_id, is_locked FROM audit_schedules WHERE id = ?`
+    ).bind(scheduleId).first<{ department_id: string; date: string | null; auditor1_id: string | null; auditor2_id: string | null; is_locked: number | null }>();
 
     if (!schedule) return c.json({ error: 'Schedule not found' }, 404);
 
     // Block kiosk re-assignments (both assign and unassign) if the schedule is already locked
-    const isLocked = !!(schedule.date && schedule.auditor1_id && schedule.auditor2_id);
+    const isLocked = schedule.is_locked === 0 ? false : !!(schedule.is_locked || (schedule.date && schedule.auditor1_id && schedule.auditor2_id));
     if (isLocked) {
       return c.json({ error: 'ACTION BLOCKED: This audit is locked. Re-assignments can only be performed from the main site after unlocking.' }, 403);
     }
@@ -322,10 +328,10 @@ pub.patch('/kiosk/schedules/:id/date', async (c) => {
 
     // Prevent date updates/unlocks from the kiosk if a date is already set
     const existing = await c.env.DB.prepare(
-      'SELECT date, auditor1_id, auditor2_id FROM audit_schedules WHERE id = ?'
-    ).bind(scheduleId).first<{ date: string | null; auditor1_id: string | null; auditor2_id: string | null }>();
+      'SELECT date, auditor1_id, auditor2_id, is_locked FROM audit_schedules WHERE id = ?'
+    ).bind(scheduleId).first<{ date: string | null; auditor1_id: string | null; auditor2_id: string | null; is_locked: number | null }>();
 
-    const isLocked = existing && !!(existing.date && existing.auditor1_id && existing.auditor2_id);
+    const isLocked = existing && (existing.is_locked === 0 ? false : !!(existing.is_locked || (existing.date && existing.auditor1_id && existing.auditor2_id)));
     if (isLocked) {
       return c.json({ error: 'ACTION BLOCKED: This audit is locked. Dates can only be modified or unlocked from the main site after unlocking.' }, 403);
     }
@@ -465,6 +471,22 @@ pub.get('/stats', async (c) => {
       activities: [],
       topDepartments: [],
     });
+  }
+});
+
+pub.get('/branding', async (c) => {
+  try {
+    let brandingVal = await c.env.SETTINGS.get('branding');
+    if (!brandingVal) {
+      const res = await c.env.DB.prepare('SELECT value FROM system_settings WHERE id = ?').bind('branding').first<{ value: string }>();
+      if (res?.value) {
+        brandingVal = res.value;
+      }
+    }
+    const branding = brandingVal ? JSON.parse(brandingVal) : null;
+    return c.json({ branding });
+  } catch (err: any) {
+    return c.json({ branding: null });
   }
 });
 

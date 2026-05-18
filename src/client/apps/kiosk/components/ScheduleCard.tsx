@@ -1,5 +1,5 @@
 import React from 'react';
-import { Calendar, Package, Loader2 } from 'lucide-react';
+import { Calendar, Package, Loader2, Phone } from 'lucide-react';
 import { KioskSchedule, KioskUser, KioskPhase, AssignRole } from './types';
 import { StatusBadge } from './StatusBadge';
 import { UserSearchBox } from './UserSearchBox';
@@ -33,7 +33,7 @@ export const ScheduleCard: React.FC<Props> = ({
 }) => {
   const isSaving = saving === schedule.id;
   const isCompleted = schedule.status === 'Completed';
-  const isLocked = !!(schedule.date && schedule.auditor1Id && schedule.auditor2Id);
+  const isLocked = schedule.isLocked === false ? false : !!(schedule.isLocked || (schedule.date && schedule.auditor1Id && schedule.auditor2Id));
 
   // Get global date boundaries across all phases to allow planned phase overwriting
   const minDate = phases.length > 0
@@ -143,6 +143,7 @@ export const ScheduleCard: React.FC<Props> = ({
       <div className="px-3 sm:px-6 py-3 sm:py-4 space-y-2.5 sm:space-y-3">
         {(['supervisor', 'auditor1', 'auditor2'] as AssignRole[]).map(role => {
           const currentName = schedule[`${role}Name` as keyof KioskSchedule] as string | null;
+          const currentContact = schedule[`${role}Contact` as keyof KioskSchedule] as string | null;
  
           return (
             <div key={role}>
@@ -150,16 +151,24 @@ export const ScheduleCard: React.FC<Props> = ({
                 {ROLE_LABELS[role]}
               </p>
  
-              {isCompleted || isLocked ? (
-                <div className="px-3 py-2 bg-slate-50 rounded-xl">
+              {isCompleted || isLocked || (role === 'supervisor' && currentName) ? (
+                <div className="px-3 py-2 bg-slate-50 rounded-xl flex flex-col gap-0.5">
                   <span className="text-xs font-bold text-slate-600">{currentName ?? '—'}</span>
+                  {currentContact && (
+                    <span className="text-[10px] text-slate-400 font-bold flex items-center gap-1 font-mono">
+                      <Phone className="w-2.5 h-2.5 opacity-60 text-slate-300" />
+                      {currentContact}
+                    </span>
+                  )}
                 </div>
               ) : (
                 <UserSearchBox
                   users={roleUsers(role)}
                   maxAssets={maxAssets}
+                  scheduleAssets={schedule.totalAssets}
                   placeholder={`Search ${ROLE_LABELS[role]}…`}
                   currentName={currentName}
+                  currentContact={currentContact}
                   onSelect={u => onAssign(schedule.id, u.id, role)}
                   onClear={() => onUnassign(schedule.id, role)}
                 />

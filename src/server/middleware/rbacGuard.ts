@@ -38,8 +38,11 @@ export function rbacGuard(permission: RBACPermission, opts?: { requireCert?: boo
     // 3. Cross-audit/COI logic (if relevant)
     if (permission === 'self:assign:internal') {
       // Block if user is supervisor for this location
-      if (opts?.locationSupervisorId && user.id === opts.locationSupervisorId) {
-        return c.json({ error: 'Forbidden: cannot self-assign to location you supervise' }, 403);
+      if (opts?.locationSupervisorId) {
+        const supervisorIds = opts.locationSupervisorId.split(',').map(id => id.trim()).filter(Boolean);
+        if (supervisorIds.includes(user.id)) {
+          return c.json({ error: 'Forbidden: cannot self-assign to location you supervise' }, 403);
+        }
       }
       // Block if location is in user's own department
       if (user.departmentId && c.req.param('departmentId') === user.departmentId) {

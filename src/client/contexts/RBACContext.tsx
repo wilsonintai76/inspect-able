@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { RBACMatrix, UserRole } from '@shared/types';
 import { gateway } from '../services/dataGateway';
+import { BRANDING } from '../constants';
 
 // Source of truth: RBAC_ROLE_MATRIX.md
 export const DEFAULT_RBAC_MATRIX: RBACMatrix = {
@@ -51,6 +52,17 @@ export const RBACProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (!user) return;
 
       const settings = await gateway.getSystemSettings();
+      const brandingSetting = settings.find(s => s.id === 'branding');
+      if (brandingSetting?.value) {
+        const val = brandingSetting.value as any;
+        if (val.logoBrand) {
+          BRANDING.logoBrand = val.logoBrand;
+        } else if (val.logoHorizontal || val.logoSquare) {
+          BRANDING.logoBrand = val.logoHorizontal || val.logoSquare;
+        }
+        if (val.logoInstitution) BRANDING.logoInstitution = val.logoInstitution;
+      }
+
       const rbacSetting = settings.find(s => s.id === 'rbac_matrix');
       if (rbacSetting?.value) {
         const dbMatrix = rbacSetting.value as RBACMatrix;

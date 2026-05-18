@@ -31,7 +31,7 @@ import { useAppData } from './hooks/useAppData';
 import { useAppActions } from './hooks/useAppActions';
 
 // Icons
-import { ShieldCheck } from 'lucide-react';
+import { ShieldCheck, Monitor } from 'lucide-react';
 
 const DEFAULT_DASHBOARD_CONFIG: DashboardConfig = {
   showStats: false,
@@ -44,6 +44,20 @@ const DEFAULT_DASHBOARD_CONFIG: DashboardConfig = {
 const App: React.FC = () => {
   const { rbacMatrix } = useRBAC();
 
+  const [brandingLoaded, setBrandingLoaded] = useState(false);
+  const [showMobileWarning, setShowMobileWarning] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      const isMobile = window.innerWidth < 1024;
+      const dismissed = sessionStorage.getItem('mobile_device_warning_dismissed');
+      setShowMobileWarning(isMobile && !dismissed);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
   // Custom Hooks for State and Actions
   const appData = useAppData();
   const appActions = useAppActions({
@@ -51,6 +65,31 @@ const App: React.FC = () => {
     rbacMatrix,
     loadAllData: appData.loadAllData
   });
+
+  // Load public branding on startup
+  useEffect(() => {
+    const loadPublicBranding = async () => {
+      try {
+        const res = await fetch('/api/public/branding');
+        if (res.ok) {
+          const { branding } = (await res.json()) as any;
+          if (branding) {
+            const { BRANDING } = await import('./constants');
+            if (branding.logoBrand) {
+              BRANDING.logoBrand = branding.logoBrand;
+            } else if (branding.logoHorizontal || branding.logoSquare) {
+              BRANDING.logoBrand = branding.logoHorizontal || branding.logoSquare;
+            }
+            if (branding.logoInstitution) BRANDING.logoInstitution = branding.logoInstitution;
+            setBrandingLoaded(true);
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to fetch public branding settings:', err);
+      }
+    };
+    loadPublicBranding();
+  }, []);
 
   const {
     currentUser, viewState, setViewState, activeView, setActiveView, isInitialLoading,
@@ -104,6 +143,38 @@ const App: React.FC = () => {
   // Initial Data Load
   useEffect(() => { appData.initSession(); }, []);
 
+  // Inactivity Auto-Logout (15 minutes)
+  useEffect(() => {
+    if (!currentUser) return;
+
+    const INACTIVITY_TIMEOUT = 15 * 60 * 1000; // 15 minutes
+    let timeoutId: NodeJS.Timeout;
+
+    const resetTimer = () => {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        handleLogout();
+        alert("You have been logged out due to inactivity to secure your session.");
+      }, INACTIVITY_TIMEOUT);
+    };
+
+    // Events to monitor
+    const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart'];
+    events.forEach(event => {
+      window.addEventListener(event, resetTimer);
+    });
+
+    // Start timer on mount
+    resetTimer();
+
+    return () => {
+      clearTimeout(timeoutId);
+      events.forEach(event => {
+        window.removeEventListener(event, resetTimer);
+      });
+    };
+  }, [currentUser, handleLogout]);
+
   if (isInitialLoading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50">
@@ -126,19 +197,53 @@ const App: React.FC = () => {
     const liveCompliance = liveTotal > 0 ? Math.round((liveCompleted / liveTotal) * 100) : 0;
 
     return (
-      <LandingPage
-        onEnter={async () => {
-          const user = await authService.getCurrentUser();
-          if (user) handleLoginSuccess(user);
-        }}
-        onShowKnowledgeBase={() => appData.setViewState('docs')}
-        totalAssets={hasLiveData ? liveTotalAssets : publicStats?.totalAssets}
-        totalPhases={hasLiveData ? auditPhases.length : publicStats?.totalPhases}
-        complianceProgress={hasLiveData ? liveCompliance : publicStats?.complianceProgress}
-        phases={hasLiveData ? auditPhases : (publicStats?.phases || [])}
-        activities={hasLiveData ? activities : (publicStats?.activities || [])}
-        topDepartments={hasLiveData ? appData.topDepartments : (publicStats?.topDepartments || [])}
-      />
+      <>
+        <LandingPage
+          onEnter={async () => {
+            const user = await authService.getCurrentUser();
+            if (user) handleLoginSuccess(user);
+          }}
+          onShowKnowledgeBase={() => appData.setViewState('docs')}
+          totalAssets={hasLiveData ? liveTotalAssets : publicStats?.totalAssets}
+          totalPhases={hasLiveData ? auditPhases.length : publicStats?.totalPhases}
+          complianceProgress={hasLiveData ? liveCompliance : publicStats?.complianceProgress}
+          phases={hasLiveData ? auditPhases : (publicStats?.phases || [])}
+          activities={hasLiveData ? activities : (publicStats?.activities || [])}
+          topDepartments={hasLiveData ? appData.topDepartments : (publicStats?.topDepartments || [])}
+        />
+        {showMobileWarning && (
+          <div className="fixed bottom-6 left-6 right-6 z-1000 md:left-auto md:right-6 md:w-96 animate-in slide-in-from-bottom duration-500">
+            <div className="bg-white/95 backdrop-blur-md border border-amber-100 rounded-3xl p-6 shadow-2xl shadow-slate-900/10 relative overflow-hidden">
+              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-400 to-orange-500"></div>
+              <div className="flex gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-amber-50 flex items-center justify-center text-amber-600 shrink-0 shadow-inner">
+                  <Monitor className="w-6 h-6" />
+                </div>
+                <div className="grow">
+                  <h4 className="text-sm font-black text-slate-900 mb-1 flex items-center gap-2">
+                    Desktop Recommended
+                    <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+                  </h4>
+                  <p className="text-xs text-slate-500 leading-relaxed mb-4">
+                    For the best experience auditing assets, configuring schedules, and managing departments, we highly recommend accessing Inspect-able from a desktop screen or landscape tablet.
+                  </p>
+                  <div className="flex justify-end gap-3">
+                    <button
+                      onClick={() => {
+                        sessionStorage.setItem('mobile_device_warning_dismissed', 'true');
+                        setShowMobileWarning(false);
+                      }}
+                      className="px-4 py-2 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-slate-800 transition-colors shadow-lg shadow-slate-900/10 active:scale-95"
+                    >
+                      Continue Anyway
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </>
     );
   }
 
@@ -233,6 +338,8 @@ const App: React.FC = () => {
           locations={locations}
           institutionKPIs={institutionKPIs}
           onRequestRenewal={appActions.handleRequestRenewal}
+          onUpdateDate={handleUpdateAuditDate}
+          onUpdateAudit={handleUpdateAudit}
         />
       )}
       {activeView === 'schedule' && (
@@ -312,6 +419,7 @@ const App: React.FC = () => {
           users={users}
           userRoles={currentUser.roles}
           userDeptId={currentUser.departmentId}
+          currentUser={currentUser}
           onAdd={handleAddLoc}
           onBulkAdd={handleBulkAddLocs}
           onUpdate={handleUpdateLoc}
@@ -456,6 +564,38 @@ const App: React.FC = () => {
         showToast={showToast}
         showError={showError}
       />
+      {showMobileWarning && (
+        <div className="fixed bottom-6 left-6 right-6 z-1000 md:left-auto md:right-6 md:w-96 animate-in slide-in-from-bottom duration-500">
+          <div className="bg-white/95 backdrop-blur-md border border-amber-100 rounded-3xl p-6 shadow-2xl shadow-slate-900/10 relative overflow-hidden">
+            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-400 to-orange-500"></div>
+            <div className="flex gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-amber-50 flex items-center justify-center text-amber-600 shrink-0 shadow-inner">
+                <Monitor className="w-6 h-6" />
+              </div>
+              <div className="grow">
+                <h4 className="text-sm font-black text-slate-900 mb-1 flex items-center gap-2">
+                  Desktop Recommended
+                  <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+                </h4>
+                <p className="text-xs text-slate-500 leading-relaxed mb-4">
+                  For the best experience auditing assets, configuring schedules, and managing departments, we highly recommend accessing Inspect-able from a desktop screen or landscape tablet.
+                </p>
+                <div className="flex justify-end gap-3">
+                  <button
+                    onClick={() => {
+                      sessionStorage.setItem('mobile_device_warning_dismissed', 'true');
+                      setShowMobileWarning(false);
+                    }}
+                    className="px-4 py-2 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-slate-800 transition-colors shadow-lg shadow-slate-900/10 active:scale-95"
+                  >
+                    Continue Anyway
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </MainAppLayout>
   );
 };

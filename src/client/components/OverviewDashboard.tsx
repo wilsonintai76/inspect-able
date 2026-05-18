@@ -187,9 +187,8 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
         }
         const assets = d.totalAssets || 0;
         if (assets === 0) return sum + 0;
-        const raw = Math.max(Math.ceil(assets / openAuditThreshold), 2);
-        const pairRounded = raw % 2 === 0 ? raw : raw + 1;
-        return sum + pairRounded;
+        const raw = Math.ceil(assets / openAuditThreshold);
+        return sum + Math.max(2, raw * 2);
       }, 0);
       
       // Name Resolution: Group Record Name > First Dept Name
@@ -226,7 +225,7 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
   }, [phases]);
 
   const inspectionStats = useMemo(() => {
-    const stats: Record<string, { total: number; inspected: number; uninspected: number; progress: number; locations: number }> = {};
+    const stats: Record<string, { total: number; inspected: number; uninspected: number; progress: number; locations: number; notUpdated: number }> = {};
 
     departments.forEach(dept => {
       const deptLocs = locations.filter(l => l.departmentId === dept.id && l.isActive);
@@ -242,12 +241,18 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
       // Use explicit uninspected count if available (>0), otherwise fallback to (total - inspected)
       const finalUninspected = uninspected > 0 ? uninspected : Math.max(0, total - inspected);
 
+      const notUpdated = deptLocs.filter(l => {
+        const s = schedules.find(sched => sched.locationId === l.id);
+        return !s || !s.supervisorId;
+      }).length;
+
       stats[dept.name] = {
         total,
         inspected,
         uninspected: finalUninspected,
         progress: total > 0 ? (inspected / total) * 100 : 0,
-        locations: deptLocs.length
+        locations: deptLocs.length,
+        notUpdated
       };
     });
 
@@ -399,7 +404,7 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {(Object.entries(inspectionStats) as [string, { total: number; inspected: number; uninspected: number; progress: number; locations: number }][]).map(([deptName, stats]) => (
+              {(Object.entries(inspectionStats) as [string, { total: number; inspected: number; uninspected: number; progress: number; locations: number; notUpdated: number }][]).map(([deptName, stats]) => (
                 <tr key={deptName} className="hover:bg-slate-50/50 transition-colors">
                   <td className="py-5 px-8">
                     <span className="text-sm font-bold text-slate-800">{deptName}</span>
@@ -411,7 +416,14 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
                     <span className="text-sm font-bold text-emerald-600">{stats.inspected.toLocaleString()}</span>
                   </td>
                   <td className="py-5 px-6 text-center">
-                    <span className="text-sm font-bold text-slate-700">{stats.locations}</span>
+                    <div className="flex flex-col items-center justify-center">
+                      <span className="text-sm font-bold text-slate-700">{stats.locations}</span>
+                      {stats.notUpdated > 0 && (
+                        <span className="mt-1 px-1.5 py-0.5 bg-amber-50 text-amber-600 border border-amber-200/40 rounded-md text-[9px] font-black tracking-tight leading-none text-center">
+                          {stats.notUpdated} pending sup
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="py-5 px-8">
                     <div className="flex items-center justify-end gap-3">

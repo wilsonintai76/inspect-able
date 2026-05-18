@@ -93,7 +93,7 @@ export const DepartmentManagement: React.FC<DepartmentManagementProps> = ({
           <td><strong>${dept.abbr}</strong><br/><span class="sub">${dept.name}</span></td>
           <td>${headUser ? headUser.name : '<span class="na">Not Assigned</span>'}</td>
           <td class="center">
-            <span style="font-weight:900; color:#4f46e5;">${dept.auditorsRequiredOverride ?? (dept.totalAssets > 0 ? ((_r => _r % 2 === 0 ? _r : _r + 1)(Math.max(2, Math.ceil((dept.totalAssets || 0) / openAuditThreshold)))) : 0)}</span>
+            <span style="font-weight:900; color:#4f46e5;">${dept.auditorsRequiredOverride ?? (dept.totalAssets > 0 ? Math.max(2, Math.ceil((dept.totalAssets || 0) / openAuditThreshold) * 2) : 0)}</span>
           </td>
           <td class="center">${(dept.totalAssets || 0).toLocaleString()}</td>
           <td class="center">${locCount || '—'}</td>
@@ -158,7 +158,7 @@ export const DepartmentManagement: React.FC<DepartmentManagementProps> = ({
       <tr>
         <th>Department</th>
         <th>Head of Department</th>
-        <th class="center">Required Staffing</th>
+        <th class="center">Required Auditors</th>
         <th class="center">Total Assets</th>
         <th class="center">Locations</th>
         <th>Audit Group</th>
@@ -240,7 +240,8 @@ export const DepartmentManagement: React.FC<DepartmentManagementProps> = ({
               <tr>
                 <th className="px-6 py-5 text-[10px] font-black uppercase text-slate-400 tracking-widest">Department</th>
                 <th className="px-6 py-5 text-[10px] font-black uppercase text-slate-400 tracking-widest">Head of Department</th>
-                <th className="px-6 py-5 text-[10px] font-black uppercase text-slate-400 tracking-widest text-center">Required Staffing</th>
+                <th className="px-6 py-5 text-[10px] font-black uppercase text-slate-400 tracking-widest text-center">Certified Officers</th>
+                <th className="px-6 py-5 text-[10px] font-black uppercase text-slate-400 tracking-widest text-center">Required Auditors</th>
                 <th className="px-6 py-5 text-[10px] font-black uppercase text-slate-400 tracking-widest">Total Asset</th>
                 <th className="px-6 py-5 text-[10px] font-black uppercase text-slate-400 tracking-widest text-center">Locations</th>
                 <th className="px-6 py-5 text-[10px] font-black uppercase text-slate-400 tracking-widest">Tier & Group</th>
@@ -279,31 +280,26 @@ export const DepartmentManagement: React.FC<DepartmentManagementProps> = ({
                         )}
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-center">
-                      <div className="flex items-center justify-center gap-3">
-                        <button 
-                          onClick={() => onAddAuditor(dept.id)}
-                          className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white transition-all flex items-center justify-center"
-                          title="View or Add Auditors"
-                        >
-                          <UserPlus className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-center">
-                      <div className="flex flex-col items-center">
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-black text-indigo-600 text-sm">
-                            {dept.auditorsRequiredOverride ?? (() => {
-                               const assets = dept.totalAssets || 0;
-                               if (assets === 0) return 0;
-                               const raw = Math.max(Math.ceil(assets / openAuditThreshold), 2);
-                               return raw % 2 === 0 ? raw : raw + 1;
-                            })()}
-                          </span>
-                        </div>
-                      </div>
-                    </td>
+                     <td className="px-6 py-4 whitespace-nowrap text-center">
+                       <span className="font-bold text-slate-700 text-sm">
+                         {users.filter(u => 
+                           u.departmentId === dept.id && 
+                           u.status === 'Active' && 
+                           u.certificationExpiry && 
+                           u.certificationExpiry >= new Date().toISOString().split('T')[0]
+                         ).length}
+                       </span>
+                     </td>
+                     <td className="px-6 py-4 whitespace-nowrap text-center">
+                       <span className="font-black text-indigo-600 text-sm">
+                         {dept.auditorsRequiredOverride ?? (() => {
+                            const assets = dept.totalAssets || 0;
+                            if (assets === 0) return 0;
+                            const raw = Math.ceil(assets / openAuditThreshold);
+                            return Math.max(2, raw * 2);
+                         })()}
+                       </span>
+                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center gap-2 text-sm text-slate-600 font-bold">
                         <Boxes className="w-4 h-4 opacity-40" />
@@ -352,7 +348,7 @@ export const DepartmentManagement: React.FC<DepartmentManagementProps> = ({
                 );
               })}
               {(!departments || departments.length === 0) && (
-                <tr><td colSpan={5} className="px-6 py-12 text-center text-slate-400"><div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto mb-3"><Layers className="w-6 h-6" /></div>No departments defined.</td></tr>
+                <tr><td colSpan={8} className="px-6 py-12 text-center text-slate-400"><div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto mb-3"><Layers className="w-6 h-6" /></div>No departments defined.</td></tr>
               )}
             </tbody>
           </table>

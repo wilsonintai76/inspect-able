@@ -7,6 +7,7 @@ import { KioskSidebar } from './components/KioskSidebar';
 import { KioskGrid } from './components/KioskGrid';
 import { KioskTabs, KioskTab } from './components/KioskTabs';
 import { KioskAuditorStats } from './components/KioskAuditorStats';
+import { AutoUpdater } from '../../components/AutoUpdater';
 
 export const KioskApp: React.FC = () => {
   // ── PWA Installation state ──────────────────────────────────────────────
@@ -60,6 +61,11 @@ export const KioskApp: React.FC = () => {
   useEffect(() => { 
     load(); 
 
+    // Keep the kiosk auto-synced with main site location changes (poll every 10 seconds)
+    const intervalId = setInterval(() => {
+      load();
+    }, 10000);
+
     // Detect if iOS device
     const userAgent = window.navigator.userAgent.toLowerCase();
     setIsIOS(/iphone|ipad|ipod/.test(userAgent));
@@ -77,7 +83,46 @@ export const KioskApp: React.FC = () => {
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     return () => {
+      clearInterval(intervalId);
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    };
+  }, []);
+
+  // Inactivity Auto-Reset (2 minutes)
+  useEffect(() => {
+    const RESET_TIMEOUT = 2 * 60 * 1000; // 2 minutes
+    let timeoutId: NodeJS.Timeout;
+
+    const resetUI = () => {
+      setSearch('');
+      setPhaseFilter('');
+      setStatusFilter('');
+      setDepartmentFilter('');
+      setLocationFilter('');
+      setActiveTab('schedule');
+    };
+
+    const resetTimer = () => {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        resetUI();
+      }, RESET_TIMEOUT);
+    };
+
+    // Events to monitor
+    const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart'];
+    events.forEach(event => {
+      window.addEventListener(event, resetTimer);
+    });
+
+    // Start timer on mount
+    resetTimer();
+
+    return () => {
+      clearTimeout(timeoutId);
+      events.forEach(event => {
+        window.removeEventListener(event, resetTimer);
+      });
     };
   }, []);
 
@@ -97,6 +142,16 @@ export const KioskApp: React.FC = () => {
       auditor1: 'Auditor 1',
       auditor2: 'Auditor 2',
     };
+
+    if (role === 'supervisor') {
+      const userObj = users.find(u => u.id === userId);
+      const userName = userObj?.name || 'Officer';
+      const confirmed = window.confirm(
+        `Are you sure you want to assign ${userName} as the Supervisor for this location?\n\nOnce confirmed, the supervisor assignment will be permanently saved and locked in the schedule card.`
+      );
+      if (!confirmed) return;
+    }
+
     setSaving(scheduleId);
     try {
       const res = await fetch(`/api/public/kiosk/schedules/${scheduleId}`, {
@@ -118,7 +173,14 @@ export const KioskApp: React.FC = () => {
 
       setSchedules(prev => prev.map(s => {
         if (s.id !== scheduleId) return s;
-        const updated = { ...s, [`${role}Id`]: userId, [`${role}Name`]: user?.name ?? '' };
+        const updated = { 
+          ...s, 
+          [`${role}Id`]: userId, 
+          [`${role}Name`]: user?.name ?? '',
+          [`${role}Contact`]: role === 'supervisor' 
+            ? (user?.contactNumber || s.supervisorContact || '')
+            : (user?.contactNumber ?? '')
+        };
         const hasAll = updated.date && updated.supervisorId && updated.auditor1Id && updated.auditor2Id;
         if (hasAll && updated.status === 'Pending') {
           updated.status = 'In Progress';
@@ -155,7 +217,12 @@ export const KioskApp: React.FC = () => {
       showToast(`Removed assignment for ${roleLabels[role]}.`, 'info');
 
       setSchedules(prev => prev.map(s =>
-        s.id !== scheduleId ? s : { ...s, [`${role}Id`]: null, [`${role}Name`]: null },
+        s.id !== scheduleId ? s : { 
+          ...s, 
+          [`${role}Id`]: null, 
+          [`${role}Name`]: null,
+          [`${role}Contact`]: role === 'supervisor' ? s.supervisorContact : null
+        },
       ));
     } catch (err) {
       showToast('A connection error occurred. Please try again.', 'error');
@@ -285,7 +352,13 @@ export const KioskApp: React.FC = () => {
     });
 
     return {
-      totalAssets: schedules.reduce((sum, s) => sum + s.totalAssets, 0),
+      totalAssets: (() => {
+        const uniqueLocationAssets = new Map<string, number>();
+        schedules.forEach(s => {
+          uniqueLocationAssets.set(s.locationId, s.totalAssets);
+        });
+        return Array.from(uniqueLocationAssets.values()).reduce((sum, val) => sum + val, 0);
+      })(),
       totalSlots: schedules.length,
       assigned: assignedAuditorsSet.size,
       totalAuditors: certifiedAuditors.length,
@@ -461,6 +534,7 @@ export const KioskApp: React.FC = () => {
           );
         })}
       </div>
+      <AutoUpdater isKioskApp={true} />
     </div>
   );
 };

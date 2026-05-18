@@ -35,7 +35,7 @@ export const IssueCertificateModal: React.FC<IssueCertificateModalProps> = ({ us
           <div className="relative z-10 text-center">
             <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 overflow-hidden">
               <img 
-                src={BRANDING.logoSquare} 
+                src={BRANDING.logoBrand} 
                 alt="Logo" 
                 className="w-full h-full object-contain" 
               />

@@ -265,6 +265,7 @@ const auditSchema = z.object({
   auditor2Id: z.string().nullable(),
   phaseId: z.string().nullable(),
   reportPath: z.string().nullable().optional(),
+  isLocked: z.boolean().nullable().optional(),
 });
 
 const patchAuditSchema = z.object({
@@ -277,6 +278,7 @@ const patchAuditSchema = z.object({
   auditor2Id: z.string().nullable().optional(),
   phaseId: z.string().nullable().optional(),
   reportPath: z.string().nullable().optional(),
+  isLocked: z.boolean().nullable().optional(),
 });
 
 const userSchema = z.object({
@@ -314,7 +316,7 @@ const patchUserSchema = z.object({
 db.get('/audits', async (c) => {
   try {
     const { results } = await c.env.DB.prepare(
-      'SELECT id, department_id, location_id, supervisor_id, auditor1_id, auditor2_id, date, status, phase_id, report_path FROM audit_schedules'
+      'SELECT id, department_id, location_id, supervisor_id, auditor1_id, auditor2_id, date, status, phase_id, report_path, is_locked FROM audit_schedules'
     ).all();
     
     return c.json((results || []).map((a: any) => ({
@@ -327,7 +329,8 @@ db.get('/audits', async (c) => {
       date: a.date,
       status: a.status,
       phaseId: a.phase_id,
-      reportPath: a.report_path
+      reportPath: a.report_path,
+      isLocked: a.is_locked === null ? undefined : (a.is_locked === 1)
     })));
   } catch (err: any) {
     return c.json({ error: err.message }, 500);
@@ -351,8 +354,8 @@ db.post('/audits', zValidator('json', auditSchema), rbacGuard('assign:others'), 
   try {
     await c.env.DB.prepare(
       `INSERT INTO audit_schedules 
-       (id, department_id, location_id, supervisor_id, auditor1_id, auditor2_id, date, status, phase_id, report_path) 
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+       (id, department_id, location_id, supervisor_id, auditor1_id, auditor2_id, date, status, phase_id, report_path, is_locked) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     ).bind(
       id,
       audit.departmentId ?? null,
@@ -363,7 +366,8 @@ db.post('/audits', zValidator('json', auditSchema), rbacGuard('assign:others'), 
       audit.date ?? null,
       audit.status ?? 'Scheduled',
       phaseId ?? null,
-      audit.reportPath ?? null
+      audit.reportPath ?? null,
+      audit.isLocked === undefined || audit.isLocked === null ? null : (audit.isLocked ? 1 : 0)
     ).run();
 
     return c.json({
@@ -420,6 +424,10 @@ db.patch('/audits/:id', zValidator('json', patchAuditSchema), patchAuditPermissi
   if (updates.auditor2Id !== undefined) { fields.push('auditor2_id = ?'); values.push(updates.auditor2Id); }
   if (updates.phaseId !== undefined) { fields.push('phase_id = ?'); values.push(updates.phaseId); }
   if (updates.reportPath !== undefined) { fields.push('report_path = ?'); values.push(updates.reportPath); }
+  if (updates.isLocked !== undefined) {
+    fields.push('is_locked = ?');
+    values.push(updates.isLocked === null ? null : (updates.isLocked ? 1 : 0));
+  }
 
   if (fields.length === 0) return c.json({ success: true });
 
@@ -1002,6 +1010,9 @@ db.patch('/locations/:id', rbacGuard('manage:locations'), async (c) => {
 
   try {
     await c.env.DB.prepare(`UPDATE locations SET ${fields.join(', ')} WHERE id = ?`).bind(...values, id).run();
+    if (updates.supervisorId !== undefined) {
+      await c.env.DB.prepare('UPDATE audit_schedules SET supervisor_id = ? WHERE location_id = ?').bind(updates.supervisorId || null, id).run();
+    }
     return c.json({ success: true });
   } catch (err: any) {
     return c.json({ error: err.message }, 500);

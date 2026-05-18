@@ -23,7 +23,7 @@ import { awaitSessionRegistered } from '../services/honoClient';
 import { ToastMessage } from '../components/Toast';
 import { authService } from '../services/auth';
 import { CrossAuditPermission, AssignmentMode } from '@shared/types';
-import { SOFTWARE_DEV_DEPT_NAME } from '../constants';
+import { SOFTWARE_DEV_DEPT_NAME, BRANDING } from '../constants';
 
 export const useAppData = () => {
   const [viewState, setViewState] = useState<'landing' | 'app' | 'docs' | 'kiosk'>(() => {
@@ -123,9 +123,18 @@ export const useAppData = () => {
       setBuildings(buildingsData); setCrossAuditPermissions(permsData);
       
       try { setLocationMappings(await gateway.getLocationMappings()); } catch (e) { console.warn(e); }
-
       try {
         const settings = await gateway.getSystemSettings();
+        const branding = settings.find(s => s.id === 'branding')?.value as any;
+        if (branding) {
+          if (branding.logoBrand) {
+            BRANDING.logoBrand = branding.logoBrand;
+          } else if (branding.logoHorizontal || branding.logoSquare) {
+            BRANDING.logoBrand = branding.logoHorizontal || branding.logoSquare;
+          }
+          if (branding.logoInstitution) BRANDING.logoInstitution = branding.logoInstitution;
+        }
+
         const constraints = settings.find(s => s.id === 'audit_constraints')?.value;
         if (constraints) {
           if (constraints.maxAssetsPerDay) setMaxAssetsPerDay(constraints.maxAssetsPerDay);
@@ -233,8 +242,29 @@ export const useAppData = () => {
       .slice(0, 5);
   }, [departmentsWithAssets, schedules]);
 
+  const enrichedCurrentUser = useMemo(() => {
+    if (!currentUser) return null;
+    const today = new Date().toISOString().split('T')[0];
+    const isCertified = currentUser.status === 'Active' && currentUser.certificationExpiry && currentUser.certificationExpiry >= today;
+    if (isCertified && !currentUser.roles.includes('Auditor')) {
+      return { ...currentUser, roles: [...currentUser.roles, 'Auditor'] };
+    }
+    return currentUser;
+  }, [currentUser]);
+
+  const enrichedUsers = useMemo(() => {
+    const today = new Date().toISOString().split('T')[0];
+    return users.map(u => {
+      const isCertified = u.status === 'Active' && u.certificationExpiry && u.certificationExpiry >= today;
+      if (isCertified && !u.roles.includes('Auditor')) {
+        return { ...u, roles: [...u.roles, 'Auditor'] };
+      }
+      return u;
+    });
+  }, [users]);
+
   return {
-    viewState, setViewState, activeView, setActiveView, currentUser, setCurrentUser,
+    viewState, setViewState, activeView, setActiveView, currentUser: enrichedCurrentUser, setCurrentUser,
     isInitialLoading, setIsInitialLoading, connectionErrorMessage, setConnectionErrorMessage,
     showForcePasswordModal, setShowForcePasswordModal, showProfileCompleteModal, setShowProfileCompleteModal,
     certRenewalModalUser, setCertRenewalModalUser, schedules, setSchedules,
@@ -243,7 +273,7 @@ export const useAppData = () => {
     standaloneThresholdAssets, setStandaloneThresholdAssets,
     groupingMargin, setGroupingMargin,
     pairingLocked, setPairingLocked, pairingLockInfo, setPairingLockInfo,
-    users, setUsers, departments, setDepartments, locations, setLocations,
+    users: enrichedUsers, setUsers, departments, setDepartments, locations, setLocations,
     auditPhases, setAuditPhases, kpiTiers, setKpiTiers, kpiTierTargets, setKpiTierTargets,
     institutionKPIs, setInstitutionKPIs, departmentMappings, setDepartmentMappings,
     locationMappings, setLocationMappings,

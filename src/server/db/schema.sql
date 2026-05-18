@@ -137,6 +137,7 @@ CREATE TABLE IF NOT EXISTS audit_schedules (
   status TEXT DEFAULT 'Pending', -- Pending, In Progress, Completed
   phase_id TEXT NOT NULL,
   report_path TEXT,
+  is_locked INTEGER DEFAULT NULL,
   created_at TEXT DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (department_id) REFERENCES departments(id),
   FOREIGN KEY (location_id) REFERENCES locations(id),

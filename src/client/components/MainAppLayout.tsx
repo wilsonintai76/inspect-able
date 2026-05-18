@@ -99,6 +99,31 @@ export const MainAppLayout: React.FC<MainAppLayoutProps> = ({
                 <span className="font-medium text-sm">{connectionErrorMessage}</span>
               </div>
             )}
+
+            {(!checkProfileComplete(currentUser) || currentUser.mustChangePIN) && (
+              <div className="mb-6 bg-amber-500/10 border border-amber-500/20 text-amber-800 px-6 py-4 rounded-2xl flex flex-wrap items-center justify-between gap-4 backdrop-blur-sm animate-in fade-in slide-in-from-top-2 shadow-sm">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-amber-500/20 flex items-center justify-center text-amber-700 shrink-0">
+                    <AlertCircle className="w-5 h-5 animate-pulse" />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-sm text-slate-800">Complete Secure Access Setup</h4>
+                    <p className="text-xs text-slate-600 mt-0.5">
+                      {currentUser.mustChangePIN 
+                        ? "You are using a temporary password. Please set your secure password and complete your profile."
+                        : "Some important profile details (Department or Contact Number) are currently missing."}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => handleViewChange('profile')}
+                  className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-xl shadow-md shadow-amber-200 active:scale-95 transition-all cursor-pointer"
+                >
+                  Configure Profile & Password
+                </button>
+              </div>
+            )}
+
             {children}
           </main>
 

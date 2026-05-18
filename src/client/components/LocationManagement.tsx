@@ -11,6 +11,7 @@ interface LocationManagementProps {
   users: User[];
   userRoles: UserRole[];
   userDeptId?: string;
+  currentUser?: User;
   onAdd: (loc: Omit<Location, 'id'>) => void;
   onUpdate: (id: string, loc: Partial<Location>) => void;
   onDelete: (id: string) => void;
@@ -20,7 +21,7 @@ interface LocationManagementProps {
 }
 
 export const LocationManagement: React.FC<LocationManagementProps> = ({ 
-  locations, departments, users, userRoles, userDeptId, onAdd, onUpdate, onDelete, phases = [], buildings, schedules
+  locations, departments, users, userRoles, userDeptId, currentUser, onAdd, onUpdate, onDelete, phases = [], buildings, schedules
 }) => {
   const { rbacMatrix } = useRBAC();
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -185,9 +186,10 @@ export const LocationManagement: React.FC<LocationManagementProps> = ({
       {/* FILTERS BAR */}
       <div className="flex flex-col sm:flex-row items-center gap-3 bg-white p-2 rounded-[24px] border border-slate-100 shadow-sm sm:w-fit">
         {isAdmin && (
-          <div className="relative min-w-[180px] w-full sm:w-auto">
+          <div className="relative min-w-45 w-full sm:w-auto">
             <Network className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-3.5 h-3.5" />
             <select
+              title="Filter by Department"
               className="w-full pl-10 pr-8 py-2 bg-slate-50/50 border border-slate-100 rounded-xl text-xs font-bold focus:ring-2 focus:ring-blue-500/10 outline-none transition-all appearance-none cursor-pointer hover:bg-white"
               value={selectedDeptFilter}
               onChange={(e) => {
@@ -205,9 +207,10 @@ export const LocationManagement: React.FC<LocationManagementProps> = ({
           </div>
         )}
 
-        <div className="relative min-w-[140px] w-full sm:w-auto">
+        <div className="relative min-w-35 w-full sm:w-auto">
           <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-3.5 h-3.5" />
           <select
+            title="Filter by Building/Block"
             className="w-full pl-10 pr-8 py-2 bg-slate-50/50 border border-slate-100 rounded-xl text-xs font-bold focus:ring-2 focus:ring-blue-500/10 outline-none transition-all appearance-none cursor-pointer hover:bg-white"
             value={selectedBlockFilter}
             onChange={(e) => {
@@ -227,9 +230,10 @@ export const LocationManagement: React.FC<LocationManagementProps> = ({
           <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 w-3 h-3 pointer-events-none" />
         </div>
 
-        <div className="relative min-w-[140px] w-full sm:w-auto">
+        <div className="relative min-w-35 w-full sm:w-auto">
           <Layers className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-3.5 h-3.5" />
           <select
+            title="Filter by Level"
             className="w-full pl-10 pr-8 py-2 bg-slate-50/50 border border-slate-100 rounded-xl text-xs font-bold focus:ring-2 focus:ring-blue-500/10 outline-none transition-all appearance-none cursor-pointer hover:bg-white"
             value={selectedLevelFilter}
             onChange={(e) => setSelectedLevelFilter(e.target.value)}
@@ -245,14 +249,14 @@ export const LocationManagement: React.FC<LocationManagementProps> = ({
 
       <div className="bg-white rounded-[32px] border border-slate-200 shadow-sm overflow-hidden">
         <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-200">
-          <table className="w-full text-left min-w-[800px]">
+          <table className="w-full text-left min-w-200">
             <thead className="bg-slate-50/50 border-b border-slate-100">
               <tr>
                 <th className="px-6 py-5 text-[10px] font-black uppercase text-slate-400 tracking-widest text-left">Location Details</th>
-                <th className="px-6 py-5 text-[10px] font-black uppercase text-slate-400 tracking-widest text-left w-[220px]">Supervisor Name / Contact</th>
-                <th className="px-6 py-5 text-[10px] font-black uppercase text-slate-400 tracking-widest text-center w-[120px]">Total Assets</th>
-                <th className="px-6 py-5 text-[10px] font-black uppercase text-slate-400 tracking-widest text-center w-[120px]">Uninspected</th>
-                <th className="px-6 py-5 text-[10px] font-black uppercase text-slate-400 tracking-widest text-left w-[100px]">Actions</th>
+                <th className="px-6 py-5 text-[10px] font-black uppercase text-slate-400 tracking-widest text-left w-55">Supervisor Name / Contact</th>
+                <th className="px-6 py-5 text-[10px] font-black uppercase text-slate-400 tracking-widest text-center w-30">Total Assets</th>
+                <th className="px-6 py-5 text-[10px] font-black uppercase text-slate-400 tracking-widest text-center w-30">Uninspected</th>
+                <th className="px-6 py-5 text-[10px] font-black uppercase text-slate-400 tracking-widest text-left w-25">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
@@ -300,23 +304,33 @@ export const LocationManagement: React.FC<LocationManagementProps> = ({
                       </div>
                     </td>
                     <td className="px-6 py-4 align-middle">
-                      <div className="flex flex-col gap-1">
-                        {loc.supervisorId ? (
-                            <div className="text-xs font-bold text-slate-700 flex items-center gap-2">
-                                <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 border border-slate-200">
-                                    <UserIcon className="w-3 h-3" />
+                      <div className="flex flex-col gap-2">
+                        {(() => {
+                          const supervisorIds = loc.supervisorId ? loc.supervisorId.split(',').map(id => id.trim()).filter(Boolean) : [];
+                          if (supervisorIds.length === 0) {
+                            return <span className="text-[10px] text-slate-400 italic">Unassigned</span>;
+                          }
+                          return supervisorIds.map(supId => {
+                            const supervisor = users.find(u => u.id === supId);
+                            const contact = supervisor?.contactNumber || loc.contact || '';
+                            return (
+                              <div key={supId} className="flex flex-col gap-0.5 border-l-2 border-slate-200 pl-2">
+                                <div className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                                  <div className="w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 border border-slate-200 shrink-0">
+                                    <UserIcon className="w-2.5 h-2.5" />
+                                  </div>
+                                  <span className="truncate max-w-37.5">{supervisor?.name || supId}</span>
                                 </div>
-                                {users.find(u => u.id === loc.supervisorId)?.name || loc.supervisorId}
-                            </div>
-                        ) : (
-                            <span className="text-[10px] text-slate-400 italic">Unassigned</span>
-                        )}
-                        {loc.contact && (
-                            <div className="text-[10px] text-slate-500 font-medium pl-8 flex items-center gap-1.5">
-                                <Phone className="w-3 h-3 opacity-70" />
-                                {loc.contact}
-                            </div>
-                        )}
+                                {contact && (
+                                  <div className="text-[9px] text-slate-500 font-medium pl-6 flex items-center gap-1">
+                                    <Phone className="w-2.5 h-2.5 opacity-70" />
+                                    {contact}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          });
+                        })()}
                       </div>
                     </td>
                     <td className="px-6 py-4 text-center align-middle">
@@ -399,6 +413,7 @@ export const LocationManagement: React.FC<LocationManagementProps> = ({
         isCoordinator={isCoordinator && canManage}
         isSupervisor={isSupervisor && !isAdmin && !isCoordinator && canManage}
         userDeptId={userDeptId}
+        currentUser={currentUser}
         buildings={buildings}
       />
     </div>
