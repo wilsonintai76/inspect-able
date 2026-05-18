@@ -23,34 +23,43 @@ interface AdminDashboardProps {
   onApproveArchive: (locationId: string) => void;
   onRejectArchive: (locationId: string) => void;
   onApproveCert: (user: User) => void;
+  /** When set, scopes all data to this department (Coordinator view) */
+  coordinatorDeptId?: string;
 }
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   users, locations, schedules, activities, departments, buildings, phases,
-  onApproveArchive, onRejectArchive, onApproveCert
+  onApproveArchive, onRejectArchive, onApproveCert, coordinatorDeptId
 }) => {
+  const isDeptScoped = !!coordinatorDeptId;
+
+  // Scope all data to coordinator's department when coordinatorDeptId is set
+  const scopedLocations  = isDeptScoped ? locations.filter(l => l.departmentId === coordinatorDeptId)  : locations;
+  const scopedSchedules  = isDeptScoped ? schedules.filter(s => s.departmentId === coordinatorDeptId)  : schedules;
+  const scopedUsers      = isDeptScoped ? users.filter(u => u.departmentId === coordinatorDeptId)       : users;
+
   // 1. Pending Location Deletions
   const pendingDeletions = useMemo(() => 
-    locations.filter(l => l.status === 'Pending_Delete'),
-    [locations]
+    scopedLocations.filter(l => l.status === 'Pending_Delete'),
+    [scopedLocations]
   );
 
   // 2. Audit Gaps
   const auditGaps = useMemo(() => {
-    const missingDate = schedules.filter(s => !s.date);
-    const missingAuditors = schedules.filter(s => !s.auditor1Id && !s.auditor2Id);
+    const missingDate = scopedSchedules.filter(s => !s.date);
+    const missingAuditors = scopedSchedules.filter(s => !s.auditor1Id && !s.auditor2Id);
     
     return {
       date: missingDate,
       auditors: missingAuditors,
       total: Array.from(new Set([...missingDate.map(s => s.id), ...missingAuditors.map(s => s.id)])).length
     };
-  }, [schedules]);
+  }, [scopedSchedules]);
 
   // 3. User Onboarding Compliance
   const incompleteUsers = useMemo(() => 
-    users.filter(u => !u.departmentId || !u.designation || !u.contactNumber || u.status === 'Pending'),
-    [users]
+    scopedUsers.filter(u => !u.departmentId || !u.designation || !u.contactNumber || u.status === 'Pending'),
+    [scopedUsers]
   );
 
   // 4. Certification Watch
@@ -59,20 +68,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     const thirtyDaysOut = new Date();
     thirtyDaysOut.setDate(now.getDate() + 30);
 
-    const expired = users.filter(u => u.certificationExpiry && new Date(u.certificationExpiry) < now);
-    const expiringSoon = users.filter(u => 
+    const expired = scopedUsers.filter(u => u.certificationExpiry && new Date(u.certificationExpiry) < now);
+    const expiringSoon = scopedUsers.filter(u => 
       u.certificationExpiry && 
       new Date(u.certificationExpiry) >= now && 
       new Date(u.certificationExpiry) <= thirtyDaysOut
     );
 
     return { expired, expiringSoon };
-  }, [users]);
+  }, [scopedUsers]);
 
   // 5. Certificate Renewal Requests
   const renewalRequests = useMemo(() =>
-    users.filter(u => u.renewalRequested),
-    [users]
+    scopedUsers.filter(u => u.renewalRequested),
+    [scopedUsers]
   );
 
   // Utility to get building abbreviation
@@ -84,8 +93,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
       <PageHeader
-        title="Institutional Admin Hub"
-        description="Global system oversight, pending approvals, and institutional audit trail."
+        title={isDeptScoped ? 'Department Admin Hub' : 'Institutional Admin Hub'}
+        description={isDeptScoped ? 'Department oversight, pending approvals, and audit status for your department.' : 'Global system oversight, pending approvals, and institutional audit trail.'}
         icon={ShieldAlert}
       />
 
@@ -247,7 +256,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 title="Missing Date Assets" 
                 icon={Calendar} 
                 items={auditGaps.date} 
-                locations={locations}
+                locations={scopedLocations}
                 departments={departments}
                 color="rose"
              />
@@ -255,7 +264,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 title="Unassigned Officers" 
                 icon={Users} 
                 items={auditGaps.auditors} 
-                locations={locations}
+                locations={scopedLocations}
                 departments={departments}
                 color="indigo"
              />

@@ -83,7 +83,7 @@ const PERMISSIONS_LIST = [
     id: 'system',
     label: 'System',
     actions: [
-      { id: 'view:admin:dashboard', label: 'Admin Hub',       icon: ShieldAlert },
+      { id: 'view:admin:dashboard', label: 'Admin Hub',       icon: ShieldAlert, hint: 'Coordinator: own department only' },
       { id: 'manage:system',        label: 'System Settings', icon: Lock },
     ]
   },

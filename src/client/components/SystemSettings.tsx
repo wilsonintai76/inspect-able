@@ -198,6 +198,7 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
   onUpdateOpenAuditThreshold
 }) => {
   const isAdmin = (userRoles || []).includes('Admin');
+  const isCoordinator = (userRoles || []).includes('Coordinator');
   const [isProcessing, setIsProcessing] = React.useState(false);
   const [isSuggestingAI, setIsSuggestingAI] = React.useState(false);
   const [strictAuditorRule, setStrictAuditorRule] = React.useState(true);
@@ -578,7 +579,7 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
         </div>
       )}
 
-      {isAdmin && <RBACMatrix showToast={showToast} />}
+      {(isAdmin || isCoordinator) && <RBACMatrix showToast={showToast} />}
 
       {isAdmin && <BrandingSettings showToast={showToast} />}
 

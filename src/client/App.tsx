@@ -441,6 +441,7 @@ const App: React.FC = () => {
           onApproveArchive={handleApproveArchive}
           onRejectArchive={handleRejectArchive}
           onApproveCert={appActions.handleApproveCert}
+          coordinatorDeptId={!isAdminUser && currentUser.roles?.includes('Coordinator') ? currentUser.departmentId : undefined}
         />
       )}
       {activeView === 'buildings' && (

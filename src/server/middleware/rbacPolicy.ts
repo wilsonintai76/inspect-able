@@ -45,7 +45,7 @@ export const RBAC_POLICY: Record<RBACPermission, UserRole[]> = {
   'manage:departments':     ['Admin', 'Coordinator'],                           // Department Registry
   'manage:locations':       ['Admin', 'Coordinator', 'Supervisor'],             // Location Registry (**restricted ops)
   // System
-  'admin:hub':              ['Admin'],                                          // Admin Hub
+  'admin:hub':              ['Admin', 'Coordinator'],                           // Admin Hub (Coordinator: dept-scoped)
   'system:settings':        ['Admin'],                                          // System Settings
 };
 

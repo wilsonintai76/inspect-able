@@ -26,7 +26,7 @@ export const DEFAULT_RBAC_MATRIX: RBACMatrix = {
   'manage:locations':         ['Admin', 'Coordinator', 'Supervisor'],             // Location Registry
   // System
   'manage:system':            ['Admin'],
-  'view:admin:dashboard':     ['Admin'],
+  'view:admin:dashboard':     ['Admin', 'Coordinator'],   // Coordinator: dept-scoped view
 };
 
 interface RBACContextType {
