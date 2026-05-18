@@ -349,6 +349,19 @@ pub.patch('/kiosk/schedules/:id/date', async (c) => {
       ).bind(date ?? null, scheduleId).run();
     }
 
+    // Auto-activation check (Pending -> In Progress once assignments are complete)
+    const updatedSchedule = await c.env.DB.prepare(
+      'SELECT status, date, supervisor_id, auditor1_id, auditor2_id FROM audit_schedules WHERE id = ?'
+    ).bind(scheduleId).first<{ status: string; date: string | null; supervisor_id: string | null; auditor1_id: string | null; auditor2_id: string | null }>();
+
+    if (updatedSchedule && updatedSchedule.status === 'Pending') {
+      if (updatedSchedule.date && updatedSchedule.supervisor_id && updatedSchedule.auditor1_id && updatedSchedule.auditor2_id) {
+        await c.env.DB.prepare(
+          "UPDATE audit_schedules SET status = 'In Progress' WHERE id = ?"
+        ).bind(scheduleId).run();
+      }
+    }
+
     return c.json({ success: true });
   } catch (err: any) {
     return c.json({ error: err.message }, 500);

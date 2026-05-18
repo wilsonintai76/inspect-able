@@ -98,7 +98,12 @@ export const KioskApp: React.FC = () => {
       setSchedules(prev => prev.map(s => {
         if (s.id !== scheduleId) return s;
         const user = users.find(u => u.id === userId);
-        return { ...s, [`${role}Id`]: userId, [`${role}Name`]: user?.name ?? '' };
+        const updated = { ...s, [`${role}Id`]: userId, [`${role}Name`]: user?.name ?? '' };
+        const hasAll = updated.date && updated.supervisorId && updated.auditor1Id && updated.auditor2Id;
+        if (hasAll && updated.status === 'Pending') {
+          updated.status = 'In Progress';
+        }
+        return updated;
       }));
     } catch (err) {
       alert('A connection error occurred. Please try again.');
@@ -130,17 +135,21 @@ export const KioskApp: React.FC = () => {
       const matchingPhase = phases.find(p => p.startDate <= date && date <= p.endDate);
       setSchedules(prev => prev.map(s => {
         if (s.id !== scheduleId) return s;
-        if (matchingPhase) {
-          return {
-            ...s,
-            date,
-            phaseId: matchingPhase.id,
-            phaseName: matchingPhase.name,
-            phaseStart: matchingPhase.startDate,
-            phaseEnd: matchingPhase.endDate
-          };
+        const updated = matchingPhase
+          ? {
+              ...s,
+              date,
+              phaseId: matchingPhase.id,
+              phaseName: matchingPhase.name,
+              phaseStart: matchingPhase.startDate,
+              phaseEnd: matchingPhase.endDate
+            }
+          : { ...s, date };
+        const hasAll = updated.date && updated.supervisorId && updated.auditor1Id && updated.auditor2Id;
+        if (hasAll && updated.status === 'Pending') {
+          updated.status = 'In Progress';
         }
-        return { ...s, date };
+        return updated;
       }));
     } finally { setSaving(null); }
   };
