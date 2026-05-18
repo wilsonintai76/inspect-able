@@ -63,7 +63,7 @@ export const AuditorAssignmentSlot: React.FC<AuditorAssignmentSlotProps> = ({
   const contact = auditorId ? getUserContact(auditorId) : null;
   const isMe = auditorId === currentUser?.id;
   
-  const canRemove = isAssigned && isMe && !isPast;
+  const canRemove = isAssigned && (canAssignOthers || (isMe && !isPast));
   
   // Check eligibility: Has field role + Valid Cert + No Conflict
   const isDisabled = isAssigned || !canSelfAssignSelf || !userCanAudit || isCurrentUserAssigned || isPast || !isDateValid || !hasPhases || isUserOverLimit;

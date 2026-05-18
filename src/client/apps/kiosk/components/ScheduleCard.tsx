@@ -120,10 +120,10 @@ export const ScheduleCard: React.FC<Props> = ({
             Set Date:
           </span>
           <div className="flex-1 min-w-0 bg-white border border-slate-200 rounded-lg px-2 py-1">
-            {!isCompleted && !schedule.date ? (
+            {!isCompleted && !isLocked ? (
               <input
                 type="date"
-                defaultValue={schedule.date ?? ''}
+                value={schedule.date ?? ''}
                 min={minDate}
                 max={maxDate}
                 onChange={e => onDateChange(schedule.id, e.target.value)}
