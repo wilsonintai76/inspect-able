@@ -10,7 +10,7 @@
     "build": "npm run build:client && npm run build:worker",
     "preview": "npm run build && wrangler dev",
     "lint": "tsc --noEmit",
-    "deploy": "npm version patch --no-git-tag-version && npm run build && wrangler deploy",
+    "deploy": "npm version patch --no-git-tag-version && npm run build && npx wrangler deploy",
     "release": "npm version patch && npm run deploy",
     "version": "npm run lint",
     "postversion": "git push && git push --tags"
