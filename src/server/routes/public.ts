@@ -129,18 +129,119 @@ pub.patch('/kiosk/schedules/:id', async (c) => {
     const body = await c.req.json() as { userId?: string; role?: string; date?: string | null; action?: 'assign' | 'unassign' };
     const { userId, role, date, action = 'assign' } = body;
 
+    // Get the schedule details
+    const schedule = await c.env.DB.prepare(
+      `SELECT department_id, date, auditor1_id, auditor2_id FROM audit_schedules WHERE id = ?`
+    ).bind(scheduleId).first<{ department_id: string; date: string | null; auditor1_id: string | null; auditor2_id: string | null }>();
+
+    if (!schedule) return c.json({ error: 'Schedule not found' }, 404);
+
+    // Block kiosk re-assignments (both assign and unassign) if the schedule is already locked
+    const isLocked = !!(schedule.date && schedule.auditor1_id && schedule.auditor2_id);
+    if (isLocked) {
+      return c.json({ error: 'ACTION BLOCKED: This audit is locked. Re-assignments can only be performed from the main site after unlocking.' }, 403);
+    }
+
     if (action === 'assign') {
       if (!userId || !role) return c.json({ error: 'userId and role are required' }, 400);
       if (!['auditor1', 'auditor2', 'supervisor'].includes(role)) return c.json({ error: 'Invalid role' }, 400);
 
-      // Verify user is active & verified
+      // Retrieve system setting for audit strategy to check operational mode
+      // Force Open Audit by default as the system-wide operational standard
+      let assignmentMode = 'open-audit';
+      try {
+        // Fetch target strategy from D1 first (strongly consistent)
+        const dbRes = await c.env.DB.prepare('SELECT value FROM system_settings WHERE id = ?').bind('audit_strategy').first<{ value: string }>();
+        let strategyStr = dbRes?.value || null;
+        
+        // Fall back to KV if D1 is empty
+        if (!strategyStr) {
+          strategyStr = await c.env.SETTINGS.get('audit_strategy');
+        }
+        if (strategyStr) {
+          let parsed = strategyStr;
+          if (typeof strategyStr === 'string') {
+            try {
+              parsed = JSON.parse(strategyStr);
+              if (typeof parsed === 'string') {
+                parsed = JSON.parse(parsed);
+              }
+            } catch (e) {}
+          }
+          if (parsed && typeof parsed === 'object') {
+            if ((parsed as any).assignmentMode) {
+              assignmentMode = 'open-audit'; // Force bypass
+            }
+          }
+        }
+      } catch (e) {
+        console.error('[kiosk patch] Failed to fetch assignmentMode:', e);
+      }
+
+      // Verify user is active & verified and get their department & certificate status
       const user = await c.env.DB.prepare(
-        `SELECT id, name, status, is_verified FROM users WHERE id = ?`
-      ).bind(userId).first<{ id: string; name: string; status: string; is_verified: number }>();
+        `SELECT id, name, status, is_verified, department_id, certification_expiry FROM users WHERE id = ?`
+      ).bind(userId).first<{ id: string; name: string; status: string; is_verified: number; department_id: string; certification_expiry: string | null }>();
 
       if (!user) return c.json({ error: 'User not found' }, 404);
       if (user.status !== 'Active') return c.json({ error: 'Only Active users can self-assign' }, 403);
       if (!user.is_verified) return c.json({ error: 'User account is not verified' }, 403);
+
+      // Enforce department & certification rules for kiosk assignments
+      if (role === 'supervisor') {
+        if (user.department_id !== schedule.department_id) {
+          return c.json({ error: 'Supervisors must belong to the department being audited' }, 403);
+        }
+      } else if (role === 'auditor1' || role === 'auditor2') {
+        if (user.department_id === schedule.department_id) {
+          return c.json({ error: 'Certified officers (auditors) cannot audit their own department' }, 403);
+        }
+
+        // Enforce valid institutional certification
+        const todayStr = new Date().toISOString().split('T')[0];
+        const certExpiry = user.certification_expiry;
+        if (!certExpiry || certExpiry < todayStr) {
+          return c.json({ error: 'ACTION BLOCKED: The selected inspecting officer must hold a valid, active certificate.' }, 403);
+        }
+
+        // Check for cross-audit permission if in cross-audit mode
+        if (assignmentMode === 'cross-audit') {
+          // Fetch target department's exemption status (Internal Audit Mode)
+          const targetDept = await c.env.DB.prepare(
+            'SELECT is_exempted FROM departments WHERE id = ?'
+          ).bind(schedule.department_id).first<{ is_exempted: number }>();
+          const isInternalAuditMode = targetDept?.is_exempted === 1;
+
+          if (!(isInternalAuditMode && user.department_id === schedule.department_id)) {
+            const perm = await c.env.DB.prepare(`
+              SELECT p.id 
+              FROM cross_audit_permissions p
+              JOIN departments d_aud ON d_aud.id = ?
+              JOIN departments d_tgt ON d_tgt.id = ?
+              WHERE p.is_active = 1 AND (
+                -- 1. Direct Department Match
+                (p.auditor_dept_id = d_aud.id AND p.target_dept_id = d_tgt.id)
+                OR
+                (p.is_mutual = 1 AND p.auditor_dept_id = d_tgt.id AND p.target_dept_id = d_aud.id)
+                OR
+                -- 2. Group-Level Match (if both belong to audit groups)
+                (d_aud.audit_group_id IS NOT NULL AND d_tgt.audit_group_id IS NOT NULL AND (
+                  (p.auditor_group_id = d_aud.audit_group_id AND p.target_group_id = d_tgt.audit_group_id)
+                  OR
+                  (p.is_mutual = 1 AND p.auditor_group_id = d_tgt.audit_group_id AND p.target_group_id = d_aud.audit_group_id)
+                ))
+              )
+              LIMIT 1
+            `)
+              .bind(user.department_id, schedule.department_id)
+              .first<{ id: string }>();
+
+            if (!perm) {
+              return c.json({ error: "Conflict of interest: no active cross-audit permission exists between the auditor's department and the target department" }, 403);
+            }
+          }
+        }
+      }
 
       const colMap: Record<string, string> = { auditor1: 'auditor1_id', auditor2: 'auditor2_id', supervisor: 'supervisor_id' };
       const col = colMap[role];
@@ -149,13 +250,45 @@ pub.patch('/kiosk/schedules/:id', async (c) => {
       const values: any[] = [userId];
 
       if (date !== undefined) {
+        // Prevent date updates/unlocks from the kiosk if a date is already set
+        const existingDate = await c.env.DB.prepare(
+          'SELECT date FROM audit_schedules WHERE id = ?'
+        ).bind(scheduleId).first<{ date: string | null }>();
+
+        if (existingDate && existingDate.date !== null && existingDate.date !== date) {
+          return c.json({ error: 'ACTION BLOCKED: Dates can only be modified or unlocked from the main site by an Admin, Supervisor, or Asset Coordinator.' }, 403);
+        }
+
         updates.push('date = ?');
         values.push(date);
+        
+        if (date) {
+          const matchingPhase = await c.env.DB.prepare(
+            'SELECT id FROM audit_phases WHERE start_date <= ? AND end_date >= ? LIMIT 1'
+          ).bind(date, date).first<{ id: string }>();
+          if (matchingPhase) {
+            updates.push('phase_id = ?');
+            values.push(matchingPhase.id);
+          }
+        }
       }
 
       await c.env.DB.prepare(
         `UPDATE audit_schedules SET ${updates.join(', ')} WHERE id = ?`
       ).bind(...values, scheduleId).run();
+
+      // Auto-activation check (Pending -> In Progress once assignments are complete)
+      const updatedSchedule = await c.env.DB.prepare(
+        'SELECT status, date, supervisor_id, auditor1_id, auditor2_id FROM audit_schedules WHERE id = ?'
+      ).bind(scheduleId).first<{ status: string; date: string | null; supervisor_id: string | null; auditor1_id: string | null; auditor2_id: string | null }>();
+
+      if (updatedSchedule && updatedSchedule.status === 'Pending') {
+        if (updatedSchedule.date && updatedSchedule.supervisor_id && updatedSchedule.auditor1_id && updatedSchedule.auditor2_id) {
+          await c.env.DB.prepare(
+            "UPDATE audit_schedules SET status = 'In Progress' WHERE id = ?"
+          ).bind(scheduleId).run();
+        }
+      }
 
       return c.json({ success: true, name: user.name });
     } else {
@@ -186,9 +319,36 @@ pub.patch('/kiosk/schedules/:id/date', async (c) => {
   const scheduleId = c.req.param('id');
   try {
     const { date } = await c.req.json() as { date: string | null };
-    await c.env.DB.prepare(
-      `UPDATE audit_schedules SET date = ? WHERE id = ?`
-    ).bind(date ?? null, scheduleId).run();
+
+    // Prevent date updates/unlocks from the kiosk if a date is already set
+    const existing = await c.env.DB.prepare(
+      'SELECT date FROM audit_schedules WHERE id = ?'
+    ).bind(scheduleId).first<{ date: string | null }>();
+
+    if (existing && existing.date !== null) {
+      return c.json({ error: 'ACTION BLOCKED: Dates can only be modified or unlocked from the main site by an Admin, Supervisor, or Asset Coordinator.' }, 403);
+    }
+    
+    let phaseId: string | null = null;
+    if (date) {
+      const matchingPhase = await c.env.DB.prepare(
+        'SELECT id FROM audit_phases WHERE start_date <= ? AND end_date >= ? LIMIT 1'
+      ).bind(date, date).first<{ id: string }>();
+      if (matchingPhase) {
+        phaseId = matchingPhase.id;
+      }
+    }
+
+    if (phaseId) {
+      await c.env.DB.prepare(
+        `UPDATE audit_schedules SET date = ?, phase_id = ? WHERE id = ?`
+      ).bind(date, phaseId, scheduleId).run();
+    } else {
+      await c.env.DB.prepare(
+        `UPDATE audit_schedules SET date = ? WHERE id = ?`
+      ).bind(date ?? null, scheduleId).run();
+    }
+
     return c.json({ success: true });
   } catch (err: any) {
     return c.json({ error: err.message }, 500);

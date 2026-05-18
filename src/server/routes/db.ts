@@ -57,6 +57,14 @@ const edgeCache = (seconds: number) =>
 // "locked" audit (one that already has a date AND at least one auditor assigned).
 // Mirrors the isAuditLocked check in App.tsx — now enforced server-side.
 const auditLockGuard = async (c: Context<{ Bindings: Bindings; Variables: Variables }>, next: Next) => {
+  const caller = c.get('user')!;
+  const userRoles = caller.roles || [];
+  const isAdmin = userRoles.includes('Admin');
+  const isCoordinator = userRoles.includes('Coordinator');
+  const isSupervisor = userRoles.includes('Supervisor');
+
+  if (isAdmin || isCoordinator || isSupervisor) return next();
+
   const id = c.req.param('id');
   const updates = (c.req as any).valid('json') as Record<string, any>;
   const structuralFields = ['phaseId', 'departmentId', 'locationId'];
@@ -68,7 +76,7 @@ const auditLockGuard = async (c: Context<{ Bindings: Bindings; Variables: Variab
     'SELECT date, auditor1_id, auditor2_id FROM audit_schedules WHERE id = ?',
   ).bind(id).first<{ date: string | null; auditor1_id: string | null; auditor2_id: string | null }>();
 
-  if (existing && existing.date && (existing.auditor1_id || existing.auditor2_id)) {
+  if (existing && existing.date && existing.auditor1_id && existing.auditor2_id) {
     return c.json(
       { error: 'Locked audits cannot have their phase, department, or location changed' },
       409,
@@ -109,13 +117,25 @@ const VALID_TRANSITIONS: Record<string, string[]> = {
 };
 
 const statusTransitionGuard = async (c: Context<{ Bindings: Bindings; Variables: Variables }>, next: Next) => {
-  const updates = (c.req as any).valid('json') as { status?: string };
+  const updates = (c.req as any).valid('json') as { 
+    status?: string; 
+    date?: string | null; 
+    supervisorId?: string | null; 
+    auditor1Id?: string | null; 
+    reportPath?: string | null;
+  };
   if (!updates.status) return next();
 
   const id = c.req.param('id');
   const existing = await c.env.DB.prepare(
-    'SELECT status FROM audit_schedules WHERE id = ?',
-  ).bind(id).first<{ status: string }>();
+    'SELECT status, date, supervisor_id, auditor1_id, report_path FROM audit_schedules WHERE id = ?',
+  ).bind(id).first<{ 
+    status: string; 
+    date: string | null; 
+    supervisor_id: string | null; 
+    auditor1_id: string | null; 
+    report_path: string | null;
+  }>();
 
   if (!existing) return next(); // Will 404 in handler
 
@@ -130,6 +150,95 @@ const statusTransitionGuard = async (c: Context<{ Bindings: Bindings; Variables:
       422,
     );
   }
+
+  // 1. Enforce that "In Progress" requires date, supervisor, and auditor
+  if (updates.status === 'In Progress') {
+    const finalDate = updates.date !== undefined ? updates.date : existing.date;
+    const finalSupervisor = updates.supervisorId !== undefined ? updates.supervisorId : existing.supervisor_id;
+    const finalAuditor = updates.auditor1Id !== undefined ? updates.auditor1Id : existing.auditor1_id;
+
+    if (!finalDate || !finalSupervisor || !finalAuditor) {
+      return c.json(
+        {
+          error: 'ACTION BLOCKED: Date, Site Supervisor, and Inspecting Officer (Auditor) must all be assigned before starting the inspection.',
+          code: 'ASSIGNMENT_INCOMPLETE'
+        },
+        422
+      );
+    }
+  }
+
+  // 2. Enforce that "Completed" requires report_path
+  if (updates.status === 'Completed') {
+    const finalReport = updates.reportPath !== undefined ? updates.reportPath : existing.report_path;
+    if (!finalReport || finalReport.trim() === '') {
+      return c.json(
+        {
+          error: 'ACTION BLOCKED: Upload Required. You must upload the official KEW-PA 11 PDF inspection report to complete this audit.',
+          code: 'REPORT_REQUIRED'
+        },
+        422
+      );
+    }
+  }
+
+  return next();
+};
+// ────────────────────────────────────────────────────────────────────────────
+
+// ─── Patch Audit Permission Guard ───────────────────────────────────────────
+// Enforces fine-grained authorization for updating inspections:
+//   - Admins & Coordinators: full access
+//   - Site Supervisors & Auditors: restricted to dates/assignments (self-only),
+//     and only assigned auditors can upload KEW-PA 11 to complete.
+const patchAuditPermissionGuard = async (c: Context<{ Bindings: Bindings; Variables: Variables }>, next: Next) => {
+  const caller = c.get('user')!;
+  const userRoles = caller.roles || [];
+  const isAdmin = userRoles.includes('Admin');
+  const isCoordinator = userRoles.includes('Coordinator');
+  const isSupervisor = userRoles.includes('Supervisor');
+  const isAuditor = userRoles.includes('Auditor');
+
+  if (!isAdmin && !isCoordinator && !isSupervisor && !isAuditor) {
+    return c.json({ error: 'Forbidden: unauthorized role' }, 403);
+  }
+
+  if (isAdmin || isCoordinator) return next();
+
+  const id = c.req.param('id');
+  const updates = (c.req as any).valid('json') as Record<string, any>;
+
+  const existing = await c.env.DB.prepare(
+    'SELECT supervisor_id, auditor1_id, auditor2_id, status FROM audit_schedules WHERE id = ?'
+  ).bind(id).first<{ supervisor_id: string | null; auditor1_id: string | null; auditor2_id: string | null; status: string }>();
+
+  if (!existing) return next();
+
+  const adminOnlyFields = ['phaseId', 'departmentId', 'locationId', 'supervisorId'];
+  const hasAdminOnlyFields = adminOnlyFields.some(f => updates[f] !== undefined);
+  if (hasAdminOnlyFields) {
+    return c.json({ error: 'Forbidden: only Admins and Coordinators can modify location, department, phase, or supervisor assignments' }, 403);
+  }
+
+  const isAssignedAuditor = 
+    existing.auditor1_id === caller.id || 
+    existing.auditor2_id === caller.id ||
+    updates.auditor1Id === caller.id ||
+    updates.auditor2Id === caller.id;
+
+  if (updates.date !== undefined) {
+    const isDesignatedSupervisor = existing.supervisor_id === caller.id;
+    if (!isDesignatedSupervisor && !isAssignedAuditor) {
+      return c.json({ error: 'Forbidden: you must be the assigned site supervisor or auditor to modify the date of this inspection' }, 403);
+    }
+  }
+
+  if (updates.status !== undefined || updates.reportPath !== undefined) {
+    if (!isAssignedAuditor) {
+      return c.json({ error: 'Forbidden: only the assigned inspecting officer (auditor) can modify the inspection status or upload the report' }, 403);
+    }
+  }
+
   return next();
 };
 // ────────────────────────────────────────────────────────────────────────────
@@ -155,6 +264,7 @@ const auditSchema = z.object({
   auditor1Id: z.string().nullable(),
   auditor2Id: z.string().nullable(),
   phaseId: z.string().nullable(),
+  reportPath: z.string().nullable().optional(),
 });
 
 const patchAuditSchema = z.object({
@@ -166,6 +276,7 @@ const patchAuditSchema = z.object({
   auditor1Id: z.string().nullable().optional(),
   auditor2Id: z.string().nullable().optional(),
   phaseId: z.string().nullable().optional(),
+  reportPath: z.string().nullable().optional(),
 });
 
 const userSchema = z.object({
@@ -203,7 +314,7 @@ const patchUserSchema = z.object({
 db.get('/audits', async (c) => {
   try {
     const { results } = await c.env.DB.prepare(
-      'SELECT id, department_id, location_id, supervisor_id, auditor1_id, auditor2_id, date, status, phase_id FROM audit_schedules'
+      'SELECT id, department_id, location_id, supervisor_id, auditor1_id, auditor2_id, date, status, phase_id, report_path FROM audit_schedules'
     ).all();
     
     return c.json((results || []).map((a: any) => ({
@@ -215,7 +326,8 @@ db.get('/audits', async (c) => {
       auditor2Id: a.auditor2_id,
       date: a.date,
       status: a.status,
-      phaseId: a.phase_id
+      phaseId: a.phase_id,
+      reportPath: a.report_path
     })));
   } catch (err: any) {
     return c.json({ error: err.message }, 500);
@@ -226,11 +338,21 @@ db.post('/audits', zValidator('json', auditSchema), rbacGuard('assign:others'), 
   const audit = c.req.valid('json');
   const id = audit.id || crypto.randomUUID();
   
+  let phaseId = audit.phaseId;
+  if (audit.date) {
+    const matchingPhase = await c.env.DB.prepare(
+      'SELECT id FROM audit_phases WHERE start_date <= ? AND end_date >= ? LIMIT 1'
+    ).bind(audit.date, audit.date).first<{ id: string }>();
+    if (matchingPhase) {
+      phaseId = matchingPhase.id;
+    }
+  }
+
   try {
     await c.env.DB.prepare(
       `INSERT INTO audit_schedules 
-       (id, department_id, location_id, supervisor_id, auditor1_id, auditor2_id, date, status, phase_id) 
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+       (id, department_id, location_id, supervisor_id, auditor1_id, auditor2_id, date, status, phase_id, report_path) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     ).bind(
       id,
       audit.departmentId ?? null,
@@ -240,21 +362,51 @@ db.post('/audits', zValidator('json', auditSchema), rbacGuard('assign:others'), 
       audit.auditor2Id ?? null,
       audit.date ?? null,
       audit.status ?? 'Scheduled',
-      audit.phaseId ?? null
+      phaseId ?? null,
+      audit.reportPath ?? null
     ).run();
 
     return c.json({
       id,
-      ...audit
+      ...audit,
+      phaseId
     });
   } catch (err: any) {
     return c.json({ error: err.message }, 500);
   }
 });
 
-db.patch('/audits/:id', zValidator('json', patchAuditSchema), rbacGuard('assign:others'), auditLockGuard, statusTransitionGuard, auditAssignmentGuard, async (c) => {
+db.patch('/audits/:id', zValidator('json', patchAuditSchema), patchAuditPermissionGuard, auditLockGuard, statusTransitionGuard, auditAssignmentGuard, async (c) => {
   const id = c.req.param('id');
   const updates = c.req.valid('json');
+
+  // Date-driven phase auto-routing
+  if (updates.date !== undefined) {
+    if (updates.date) {
+      const matchingPhase = await c.env.DB.prepare(
+        'SELECT id FROM audit_phases WHERE start_date <= ? AND end_date >= ? LIMIT 1'
+      ).bind(updates.date, updates.date).first<{ id: string }>();
+      if (matchingPhase) {
+        updates.phaseId = matchingPhase.id;
+      }
+    }
+  }
+
+  // Automatic activation from Pending to In Progress when assignments are completed (requires BOTH auditor slots)
+  const existingForActivation = await c.env.DB.prepare(
+    'SELECT status, date, supervisor_id, auditor1_id, auditor2_id FROM audit_schedules WHERE id = ?'
+  ).bind(id).first<{ status: string; date: string | null; supervisor_id: string | null; auditor1_id: string | null; auditor2_id: string | null }>();
+
+  if (existingForActivation && (updates.status || existingForActivation.status) === 'Pending') {
+    const finalDate = updates.date !== undefined ? updates.date : existingForActivation.date;
+    const finalSupervisor = updates.supervisorId !== undefined ? updates.supervisorId : existingForActivation.supervisor_id;
+    const finalAuditor1 = updates.auditor1Id !== undefined ? updates.auditor1Id : existingForActivation.auditor1_id;
+    const finalAuditor2 = updates.auditor2Id !== undefined ? updates.auditor2Id : existingForActivation.auditor2_id;
+
+    if (finalDate && finalSupervisor && finalAuditor1 && finalAuditor2) {
+      updates.status = 'In Progress';
+    }
+  }
 
   const fields: string[] = [];
   const values: any[] = [];
@@ -267,6 +419,7 @@ db.patch('/audits/:id', zValidator('json', patchAuditSchema), rbacGuard('assign:
   if (updates.auditor1Id !== undefined) { fields.push('auditor1_id = ?'); values.push(updates.auditor1Id); }
   if (updates.auditor2Id !== undefined) { fields.push('auditor2_id = ?'); values.push(updates.auditor2Id); }
   if (updates.phaseId !== undefined) { fields.push('phase_id = ?'); values.push(updates.phaseId); }
+  if (updates.reportPath !== undefined) { fields.push('report_path = ?'); values.push(updates.reportPath); }
 
   if (fields.length === 0) return c.json({ success: true });
 
@@ -293,24 +446,39 @@ db.delete('/audits/:id', rbacGuard('assign:others'), async (c) => {
 db.post('/audits/bulk', rbacGuard('assign:others'), async (c) => {
   const audits = await c.req.json();
   try {
-    const statements = audits.map((a: any) => {
+    const statements = [];
+    for (const a of audits) {
       const id = a.id || crypto.randomUUID();
-      return c.env.DB.prepare(
-        `INSERT INTO audit_schedules 
-         (id, department_id, location_id, supervisor_id, auditor1_id, auditor2_id, date, status, phase_id) 
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-      ).bind(
-        id,
-        a.departmentId ?? null,
-        a.locationId ?? null,
-        a.supervisorId ?? null,
-        a.auditor1Id ?? null,
-        a.auditor2Id ?? null,
-        a.date ?? null,
-        a.status ?? 'Scheduled',
-        a.phaseId ?? null
+      
+      let phaseId = a.phaseId;
+      if (a.date) {
+        const matchingPhase = await c.env.DB.prepare(
+          'SELECT id FROM audit_phases WHERE start_date <= ? AND end_date >= ? LIMIT 1'
+        ).bind(a.date, a.date).first<{ id: string }>();
+        if (matchingPhase) {
+          phaseId = matchingPhase.id;
+        }
+      }
+
+      statements.push(
+        c.env.DB.prepare(
+          `INSERT INTO audit_schedules 
+           (id, department_id, location_id, supervisor_id, auditor1_id, auditor2_id, date, status, phase_id, report_path) 
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        ).bind(
+          id,
+          a.departmentId ?? null,
+          a.locationId ?? null,
+          a.supervisorId ?? null,
+          a.auditor1Id ?? null,
+          a.auditor2Id ?? null,
+          a.date ?? null,
+          a.status ?? 'Scheduled',
+          phaseId ?? null,
+          a.reportPath ?? null
+        )
       );
-    });
+    }
     await c.env.DB.batch(statements);
     return c.json({ success: true, count: audits.length });
   } catch (err: any) {

@@ -10,6 +10,7 @@ export interface AuditSchedule {
   status: 'Pending' | 'In Progress' | 'Completed';
   phaseId: string;
   isLocked?: boolean;
+  reportPath?: string | null;
 }
 
 export type AssignmentMode = 'cross-audit' | 'open-audit';

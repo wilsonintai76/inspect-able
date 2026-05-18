@@ -232,37 +232,37 @@ class DataGateway {
     await this.rpc<unknown>(h => (api as any).db.activity.$post({ json: activity as any }, { headers: h }));
   }
 
-  // --- PERMISSIONS ---
+  // --- PERMISSIONS (STUBBED FOR OPEN AUDIT) ---
   async getPermissions(): Promise<CrossAuditPermission[]> {
-    return (await this.rpcOrNull<CrossAuditPermission[]>(h => (api as any).db.permissions.$get({}, { headers: h }))) ?? [];
+    return [];
   }
 
   async addPermission(perm: Omit<CrossAuditPermission, 'id'>) {
-    await this.rpc<unknown>(h => (api as any).db.permissions.$post({ json: perm as any }, { headers: h }));
+    return;
   }
 
   async bulkAddPermissions(perms: Omit<CrossAuditPermission, 'id'>[]) {
-    await this.rpc<unknown>(h => (api as any).db.permissions.bulk.$post({ json: perms as any }, { headers: h }));
+    return;
   }
 
   async deletePermission(id: string) {
-    await this.rpc<unknown>(h => (api as any).db.permissions[':id'].$delete({ param: { id } }, { headers: h }));
+    return;
   }
 
   async bulkDeletePermissions(ids: string[]) {
-    await this.rpc<unknown>(h => (api as any).db.permissions.bulk.$delete({ json: { ids } }, { headers: h }));
+    return;
   }
 
   async clearAllPermissions(): Promise<{ success: boolean }> {
-    return this.rpc<{ success: boolean }>(h => (api as any).db.permissions.clear.$post({}, { headers: h }));
+    return { success: true };
   }
 
   async resetOnlyPermissions(): Promise<{ success: boolean }> {
-    return this.rpc<{ success: boolean }>(h => (api as any).db.permissions['reset-only'].$post({}, { headers: h }));
+    return { success: true };
   }
 
   async updatePermission(id: string, updates: Partial<CrossAuditPermission>) {
-    await this.rpc<unknown>(h => (api as any).db.permissions[':id'].$patch({ param: { id }, json: updates as any }, { headers: h }));
+    return;
   }
 
   // --- AUDIT PHASES ---

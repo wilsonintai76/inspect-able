@@ -1,12 +1,13 @@
 import React from 'react';
 import { Phone, UserCheck, Plus, X } from 'lucide-react';
-import { AuditSchedule, User } from '@shared/types';
+import { AuditSchedule, User, Department } from '@shared/types';
 
 interface AuditorAssignmentSlotProps {
   slotNum: 1 | 2;
   audit: AuditSchedule;
   users: User[];
   currentUser: User | null;
+  allDepartments?: Department[];
   canManageAssignments: boolean;
   canAssignOthers: boolean;
   canSelfAssignSelf: boolean;
@@ -34,6 +35,7 @@ export const AuditorAssignmentSlot: React.FC<AuditorAssignmentSlotProps> = ({
   audit,
   users,
   currentUser,
+  allDepartments = [],
   canManageAssignments,
   canAssignOthers,
   canSelfAssignSelf,
@@ -110,13 +112,16 @@ export const AuditorAssignmentSlot: React.FC<AuditorAssignmentSlotProps> = ({
       const myEntityId = getEntityName(officer.departmentId || '');
       const targetEntityId = getEntityName(audit.departmentId);
       const isInternal = myEntityId === targetEntityId;
-      const isAdminUser = currentUser?.roles?.includes('Admin');
+      
+      // Fetch target department's exemption status (Internal Audit Mode)
+      const targetDept = allDepartments?.find(d => d.id === audit.departmentId);
+      const isInternalAuditMode = targetDept?.isExempted === true;
 
-      // 2. Conflict Check (Entity level) - Permitted for Admins during internal audits
-      if (isInternal && !isAdminUser) return false;
+      // 2. Conflict Check (Entity level) - Permitted ONLY during internal audits (exemption)
+      if (isInternal && !isInternalAuditMode) return false;
 
       // 2b. Matrix Check (only if in cross-audit mode)
-      if (assignmentMode === 'cross-audit' && !isAdminUser) {
+      if (assignmentMode === 'cross-audit') {
         // We don't have access to crossAuditPermissions here directly, 
         // but AuditTable should have filtered userCanAudit already.
         // For the dropdown, we need to be careful.
@@ -133,7 +138,7 @@ export const AuditorAssignmentSlot: React.FC<AuditorAssignmentSlotProps> = ({
 
       return true;
     });
-  }, [users, canAssignOthers, audit, getEntityName, isPast]);
+  }, [users, canAssignOthers, audit, getEntityName, isPast, allDepartments]);
 
   return (
     <div className="min-h-[44px]">

@@ -1,5 +1,6 @@
 export interface KioskSchedule {
   id: string;
+  departmentId: string;
   departmentName: string;
   departmentAbbr: string;
   locationName: string;

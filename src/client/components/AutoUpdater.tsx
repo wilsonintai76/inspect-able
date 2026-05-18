@@ -14,11 +14,36 @@ export const AutoUpdater: React.FC = () => {
 
   const doAction = useCallback(async () => {
     setIsLoggingOut(true);
+    
+    // Clear modern Cache Storage API to remove cached assets
+    if (typeof window !== 'undefined' && 'caches' in window) {
+      try {
+        const cacheNames = await caches.keys();
+        await Promise.all(cacheNames.map(name => caches.delete(name)));
+        console.log('[AutoUpdater] Cache Storage cleared successfully.');
+      } catch (err) {
+        console.error('[AutoUpdater] Failed to clear Cache Storage:', err);
+      }
+    }
+
+    // Unregister any active Service Workers
+    if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+      try {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(registrations.map(reg => reg.unregister()));
+        console.log('[AutoUpdater] Service workers unregistered successfully.');
+      } catch (err) {
+        console.error('[AutoUpdater] Failed to unregister service workers:', err);
+      }
+    }
+
     if (isKiosk) {
-      window.location.reload();
+      // Hard reload by appending a timestamp to bypass browser and CDN cache
+      const cleanUrl = window.location.origin + window.location.pathname;
+      window.location.href = `${cleanUrl}?u=${Date.now()}`;
     } else {
       await authService.logout();
-      window.location.href = '/';
+      window.location.href = `/?u=${Date.now()}`;
     }
   }, [isKiosk]);
 

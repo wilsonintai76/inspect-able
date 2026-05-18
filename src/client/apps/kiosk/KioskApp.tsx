@@ -85,16 +85,23 @@ export const KioskApp: React.FC = () => {
   const handleAssign = async (scheduleId: string, userId: string, role: AssignRole) => {
     setSaving(scheduleId);
     try {
-      await fetch(`/api/public/kiosk/schedules/${scheduleId}`, {
+      const res = await fetch(`/api/public/kiosk/schedules/${scheduleId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId, role, action: 'assign' }),
       });
+      if (!res.ok) {
+        const err = await res.json() as { error?: string };
+        alert(err.error || 'Failed to assign.');
+        return;
+      }
       setSchedules(prev => prev.map(s => {
         if (s.id !== scheduleId) return s;
         const user = users.find(u => u.id === userId);
         return { ...s, [`${role}Id`]: userId, [`${role}Name`]: user?.name ?? '' };
       }));
+    } catch (err) {
+      alert('A connection error occurred. Please try again.');
     } finally { setSaving(null); }
   };
 
@@ -120,7 +127,21 @@ export const KioskApp: React.FC = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ date }),
       });
-      setSchedules(prev => prev.map(s => s.id !== scheduleId ? s : { ...s, date }));
+      const matchingPhase = phases.find(p => p.startDate <= date && date <= p.endDate);
+      setSchedules(prev => prev.map(s => {
+        if (s.id !== scheduleId) return s;
+        if (matchingPhase) {
+          return {
+            ...s,
+            date,
+            phaseId: matchingPhase.id,
+            phaseName: matchingPhase.name,
+            phaseStart: matchingPhase.startDate,
+            phaseEnd: matchingPhase.endDate
+          };
+        }
+        return { ...s, date };
+      }));
     } finally { setSaving(null); }
   };
 
@@ -317,6 +338,7 @@ export const KioskApp: React.FC = () => {
             <KioskGrid
               schedules={filtered}
               users={users}
+              phases={phases}
               maxAssets={maxAssets}
               loading={loading}
               saving={saving}

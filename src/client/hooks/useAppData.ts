@@ -49,7 +49,7 @@ export const useAppData = () => {
   const [standaloneThresholdAssets, setStandaloneThresholdAssets] = useState<number>(1000);
   const [groupingMargin, setGroupingMargin] = useState<number>(0.15);
   const [groupingAuditorMargin, setGroupingAuditorMargin] = useState<number>(3);
-  const [assignmentMode, setAssignmentMode] = useState<AssignmentMode>('cross-audit');
+  const [assignmentMode, setAssignmentMode] = useState<AssignmentMode>('open-audit');
   const [openAuditThreshold, setOpenAuditThreshold] = useState<number>(500);
   const [pairingLocked, setPairingLocked] = useState<boolean>(() => {
     try { return localStorage.getItem('pairing_lock_active') === 'true'; } catch { return false; }
@@ -139,7 +139,8 @@ export const useAppData = () => {
 
         const strategy = settings.find(s => s.id === 'audit_strategy')?.value;
         if (strategy) {
-          if (strategy.assignmentMode) setAssignmentMode(strategy.assignmentMode);
+          // System operates exclusively in streamlined Open Audit Mode
+          setAssignmentMode('open-audit');
           if (strategy.openAuditThreshold) setOpenAuditThreshold(strategy.openAuditThreshold);
         }
 

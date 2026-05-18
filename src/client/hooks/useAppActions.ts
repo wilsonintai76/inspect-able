@@ -170,13 +170,17 @@ export const useAppActions = (props: AppActionsProps) => {
     } catch (e) { console.error(e); }
   }, [setDepartments]);
 
-  const isAuditLocked = (audit: AuditSchedule) => !!(audit.isLocked || (audit.date && (audit.auditor1Id || audit.auditor2Id)));
+  const isAuditLocked = (audit: AuditSchedule) => {
+    if (audit.isLocked === false) return false;
+    return !!(audit.isLocked || (audit.date && audit.auditor1Id && audit.auditor2Id));
+  };
 
   const handleToggleLock = async (id: string) => {
     const audit = schedules.find(a => a.id === id);
     if (!audit) return;
     try {
-      const newLocked = !audit.isLocked;
+      const currentlyLocked = isAuditLocked(audit);
+      const newLocked = !currentlyLocked;
       await gateway.updateAudit(id, { isLocked: newLocked });
       setSchedules(prev => prev.map(s => s.id === id ? { ...s, isLocked: newLocked } : s));
       showToast(newLocked ? 'Locked' : 'Unlocked');
@@ -185,12 +189,29 @@ export const useAppActions = (props: AppActionsProps) => {
 
   const handleAssign = async (id: string, slot: 1 | 2, userId: string) => {
     try {
+      const audit = schedules.find(s => s.id === id);
+      if (!audit) return;
+
       const u = users.find(user => user.id === userId);
       if (!(u?.certificationExpiry && new Date(u.certificationExpiry) > new Date())) throw new Error("Cert required.");
-      const updates = slot === 1 ? { auditor1Id: userId } : { auditor2Id: userId };
+      
+      let updates: Partial<AuditSchedule> = slot === 1 ? { auditor1Id: userId } : { auditor2Id: userId };
+      
+      // Auto-activation check (requires BOTH auditor1 and auditor2)
+      if ((updates.status || audit.status) === 'Pending') {
+        const finalDate = updates.date !== undefined ? updates.date : audit.date;
+        const finalSupervisor = updates.supervisorId !== undefined ? updates.supervisorId : audit.supervisorId;
+        const finalAuditor1 = updates.auditor1Id !== undefined ? updates.auditor1Id : (slot === 1 ? userId : audit.auditor1Id);
+        const finalAuditor2 = updates.auditor2Id !== undefined ? updates.auditor2Id : (slot === 2 ? userId : audit.auditor2Id);
+
+        if (finalDate && finalSupervisor && finalAuditor1 && finalAuditor2) {
+          updates.status = 'In Progress';
+        }
+      }
+
       await gateway.updateAudit(id, updates);
       setSchedules(prev => prev.map(s => s.id === id ? { ...s, ...updates } : s));
-      showToast('Assigned');
+      showToast(updates.status === 'In Progress' ? 'Assigned & Started Inspection!' : 'Assigned');
     } catch (e) { showError(e); }
   };
 
@@ -210,13 +231,56 @@ export const useAppActions = (props: AppActionsProps) => {
   };
 
   const handleUpdateAudit = async (id: string, updates: Partial<AuditSchedule>) => {
-    try { await gateway.updateAudit(id, updates); setSchedules(prev => prev.map(s => s.id === id ? { ...s, ...updates } : s)); }
-    catch (e) { showError(e); }
+    try {
+      const audit = schedules.find(s => s.id === id);
+      if (audit) {
+        if (updates.date !== undefined) {
+          const resolvedPhaseId = updates.date
+            ? (auditPhases.find(p => p.startDate <= updates.date! && updates.date! <= p.endDate)?.id ?? null)
+            : null;
+          if (resolvedPhaseId) {
+            updates.phaseId = resolvedPhaseId;
+          }
+        }
+
+        // Auto-activation check
+        if ((updates.status || audit.status) === 'Pending') {
+          const finalDate = updates.date !== undefined ? updates.date : audit.date;
+          const finalSupervisor = updates.supervisorId !== undefined ? updates.supervisorId : audit.supervisorId;
+          const finalAuditor = updates.auditor1Id !== undefined ? updates.auditor1Id : audit.auditor1Id;
+
+          if (finalDate && finalSupervisor && finalAuditor) {
+            updates.status = 'In Progress';
+          }
+        }
+      }
+      await gateway.updateAudit(id, updates);
+      setSchedules(prev => prev.map(s => s.id === id ? { ...s, ...updates } : s));
+    } catch (e) { showError(e); }
   };
 
   const handleUpdateAuditDate = async (id: string, date: string) => {
-    try { await gateway.updateAudit(id, { date }); setSchedules(prev => prev.map(s => s.id === id ? { ...s, date } : s)); }
-    catch (e) { showError(e); }
+    try {
+      const audit = schedules.find(s => s.id === id);
+      const resolvedPhaseId = date
+        ? (auditPhases.find(p => p.startDate <= date && date <= p.endDate)?.id ?? null)
+        : null;
+      let updates: Partial<AuditSchedule> = resolvedPhaseId ? { date, phaseId: resolvedPhaseId } : { date };
+      
+      // Auto-activation check
+      if (audit && (updates.status || audit.status) === 'Pending') {
+        const finalDate = date;
+        const finalSupervisor = audit.supervisorId;
+        const finalAuditor = audit.auditor1Id;
+
+        if (finalDate && finalSupervisor && finalAuditor) {
+          updates.status = 'In Progress';
+        }
+      }
+
+      await gateway.updateAudit(id, updates);
+      setSchedules(prev => prev.map(s => s.id === id ? { ...s, ...updates } : s));
+    } catch (e) { showError(e); }
   };
 
   const handleToggleStatus = async (id: string) => {

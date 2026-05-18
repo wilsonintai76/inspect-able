@@ -11,7 +11,7 @@ const packageJson = JSON.parse(fs.readFileSync('./package.json', 'utf-8'));
 export default defineConfig((configEnv) => {
     const { mode, ssrBuild } = configEnv as any;
     const env = loadEnv(mode, '.', '');
-    const isSSR = ssrBuild || process.env.VITE_SSR_BUILD === 'true';
+    const isSSR = ssrBuild || process.env.VITE_SSR_BUILD === 'true' || process.argv.includes('--ssr') || process.argv.includes('src/server/index.ts');
 
     return {
       server: {

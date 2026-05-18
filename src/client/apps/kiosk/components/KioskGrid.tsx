@@ -1,11 +1,12 @@
 import React from 'react';
 import { Calendar, Loader2 } from 'lucide-react';
-import { KioskSchedule, KioskUser, AssignRole } from './types';
+import { KioskSchedule, KioskUser, KioskPhase, AssignRole } from './types';
 import { ScheduleCard } from './ScheduleCard';
 
 interface Props {
   schedules: KioskSchedule[];
   users: KioskUser[];
+  phases: KioskPhase[];
   maxAssets: number;
   loading: boolean;
   saving: string | null;
@@ -17,6 +18,7 @@ interface Props {
 export const KioskGrid: React.FC<Props> = ({
   schedules,
   users,
+  phases,
   maxAssets,
   loading,
   saving,
@@ -53,6 +55,7 @@ export const KioskGrid: React.FC<Props> = ({
             key={s.id}
             schedule={s}
             users={users}
+            phases={phases}
             maxAssets={maxAssets}
             saving={saving}
             onAssign={onAssign}

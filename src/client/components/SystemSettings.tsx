@@ -1,7 +1,6 @@
 import React, { useMemo, useRef } from 'react';
 import { CrossAuditPermission, Department, User, AuditPhase, KPITier, KPITierTarget, InstitutionKPITarget, UserRole, Location, AuditSchedule, DepartmentMapping, AuditGroup, AssignmentMode, LocationMapping, Building } from '@shared/types';
 import { useRBAC } from '../contexts/RBACContext';
-import { CrossAuditManagement } from './CrossAuditManagement';
 import { AuditPhasesSettings } from './AuditPhasesSettings';
 import { KPISettings } from './KPISettings';
 import { TierDistributionTable } from './TierDistributionTable';
@@ -11,7 +10,6 @@ import { RBACMatrix } from './RBACMatrix';
 import { Zap, Sliders, AlertCircle, Eye, Calendar, UserCheck, Users, UserPlus, Edit, ShieldAlert, ShieldCheck, Network, Lock, Unlock, RotateCcw, Building2, Trash2, Database, RefreshCcw } from 'lucide-react';
 import { BackupButton } from './BackupButton';
 import { PageHeader } from './PageHeader';
-import { GroupBuilderTab } from './GroupBuilderTab';
 import { AuditConstraints } from './AuditConstraints';
 
 interface SystemSettingsProps {
@@ -343,32 +341,13 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div className="space-y-4">
               <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest pl-1">Operational Mode</label>
-              <div className="grid grid-cols-2 gap-3 p-1.5 bg-slate-50 rounded-2xl border border-slate-100">
-                <button
-                  onClick={() => onUpdateAssignmentMode('cross-audit')}
-                  className={`py-3 px-4 rounded-xl text-xs font-bold transition-all ${
-                    assignmentMode === 'cross-audit'
-                      ? 'bg-white text-indigo-600 shadow-sm border border-slate-200'
-                      : 'text-slate-500 hover:text-slate-700'
-                  }`}
-                >
-                  Cross Audit (Restricted)
-                </button>
-                <button
-                  onClick={() => onUpdateAssignmentMode('open-audit')}
-                  className={`py-3 px-4 rounded-xl text-xs font-bold transition-all ${
-                    assignmentMode === 'open-audit'
-                      ? 'bg-white text-emerald-600 shadow-sm border border-slate-200'
-                      : 'text-slate-500 hover:text-slate-700'
-                  }`}
-                >
-                  Open Audit (Any Officer)
-                </button>
+              <div className="flex items-center gap-3 p-4 bg-emerald-50/50 rounded-2xl border border-emerald-100/80">
+                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="text-xs font-black uppercase tracking-wider text-emerald-700">Open Audit (Any Officer)</span>
+                <span className="text-[9px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-md uppercase ml-auto">Active</span>
               </div>
-              <p className="text-[10px] text-slate-400 font-medium px-2 italic">
-                {assignmentMode === 'cross-audit' 
-                  ? 'Matrix-based: Officers only audit departments explicitly paired by admin.' 
-                  : 'Decentralized: Any certified officer can assign themselves to any location except their own.'}
+              <p className="text-[10px] text-slate-400 font-semibold px-2 italic">
+                Decentralized: Any certified officer can assign themselves to any location except their own.
               </p>
             </div>
 
@@ -492,91 +471,6 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
         </div>
       )}
 
-      {assignmentMode === 'cross-audit' && (
-        <>
-          <GroupBuilderTab
-            departments={departments}
-            auditGroups={auditGroups}
-            onAddAuditGroup={onAddAuditGroup}
-            onDeleteAuditGroup={onDeleteAuditGroup}
-            onBulkDeleteAuditGroups={onBulkDeleteAuditGroups}
-            onBulkUpdateDepartments={onBulkUpdateDepartments}
-            onAutoConsolidate={onAutoConsolidate}
-            isProcessing={isProcessing}
-            setIsProcessing={setIsProcessing}
-            strictAuditorRule={strictAuditorRule}
-            setStrictAuditorRule={setStrictAuditorRule}
-            maxAssetsPerDay={currentMaxAssets}
-            standaloneThresholdAssets={currentStandaloneThreshold}
-            maxLocationsPerDay={currentMaxLocations}
-            minAuditorsPerLocation={currentMinAuditors}
-            isSystemLocked={isSystemLocked}
-            pairingLocked={pairingLocked}
-            onSuggestThresholds={handleAIAutoOptimize}
-            isSuggestingAI={isSuggestingAI}
-            groupingMargin={groupingMargin}
-            // Simulation props
-            isGroupSimulatorActive={isGroupSimulatorActive}
-            simulatedGroups={simulatedGroups}
-            onCommitGroups={onCommitGroups}
-            onCancelGroupSimulation={onCancelGroupSimulation}
-            onUpdateSimulatedGroups={onUpdateSimulatedGroups}
-            onUpdateStandaloneThresholdAssets={onUpdateStandaloneThresholdAssets}
-            onUpdateGroupingMargin={onUpdateGroupingMargin}
-            groupingAuditorMargin={groupingAuditorMargin}
-            onUpdateGroupingAuditorMargin={onUpdateGroupingAuditorMargin}
-          />
-
-          <CrossAuditManagement
-            departments={departments}
-            users={users}
-            permissions={permissions}
-            onTogglePermission={onTogglePermission}
-            onAddPermission={onAddPermission}
-            onRemovePermission={onRemovePermission}
-            onUpdateDepartment={onUpdateDepartment}
-            onBulkUpdateDepartments={onBulkUpdateDepartments}
-            auditGroups={auditGroups}
-            onAddAuditGroup={onAddAuditGroup}
-            onUpdateAuditGroup={onUpdateAuditGroup}
-            onDeleteAuditGroup={onDeleteAuditGroup}
-            onBulkDeleteAuditGroups={onBulkDeleteAuditGroups}
-            onAutoConsolidate={onAutoConsolidate as any}
-            onRunStrategicPairing={onRunStrategicPairing}
-            onBulkAddPermissions={onBulkAddPermissions}
-            onBulkRemovePermissions={onBulkRemovePermissions}
-            onRebalanceSchedule={onRebalanceSchedule}
-            feasibilityReport={feasibilityReport}
-            pairingLocked={pairingLocked}
-            pairingLockInfo={pairingLockInfo}
-            onLockPairing={onLockPairing}
-            onUnlockPairing={onUnlockPairing}
-            phases={phases}
-            institutionKPIs={institutionKPIs}
-            maxAssetsPerDay={currentMaxAssets}
-            maxLocationsPerDay={currentMaxLocations}
-            minAuditorsPerLocation={currentMinAuditors}
-            dailyInspectionCapacity={currentDailyCapacity}
-            isSimulatorActive={isSimulatorActive}
-            setIsSimulatorActive={setIsSimulatorActive}
-            draftConstraints={draftConstraints}
-            setDraftConstraints={setDraftConstraints}
-            onUpdateMaxAssetsPerDay={onUpdateMaxAssetsPerDay}
-            onUpdateMaxLocationsPerDay={onUpdateMaxLocationsPerDay}
-            onUpdateMinAuditorsPerLocation={onUpdateMinAuditorsPerLocation}
-            onUpdateDailyInspectionCapacity={onUpdateDailyInspectionCapacity}
-            showToast={showToast}
-            schedules={schedules}
-            kpiTiers={kpiTiers}
-            kpiTierTargets={kpiTierTargets}
-            locations={locations}
-            currentUser={currentUser}
-            pairingAssetMargin={draftConstraints?.pairingAssetMargin ?? 500}
-            pairingAuditorMargin={draftConstraints?.pairingAuditorMargin ?? 3}
-            onUpdatePairingMargins={(assets, auditors) => handleUpdateDraftConstraints({ pairingAssetMargin: assets, pairingAuditorMargin: auditors })}
-          />
-        </>
-      )}
 
       {isAdmin && (
         <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden mb-8">

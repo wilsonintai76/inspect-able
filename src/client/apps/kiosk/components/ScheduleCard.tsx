@@ -1,6 +1,6 @@
 import React from 'react';
 import { Calendar, Package, Loader2 } from 'lucide-react';
-import { KioskSchedule, KioskUser, AssignRole } from './types';
+import { KioskSchedule, KioskUser, KioskPhase, AssignRole } from './types';
 import { StatusBadge } from './StatusBadge';
 import { UserSearchBox } from './UserSearchBox';
 
@@ -13,6 +13,7 @@ const ROLE_LABELS: Record<AssignRole, string> = {
 interface Props {
   schedule: KioskSchedule;
   users: KioskUser[];
+  phases: KioskPhase[];
   maxAssets: number;
   saving: string | null;
   onAssign: (scheduleId: string, userId: string, role: AssignRole) => Promise<void>;
@@ -23,6 +24,7 @@ interface Props {
 export const ScheduleCard: React.FC<Props> = ({
   schedule,
   users,
+  phases,
   maxAssets,
   saving,
   onAssign,
@@ -31,19 +33,34 @@ export const ScheduleCard: React.FC<Props> = ({
 }) => {
   const isSaving = saving === schedule.id;
   const isCompleted = schedule.status === 'Completed';
+  const isLocked = !!(schedule.date && schedule.auditor1Id && schedule.auditor2Id);
 
+  // Get global date boundaries across all phases to allow planned phase overwriting
+  const minDate = phases.length > 0
+    ? phases.reduce((min, p) => p.startDate < min ? p.startDate : min, phases[0].startDate)
+    : schedule.phaseStart;
+  const maxDate = phases.length > 0
+    ? phases.reduce((max, p) => p.endDate > max ? p.endDate : max, phases[0].endDate)
+    : schedule.phaseEnd;
   const today = new Date().toISOString().split('T')[0];
   const phaseActive = today >= schedule.phaseStart && today <= schedule.phaseEnd;
-
+ 
   const roleUsers = (role: AssignRole): KioskUser[] => {
     if (role === 'supervisor') {
-      return users.filter(u => u.roles.includes('Supervisor') || u.roles.includes('Coordinator') || u.roles.includes('Admin'));
+      return users.filter(
+        u =>
+          (u.roles.includes('Supervisor') || u.roles.includes('Coordinator') || u.roles.includes('Admin')) &&
+          u.departmentId === schedule.departmentId,
+      );
     }
+    // Certified officers (auditors) cannot audit their own department
     return users.filter(
-      u => u.roles.includes('Auditor') || u.roles.includes('Coordinator') || u.roles.includes('Supervisor') || u.roles.includes('Admin'),
+      u =>
+        (u.roles.includes('Auditor') || u.roles.includes('Coordinator') || u.roles.includes('Supervisor') || u.roles.includes('Admin')) &&
+        u.departmentId !== schedule.departmentId,
     );
   };
-
+ 
   return (
     <div
       className={`bg-white border rounded-3xl transition-all duration-200 hover:shadow-lg hover:shadow-slate-200/80 ${
@@ -72,7 +89,7 @@ export const ScheduleCard: React.FC<Props> = ({
               {schedule.departmentName}
             </p>
           </div>
-
+ 
           {/* Asset count */}
           <div className="text-right shrink-0">
             <div className="flex items-center gap-1 text-slate-800">
@@ -83,7 +100,7 @@ export const ScheduleCard: React.FC<Props> = ({
           </div>
         </div>
       </div>
-
+ 
       {/* ── Phase & Date ─────────────────────────────────────────────── */}
       <div className="px-3 sm:px-6 py-2 sm:py-3 bg-slate-50 border-b border-slate-100 flex flex-col gap-1.5 sm:gap-2">
         {/* Phase Info */}
@@ -96,24 +113,24 @@ export const ScheduleCard: React.FC<Props> = ({
             {schedule.phaseStart} <span className="mx-1">to</span> {schedule.phaseEnd}
           </span>
         </div>
-
+ 
         {/* Specific Date Setter */}
         <div className="flex items-center gap-2 pl-2 sm:pl-5">
           <span className="text-[10px] font-black uppercase text-indigo-400 tracking-widest shrink-0">
             Set Date:
           </span>
           <div className="flex-1 min-w-0 bg-white border border-slate-200 rounded-lg px-2 py-1">
-            {!isCompleted ? (
+            {!isCompleted && !schedule.date ? (
               <input
                 type="date"
                 defaultValue={schedule.date ?? ''}
-                min={schedule.phaseStart}
-                max={schedule.phaseEnd}
+                min={minDate}
+                max={maxDate}
                 onChange={e => onDateChange(schedule.id, e.target.value)}
                 className="w-full text-[11px] font-bold bg-transparent text-slate-700 border-0 outline-none cursor-pointer"
               />
             ) : (
-              <span className="text-[11px] font-bold text-slate-600 block py-0.5">
+              <span className="text-[11px] font-bold text-slate-600 block py-0.5 px-1 bg-slate-50 border border-slate-100 rounded-md">
                 {schedule.date ?? 'No date set'}
               </span>
             )}
@@ -121,19 +138,19 @@ export const ScheduleCard: React.FC<Props> = ({
           {isSaving && <Loader2 className="w-3.5 h-3.5 text-indigo-500 animate-spin shrink-0" />}
         </div>
       </div>
-
+ 
       {/* ── Assignments ──────────────────────────────────────────────── */}
       <div className="px-3 sm:px-6 py-3 sm:py-4 space-y-2.5 sm:space-y-3">
         {(['supervisor', 'auditor1', 'auditor2'] as AssignRole[]).map(role => {
           const currentName = schedule[`${role}Name` as keyof KioskSchedule] as string | null;
-
+ 
           return (
             <div key={role}>
               <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">
                 {ROLE_LABELS[role]}
               </p>
-
-              {isCompleted ? (
+ 
+              {isCompleted || isLocked ? (
                 <div className="px-3 py-2 bg-slate-50 rounded-xl">
                   <span className="text-xs font-bold text-slate-600">{currentName ?? '—'}</span>
                 </div>

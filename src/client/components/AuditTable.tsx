@@ -3,6 +3,7 @@ import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { AuditSchedule, User, UserRole, Department, Location, CrossAuditPermission, AuditPhase, Building as BuildingType } from '@shared/types';
 import { useRBAC } from '../contexts/RBACContext';
 import { AuditReportModal } from './AuditReportModal';
+import { AuditUploadModal } from './AuditUploadModal';
 import {
   ShieldOff,
   Loader2,
@@ -22,7 +23,8 @@ import {
   Calendar,
   Zap,
   Package,
-  FileSpreadsheet
+  FileSpreadsheet,
+  ExternalLink
 } from 'lucide-react';
 import { PageHeader } from './PageHeader';
 import { AuditorAssignmentSlot } from './AuditorAssignmentSlot';
@@ -67,6 +69,7 @@ export const AuditTable: React.FC<AuditTableProps> = ({
 }) => {
   const { hasPermission, rbacMatrix } = useRBAC();
   const [reportAudit, setReportAudit] = useState<AuditSchedule | null>(null);
+  const [uploadAudit, setUploadAudit] = useState<AuditSchedule | null>(null);
   const [selectedBlock, setSelectedBlock] = useState('All');
   const [selectedLevel, setSelectedLevel] = useState('All');
 
@@ -216,10 +219,23 @@ export const AuditTable: React.FC<AuditTableProps> = ({
         alert("Scheduling Disabled: An audit phase must be configured in System Settings before dates can be selected.");
         return;
     }
-    if (newDate && !isDateInValidPhase(newDate, phaseId)) {
-        const phase = auditPhases.find(p => p.id === phaseId);
-        alert(`ACCESS DENIED: The date falls outside of ${phase?.name}'s window (${phase?.startDate} to ${phase?.endDate}).`);
-        return;
+    if (newDate) {
+        // Find if the new date matches ANY active phase
+        const matchingPhase = auditPhases.find(p => {
+          const start = new Date(p.startDate);
+          const end = new Date(p.endDate);
+          start.setHours(0, 0, 0, 0);
+          end.setHours(23, 59, 59, 999);
+          const d = new Date(newDate);
+          return d >= start && d <= end;
+        });
+
+        if (!matchingPhase) {
+          // If no matching phase found, show alert with available phase ranges
+          const ranges = auditPhases.map(p => `${p.name} (${p.startDate} to ${p.endDate})`).join('\n');
+          alert(`ACCESS DENIED: The selected date must fall inside one of the configured audit phases:\n\n${ranges}`);
+          return;
+        }
     }
     onUpdateDate(id, newDate);
   };
@@ -416,7 +432,8 @@ export const AuditTable: React.FC<AuditTableProps> = ({
   }, [schedules, selectedBlock, selectedLevel, allLocations, canViewAllSchedule, canViewOwnSchedule, canViewMatrixSchedule, currentUser, canAuditDepartment]);
 
   const isAuditLocked = (audit: AuditSchedule) => {
-    return !!(audit.isLocked || (audit.date && (audit.auditor1Id || audit.auditor2Id)));
+    if (audit.isLocked === false) return false;
+    return !!(audit.isLocked || (audit.date && audit.auditor1Id && audit.auditor2Id));
   };
 
   const activePhase = useMemo(() => {
@@ -639,10 +656,10 @@ export const AuditTable: React.FC<AuditTableProps> = ({
                               title="Audit Date"
                               placeholder="YYYY-MM-DD"
                               value={audit.date || ''}
-                              disabled={!hasPhases || isLocked || !canEditDates}
+                              disabled={!hasPhases || !canEditDates}
                               onChange={(e) => handleDateChange(audit.id, e.target.value, audit.phaseId)}
                               className={`w-full pl-10 pr-4 py-2.5 rounded-xl text-xs font-bold border outline-none transition-all ${
-                                isLocked
+                                !canEditDates
                                   ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed'
                                   : !hasPhases
                                   ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed'
@@ -684,13 +701,13 @@ export const AuditTable: React.FC<AuditTableProps> = ({
                             <button
                               onClick={() => onToggleLock(audit.id)}
                               className={`shrink-0 w-10 h-10 flex items-center justify-center rounded-xl transition-all border ${
-                                audit.isLocked 
+                                isAuditLocked(audit) 
                                   ? 'bg-slate-800 border-slate-700 text-amber-400 shadow-lg' 
                                   : 'bg-white border-slate-200 text-slate-400 hover:border-slate-300 hover:bg-slate-50'
                               }`}
-                              title={audit.isLocked ? "Unlock Phase Assignment" : "Manually Lock Phase Assignment"}
+                              title={isAuditLocked(audit) ? "Unlock Phase Assignment" : "Manually Lock Phase Assignment"}
                             >
-                              {audit.isLocked ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
+                              {isAuditLocked(audit) ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
                             </button>
                           )}
                         </div>
@@ -793,6 +810,7 @@ export const AuditTable: React.FC<AuditTableProps> = ({
                             audit={audit}
                             users={users}
                             currentUser={currentUser}
+                            allDepartments={allDepartments}
                             canManageAssignments={(canEditDates || canSelfAssignPerm || canAssignOthers) && !isLocked}
                             canAssignOthers={canAssignOthers && !isLocked}
                             canSelfAssignSelf={canSelfAssignSelf && !isLocked}
@@ -819,18 +837,38 @@ export const AuditTable: React.FC<AuditTableProps> = ({
                     </td>
 
                     <td className="px-8 py-6 align-top text-center">
-                      <button 
-                        onClick={() => (canEditDates || isAdmin) && onToggleStatus(audit.id)}
-                        disabled={!(canEditDates || isAdmin) || audit.status === 'Pending'}
-                        className={`inline-flex items-center px-4 py-2 rounded-xl text-[10px] font-black uppercase border tracking-widest transition-all active:scale-95 ${getStatusBadgeStyles(audit.status)} ${!(canEditDates || isAdmin) && 'opacity-50 pointer-events-none'}`}
-                      >
-                        {audit.status}
-                        {(canEditDates || isAdmin) && audit.status !== 'Pending' && <RotateCcw className="w-2 h-2 ml-2 opacity-40" />}
-                      </button>
+                      {(() => {
+                        const canComplete = isAdmin || isCoordinator || (isCurrentUserAssigned && isCertified && isAuditor);
+                        return (
+                          <button 
+                            onClick={() => {
+                              if (audit.status === 'In Progress' || audit.status === 'Completed') {
+                                setUploadAudit(audit);
+                              }
+                            }}
+                            disabled={!canComplete || audit.status === 'Pending'}
+                            className={`inline-flex items-center px-4 py-2 rounded-xl text-[10px] font-black uppercase border tracking-widest transition-all active:scale-95 ${getStatusBadgeStyles(audit.status)} ${!canComplete && 'opacity-50 pointer-events-none'}`}
+                          >
+                            {audit.status}
+                            {canComplete && audit.status !== 'Pending' && <RotateCcw className="w-2 h-2 ml-2 opacity-40" />}
+                          </button>
+                        );
+                      })()}
                     </td>
 
                     <td className="px-8 py-6 align-top text-center">
                         <div className="flex items-center justify-center gap-2">
+                          {audit.reportPath && (
+                            <a
+                              href={audit.reportPath}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="w-8 h-8 flex items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100 hover:text-emerald-700 transition-colors border border-emerald-100 hover:border-emerald-200 shadow-sm"
+                              title="Download/View Uploaded KEW-PA 11 PDF"
+                            >
+                              <ExternalLink className="w-4 h-4" />
+                            </a>
+                          )}
                           {audit.status === 'Completed' && (
                               <button
                                   onClick={() => setReportAudit(audit)}
@@ -867,6 +905,17 @@ export const AuditTable: React.FC<AuditTableProps> = ({
         <AuditReportModal 
             audit={reportAudit}
             onClose={() => setReportAudit(null)}
+        />
+      )}
+
+      {uploadAudit && (
+        <AuditUploadModal
+          audit={uploadAudit}
+          locationName={allLocations.find(l => l.id === uploadAudit.locationId)?.name || uploadAudit.locationId}
+          onClose={() => setUploadAudit(null)}
+          onComplete={async (id, reportPath) => {
+            await onUpdateAudit(id, { status: 'Completed', reportPath });
+          }}
         />
       )}
 
