@@ -322,11 +322,12 @@ pub.patch('/kiosk/schedules/:id/date', async (c) => {
 
     // Prevent date updates/unlocks from the kiosk if a date is already set
     const existing = await c.env.DB.prepare(
-      'SELECT date FROM audit_schedules WHERE id = ?'
-    ).bind(scheduleId).first<{ date: string | null }>();
+      'SELECT date, auditor1_id, auditor2_id FROM audit_schedules WHERE id = ?'
+    ).bind(scheduleId).first<{ date: string | null; auditor1_id: string | null; auditor2_id: string | null }>();
 
-    if (existing && existing.date !== null) {
-      return c.json({ error: 'ACTION BLOCKED: Dates can only be modified or unlocked from the main site by an Admin, Supervisor, or Asset Coordinator.' }, 403);
+    const isLocked = existing && !!(existing.date && existing.auditor1_id && existing.auditor2_id);
+    if (isLocked) {
+      return c.json({ error: 'ACTION BLOCKED: This audit is locked. Dates can only be modified or unlocked from the main site after unlocking.' }, 403);
     }
     
     let phaseId: string | null = null;
