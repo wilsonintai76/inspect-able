@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { ShieldCheck, RefreshCw, Download, Smartphone, X } from 'lucide-react';
+import { ShieldCheck, RefreshCw, Download, Smartphone, X, AlertTriangle, CheckCircle, Info, XCircle } from 'lucide-react';
 
 import { KioskSchedule, KioskUser, KioskPhase, AssignRole } from './components/types';
 import { KioskStatsBar } from './components/KioskStatsBar';
@@ -31,6 +31,15 @@ export const KioskApp: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState('');
   const [departmentFilter, setDepartmentFilter] = useState('');
   const [locationFilter, setLocationFilter] = useState('');
+  const [toasts, setToasts] = useState<{ id: string; message: string; type: 'success' | 'warning' | 'error' | 'info' }[]>([]);
+
+  const showToast = (message: string, type: 'success' | 'warning' | 'error' | 'info' = 'success') => {
+    const id = Math.random().toString(36).substr(2, 9);
+    setToasts(prev => [...prev, { id, message, type }]);
+    setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== id));
+    }, 4500);
+  };
 
   // ── Data loading ──────────────────────────────────────────────────────────
   const load = async () => {
@@ -83,6 +92,11 @@ export const KioskApp: React.FC = () => {
 
   // ── Mutations ─────────────────────────────────────────────────────────────
   const handleAssign = async (scheduleId: string, userId: string, role: AssignRole) => {
+    const roleLabels: Record<AssignRole, string> = {
+      supervisor: 'Supervisor',
+      auditor1: 'Auditor 1',
+      auditor2: 'Auditor 2',
+    };
     setSaving(scheduleId);
     try {
       const res = await fetch(`/api/public/kiosk/schedules/${scheduleId}`, {
@@ -95,13 +109,15 @@ export const KioskApp: React.FC = () => {
         if (res.status === 403) {
           alert("ACCESS DENIED: This audit is locked on the public kiosk. Only the assigned Supervisor for this location or the Department Coordinator is allowed to modify or unlock it from the main site.");
         } else {
-          alert(err.error || 'Failed to assign.');
+          showToast(err.error || 'Failed to assign.', 'error');
         }
         return;
       }
+      const user = users.find(u => u.id === userId);
+      showToast(`Assigned ${user?.name || 'Officer'} as ${roleLabels[role]} successfully!`, 'success');
+
       setSchedules(prev => prev.map(s => {
         if (s.id !== scheduleId) return s;
-        const user = users.find(u => u.id === userId);
         const updated = { ...s, [`${role}Id`]: userId, [`${role}Name`]: user?.name ?? '' };
         const hasAll = updated.date && updated.supervisorId && updated.auditor1Id && updated.auditor2Id;
         if (hasAll && updated.status === 'Pending') {
@@ -110,11 +126,16 @@ export const KioskApp: React.FC = () => {
         return updated;
       }));
     } catch (err) {
-      alert('A connection error occurred. Please try again.');
+      showToast('A connection error occurred. Please try again.', 'error');
     } finally { setSaving(null); }
   };
 
   const handleUnassign = async (scheduleId: string, role: AssignRole) => {
+    const roleLabels: Record<AssignRole, string> = {
+      supervisor: 'Supervisor',
+      auditor1: 'Auditor 1',
+      auditor2: 'Auditor 2',
+    };
     setSaving(scheduleId);
     try {
       const res = await fetch(`/api/public/kiosk/schedules/${scheduleId}`, {
@@ -127,19 +148,24 @@ export const KioskApp: React.FC = () => {
         if (res.status === 403) {
           alert("ACCESS DENIED: This audit is locked on the public kiosk. Only the assigned Supervisor for this location or the Department Coordinator is allowed to modify or unlock it from the main site.");
         } else {
-          alert(err.error || 'Failed to unassign.');
+          showToast(err.error || 'Failed to unassign.', 'error');
         }
         return;
       }
+      showToast(`Removed assignment for ${roleLabels[role]}.`, 'info');
+
       setSchedules(prev => prev.map(s =>
         s.id !== scheduleId ? s : { ...s, [`${role}Id`]: null, [`${role}Name`]: null },
       ));
     } catch (err) {
-      alert('A connection error occurred. Please try again.');
+      showToast('A connection error occurred. Please try again.', 'error');
     } finally { setSaving(null); }
   };
 
   const handleDateChange = async (scheduleId: string, date: string) => {
+    const targetSchedule = schedules.find(s => s.id === scheduleId);
+    if (!targetSchedule) return;
+
     setSaving(scheduleId);
     try {
       const res = await fetch(`/api/public/kiosk/schedules/${scheduleId}/date`, {
@@ -152,11 +178,21 @@ export const KioskApp: React.FC = () => {
         if (res.status === 403) {
           alert("ACCESS DENIED: This audit is locked on the public kiosk. Only the assigned Supervisor for this location or the Department Coordinator is allowed to modify or unlock it from the main site.");
         } else {
-          alert(err.error || 'Failed to update date.');
+          showToast(err.error || 'Failed to update date.', 'error');
         }
         return;
       }
+      
       const matchingPhase = phases.find(p => p.startDate <= date && date <= p.endDate);
+      
+      if (!matchingPhase) {
+        showToast("Warning: Selected date falls outside of all configured audit phases!", "warning");
+      } else if (targetSchedule.phaseId && targetSchedule.phaseId !== matchingPhase.id) {
+        showToast(`Plan Overwritten: Audit reassigned from ${targetSchedule.phaseName} to ${matchingPhase.name}!`, "warning");
+      } else {
+        showToast(`Date assigned to ${date} successfully!`, "success");
+      }
+
       setSchedules(prev => prev.map(s => {
         if (s.id !== scheduleId) return s;
         const updated = matchingPhase
@@ -176,7 +212,7 @@ export const KioskApp: React.FC = () => {
         return updated;
       }));
     } catch (err) {
-      alert('A connection error occurred. Please try again.');
+      showToast('A connection error occurred. Please try again.', 'error');
     } finally { setSaving(null); }
   };
 
@@ -383,6 +419,47 @@ export const KioskApp: React.FC = () => {
             />
           </div>
         </div>
+      </div>
+
+      {/* Sleek Glassmorphic Toasts Container */}
+      <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-3 max-w-sm w-full pointer-events-none">
+        {toasts.map(t => {
+          let bgClass = 'bg-emerald-600/95 text-white shadow-emerald-500/20';
+          let borderClass = 'border-emerald-500/30';
+          let Icon = CheckCircle;
+
+          if (t.type === 'warning') {
+            bgClass = 'bg-amber-600/95 text-white shadow-amber-500/20';
+            borderClass = 'border-amber-500/30';
+            Icon = AlertTriangle;
+          } else if (t.type === 'error') {
+            bgClass = 'bg-rose-600/95 text-white shadow-rose-500/20';
+            borderClass = 'border-rose-500/30';
+            Icon = XCircle;
+          } else if (t.type === 'info') {
+            bgClass = 'bg-blue-600/95 text-white shadow-blue-500/20';
+            borderClass = 'border-blue-500/30';
+            Icon = Info;
+          }
+
+          return (
+            <div 
+              key={t.id}
+              className={`p-4 rounded-2xl border backdrop-blur-md flex items-start gap-3 shadow-xl transition-all duration-300 animate-in fade-in slide-in-from-right-4 pointer-events-auto ${bgClass} ${borderClass}`}
+            >
+              <Icon className="w-5 h-5 shrink-0 text-white" />
+              <div className="flex-1 text-xs font-black uppercase tracking-wide leading-relaxed">
+                {t.message}
+              </div>
+              <button 
+                onClick={() => setToasts(prev => prev.filter(x => x.id !== t.id))}
+                className="shrink-0 text-white/60 hover:text-white transition-colors"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
