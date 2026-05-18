@@ -92,7 +92,11 @@ export const KioskApp: React.FC = () => {
       });
       if (!res.ok) {
         const err = await res.json() as { error?: string };
-        alert(err.error || 'Failed to assign.');
+        if (res.status === 403) {
+          alert("ACCESS DENIED: This audit is locked on the public kiosk. Only the assigned Supervisor for this location or the Department Coordinator is allowed to modify or unlock it from the main site.");
+        } else {
+          alert(err.error || 'Failed to assign.');
+        }
         return;
       }
       setSchedules(prev => prev.map(s => {
@@ -113,25 +117,45 @@ export const KioskApp: React.FC = () => {
   const handleUnassign = async (scheduleId: string, role: AssignRole) => {
     setSaving(scheduleId);
     try {
-      await fetch(`/api/public/kiosk/schedules/${scheduleId}`, {
+      const res = await fetch(`/api/public/kiosk/schedules/${scheduleId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ role, action: 'unassign' }),
       });
+      if (!res.ok) {
+        const err = await res.json() as { error?: string };
+        if (res.status === 403) {
+          alert("ACCESS DENIED: This audit is locked on the public kiosk. Only the assigned Supervisor for this location or the Department Coordinator is allowed to modify or unlock it from the main site.");
+        } else {
+          alert(err.error || 'Failed to unassign.');
+        }
+        return;
+      }
       setSchedules(prev => prev.map(s =>
         s.id !== scheduleId ? s : { ...s, [`${role}Id`]: null, [`${role}Name`]: null },
       ));
+    } catch (err) {
+      alert('A connection error occurred. Please try again.');
     } finally { setSaving(null); }
   };
 
   const handleDateChange = async (scheduleId: string, date: string) => {
     setSaving(scheduleId);
     try {
-      await fetch(`/api/public/kiosk/schedules/${scheduleId}/date`, {
+      const res = await fetch(`/api/public/kiosk/schedules/${scheduleId}/date`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ date }),
       });
+      if (!res.ok) {
+        const err = await res.json() as { error?: string };
+        if (res.status === 403) {
+          alert("ACCESS DENIED: This audit is locked on the public kiosk. Only the assigned Supervisor for this location or the Department Coordinator is allowed to modify or unlock it from the main site.");
+        } else {
+          alert(err.error || 'Failed to update date.');
+        }
+        return;
+      }
       const matchingPhase = phases.find(p => p.startDate <= date && date <= p.endDate);
       setSchedules(prev => prev.map(s => {
         if (s.id !== scheduleId) return s;
@@ -151,6 +175,8 @@ export const KioskApp: React.FC = () => {
         }
         return updated;
       }));
+    } catch (err) {
+      alert('A connection error occurred. Please try again.');
     } finally { setSaving(null); }
   };
 
