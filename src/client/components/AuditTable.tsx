@@ -431,35 +431,6 @@ export const AuditTable: React.FC<AuditTableProps> = ({
 
   return (
     <div className="space-y-6 flex flex-col flex-1 min-h-0">
-      <PageHeader
-        title="Movable Asset Inspection Schedules"
-        icon={Calendar}
-        activePhase={activePhase}
-        description="Plan and manage institutional inspection windows and inspecting officer assignments."
-      >
-        <PrintButton
-          onPrint={() => printInspectionSchedule(displaySchedules, allDepartments, allLocations, users, auditPhases, selectedDept, buildings)}
-          title="Print Inspection Schedule"
-        />
-        <button
-          onClick={() => exportInspectionSchedule(displaySchedules, allDepartments, allLocations, users, auditPhases, selectedDept, buildings)}
-          className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-500/20 active:scale-95"
-          title="Export to Excel (one sheet per department)"
-        >
-          <FileSpreadsheet className="w-4 h-4" />
-          Export Excel
-        </button>
-        {canAutoAssign && (
-          <button
-            onClick={handleAutoAssign}
-            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-500/20 active:scale-95"
-          >
-            <Zap className="w-4 h-4" />
-            Smart Auto-Assign
-          </button>
-        )}
-      </PageHeader>
-
       {hasFieldRole && !isCertified && (
         <CertificationBanner isSupervisor={isSupervisor} isCoordinator={isCoordinator} />
       )}
@@ -479,11 +450,48 @@ export const AuditTable: React.FC<AuditTableProps> = ({
         buildings={buildings}
       />
 
-      <AuditPhaseFilter
-        auditPhases={auditPhases}
-        selectedPhaseId={selectedPhaseId}
-        onPhaseChange={onPhaseChange}
-      />
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 px-2">
+        {/* Phase buttons & active phase dates display */}
+        <div className="flex flex-wrap items-center gap-3">
+          <AuditPhaseFilter
+            auditPhases={auditPhases}
+            selectedPhaseId={selectedPhaseId}
+            onPhaseChange={onPhaseChange}
+          />
+          {activePhase && (
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 border border-emerald-100 rounded-xl text-emerald-700 text-xs font-semibold shadow-sm">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="text-[10px] font-black uppercase tracking-wider">Active: {activePhase.name}</span>
+              <span className="text-[10px] font-mono opacity-80">({activePhase.startDate} to {activePhase.endDate})</span>
+            </div>
+          )}
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex flex-wrap items-center gap-2">
+          <PrintButton
+            onPrint={() => printInspectionSchedule(displaySchedules, allDepartments, allLocations, users, auditPhases, selectedDept, buildings)}
+            title="Print Inspection Schedule"
+          />
+          <button
+            onClick={() => exportInspectionSchedule(displaySchedules, allDepartments, allLocations, users, auditPhases, selectedDept, buildings)}
+            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-500/20 active:scale-95"
+            title="Export to Excel (one sheet per department)"
+          >
+            <FileSpreadsheet className="w-4 h-4" />
+            Export Excel
+          </button>
+          {canAutoAssign && (
+            <button
+              onClick={handleAutoAssign}
+              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-500/20 active:scale-95"
+            >
+              <Zap className="w-4 h-4" />
+              Smart Auto-Assign
+            </button>
+          )}
+        </div>
+      </div>
 
       <div className="bg-white rounded-3xl border border-slate-200 shadow-sm flex flex-col flex-1 min-h-0 overflow-hidden">
         <div className="w-full overflow-auto scrollbar-thumb-slate-300 rounded-3xl flex-1">
