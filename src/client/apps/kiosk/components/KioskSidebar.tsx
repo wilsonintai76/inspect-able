@@ -18,6 +18,7 @@ interface Props {
   departmentFilter: string;
   locationFilter: string;
   auditorStats: AuditorStat[];
+  threshold: number;
   onSearchChange: (v: string) => void;
   onPhaseChange: (v: string) => void;
   onStatusChange: (v: string) => void;
@@ -36,6 +37,7 @@ export const KioskSidebar: React.FC<Props> = ({
   departmentFilter,
   locationFilter,
   auditorStats,
+  threshold,
   onSearchChange,
   onPhaseChange,
   onStatusChange,
@@ -157,7 +159,8 @@ export const KioskSidebar: React.FC<Props> = ({
 
           <div className="space-y-3">
             {auditorStats.map((a, i) => {
-              const pct = Math.min(100, (a.assets / (auditorStats[0]?.assets || 1)) * 100);
+              const pct = Math.min(100, (a.assets / threshold) * 100);
+              const isOver = a.assets >= threshold;
               return (
                 <div key={a.name} className="flex items-center gap-3">
                   <span className="text-[10px] font-black text-slate-400 w-4">
@@ -166,14 +169,18 @@ export const KioskSidebar: React.FC<Props> = ({
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-[11px] font-bold text-slate-700 truncate">{a.name}</span>
-                      <span className="text-[10px] font-black text-indigo-600 shrink-0 ml-2">
-                        {a.assets.toLocaleString()}
+                      <span className={`text-[9px] font-black shrink-0 ml-2 ${isOver ? 'text-rose-600' : 'text-indigo-600'}`}>
+                        {a.assets.toLocaleString()} / {threshold.toLocaleString()}
                       </span>
                     </div>
                     <div className="h-1 bg-slate-100 rounded-full overflow-hidden">
                       {/* biome-ignore lint/style/noInlineStyle: Dynamic progress bar width */}
                       <div
-                        className="h-full bg-linear-to-r from-indigo-400 to-purple-500 rounded-full transition-all duration-500 [width:var(--pct)]"
+                        className={`h-full rounded-full transition-all duration-500 [width:var(--pct)] ${
+                          isOver 
+                            ? 'bg-linear-to-r from-rose-400 to-red-500' 
+                            : 'bg-linear-to-r from-indigo-400 to-purple-500'
+                        }`}
                         style={{ '--pct': `${pct}%` } as React.CSSProperties}
                       />
                     </div>

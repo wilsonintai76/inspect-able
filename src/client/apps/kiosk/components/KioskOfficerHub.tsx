@@ -1,5 +1,5 @@
 import React from 'react';
-import { ShieldCheck, Calendar, CheckCircle2, Clock, TrendingUp, GraduationCap, ShieldAlert, Info } from 'lucide-react';
+import { ShieldCheck, Calendar, CheckCircle2, Clock, TrendingUp, GraduationCap, ShieldAlert, Info, Package } from 'lucide-react';
 import { User } from '@shared/types';
 import { KioskSchedule } from './types';
 
@@ -12,6 +12,7 @@ interface Props {
     inProgress: number;
     pending: number;
     completionRate: number;
+    workload: number;
   };
   certInfo: {
     days: number;
@@ -19,6 +20,7 @@ interface Props {
     expiryDate: string;
   } | null;
   saving: string | null;
+  threshold: number;
   onDateChange: (scheduleId: string, newDate: string) => Promise<void>;
   onLocate: (locationName: string) => void;
 }
@@ -29,9 +31,12 @@ export const KioskOfficerHub: React.FC<Props> = ({
   myStats,
   certInfo,
   saving,
+  threshold,
   onDateChange,
   onLocate,
 }) => {
+  const isOverThreshold = myStats.workload >= threshold;
+
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
       {/* Greeting Card */}
@@ -52,12 +57,20 @@ export const KioskOfficerHub: React.FC<Props> = ({
       </div>
 
       {/* Personal Stats Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
         {[
           { label: 'Total Assigned', value: myStats.total, icon: Calendar, bg: 'bg-blue-50 text-blue-600', border: 'border-blue-100' },
           { label: 'Completed', value: myStats.completed, icon: CheckCircle2, bg: 'bg-emerald-50 text-emerald-600', border: 'border-emerald-100' },
           { label: 'In Progress', value: myStats.inProgress, icon: Clock, bg: 'bg-amber-50 text-amber-600', border: 'border-amber-100' },
-          { label: 'Completion Rate', value: `${myStats.completionRate}%`, icon: TrendingUp, bg: 'bg-indigo-50 text-indigo-600', border: 'border-indigo-100' }
+          { label: 'Completion Rate', value: `${myStats.completionRate}%`, icon: TrendingUp, bg: 'bg-indigo-50 text-indigo-600', border: 'border-indigo-100' },
+          { 
+            label: 'Workload', 
+            value: `${myStats.workload.toLocaleString()} / ${threshold.toLocaleString()}`, 
+            icon: Package, 
+            bg: isOverThreshold ? 'bg-rose-50 text-rose-600' : 'bg-indigo-50 text-indigo-600', 
+            border: isOverThreshold ? 'border-rose-200' : 'border-indigo-100',
+            textClass: isOverThreshold ? 'text-rose-600 font-extrabold' : 'text-slate-900'
+          }
         ].map((c, i) => (
           <div key={i} className={`bg-white p-4 sm:p-5 rounded-2xl border ${c.border} shadow-2xs flex items-center gap-3 sm:gap-4`}>
             <div className={`w-10 h-10 rounded-xl ${c.bg} flex items-center justify-center shrink-0`}>
@@ -65,7 +78,7 @@ export const KioskOfficerHub: React.FC<Props> = ({
             </div>
             <div>
               <p className="text-[9px] sm:text-[10px] font-black text-slate-400 uppercase tracking-wider">{c.label}</p>
-              <p className="text-base sm:text-2xl font-black text-slate-900">{c.value}</p>
+              <p className={`text-xs sm:text-base font-black ${c.textClass || 'text-slate-900'}`}>{c.value}</p>
             </div>
           </div>
         ))}

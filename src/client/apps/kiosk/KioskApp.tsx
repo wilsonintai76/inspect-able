@@ -540,7 +540,8 @@ export const KioskApp: React.FC = () => {
     const inProgress = mySchedules.filter(s => s.status === 'In Progress').length;
     const pending = mySchedules.filter(s => s.status === 'Pending').length;
     const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0;
-    return { total, completed, inProgress, pending, completionRate };
+    const workload = mySchedules.reduce((sum, s) => sum + (s.totalAssets || 0), 0);
+    return { total, completed, inProgress, pending, completionRate, workload };
   }, [mySchedules]);
 
   const certInfo = useMemo(() => {
@@ -760,7 +761,7 @@ export const KioskApp: React.FC = () => {
             {/* Stats Tab / Desktop Stats Bar */}
             <div className={`${activeTab === 'stats' ? 'block animate-in fade-in slide-in-from-bottom-4 duration-300' : 'hidden'} lg:block mb-6`}>
               <KioskStatsBar {...stats} />
-              <KioskAuditorStats stats={auditorStats} />
+              <KioskAuditorStats stats={auditorStats} threshold={maxAssets} />
             </div>
 
             <div className="flex flex-col lg:grid lg:grid-cols-4 gap-6">
@@ -776,6 +777,7 @@ export const KioskApp: React.FC = () => {
                   departmentFilter={departmentFilter}
                   locationFilter={locationFilter}
                   auditorStats={auditorStats}
+                  threshold={maxAssets}
                   onSearchChange={setSearch}
                   onPhaseChange={setPhaseFilter}
                   onStatusChange={setStatusFilter}
@@ -825,6 +827,7 @@ export const KioskApp: React.FC = () => {
             myStats={myStats}
             certInfo={certInfo}
             saving={saving}
+            threshold={maxAssets}
             onDateChange={handleDateChange}
             onLocate={(locationName) => {
               setSearch(locationName);

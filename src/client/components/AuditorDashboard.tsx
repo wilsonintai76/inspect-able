@@ -21,7 +21,8 @@ import {
   Building2,
   Trophy,
   UploadCloud,
-  ExternalLink
+  ExternalLink,
+  Package
 } from 'lucide-react';
 import { AuditUploadModal } from './AuditUploadModal';
 
@@ -33,6 +34,7 @@ interface AuditorDashboardProps {
   departments: Department[];
   locations: Location[];
   institutionKPIs: InstitutionKPITarget[];
+  openAuditThreshold: number;
   onRequestRenewal: () => void;
   onUpdateDate: (id: string, newDate: string) => void;
   onUpdateAudit: (id: string, updates: Partial<AuditSchedule>) => Promise<void>;
@@ -46,6 +48,7 @@ export const AuditorDashboard: React.FC<AuditorDashboardProps> = ({
   departments,
   locations,
   institutionKPIs,
+  openAuditThreshold,
   onRequestRenewal,
   onUpdateDate,
   onUpdateAudit,
@@ -65,9 +68,13 @@ export const AuditorDashboard: React.FC<AuditorDashboardProps> = ({
     const inProgress = myAudits?.filter(s => s.status === 'In Progress').length || 0;
     const pending = myAudits?.filter(s => s.status === 'Pending').length || 0;
     const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0;
+    const workload = myAudits?.reduce((sum, s) => {
+      const loc = locations.find(l => l.id === s.locationId);
+      return sum + (loc?.totalAssets || 0);
+    }, 0) || 0;
 
-    return { total, completed, inProgress, pending, completionRate };
-  }, [myAudits]);
+    return { total, completed, inProgress, pending, completionRate, workload };
+  }, [myAudits, locations]);
 
   const upcomingAudits = useMemo(() => {
     return [...myAudits]
@@ -138,7 +145,7 @@ export const AuditorDashboard: React.FC<AuditorDashboardProps> = ({
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
         <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex items-center gap-4">
           <div className="w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center text-blue-600">
             <Calendar className="w-6 h-6" />
@@ -176,6 +183,24 @@ export const AuditorDashboard: React.FC<AuditorDashboardProps> = ({
           <div>
             <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Completion Rate</p>
             <p className="text-2xl font-black text-slate-900">{stats.completionRate}%</p>
+          </div>
+        </div>
+
+        <div className={`p-6 rounded-3xl border shadow-sm flex items-center gap-4 transition-colors ${
+          stats.workload >= openAuditThreshold 
+            ? 'bg-rose-50/30 border-rose-200 text-rose-700 font-extrabold' 
+            : 'bg-white border-slate-200 text-slate-900'
+        }`}>
+          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${
+            stats.workload >= openAuditThreshold ? 'bg-rose-100 text-rose-600' : 'bg-indigo-50 text-indigo-600'
+          }`}>
+            <Package className="w-6 h-6" />
+          </div>
+          <div>
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Workload</p>
+            <p className={`text-xl font-black ${stats.workload >= openAuditThreshold ? 'text-rose-600' : 'text-slate-900'}`}>
+              {stats.workload.toLocaleString()} / {openAuditThreshold.toLocaleString()}
+            </p>
           </div>
         </div>
       </div>

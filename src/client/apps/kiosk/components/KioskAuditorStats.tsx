@@ -9,9 +9,10 @@ interface AuditorStat {
 
 interface Props {
   stats: AuditorStat[];
+  threshold: number;
 }
 
-export const KioskAuditorStats: React.FC<Props> = ({ stats }) => {
+export const KioskAuditorStats: React.FC<Props> = ({ stats, threshold }) => {
   if (stats.length === 0) return null;
 
   return (
@@ -22,21 +23,28 @@ export const KioskAuditorStats: React.FC<Props> = ({ stats }) => {
       </div>
       
       <div className="grid gap-3 sm:grid-cols-2">
-        {stats.map((stat, idx) => (
-          <div key={idx} className="bg-white border border-slate-200 rounded-2xl p-4 flex items-center justify-between shadow-sm">
-            <div className="flex flex-col">
-              <span className="text-sm font-black text-slate-900">{stat.name}</span>
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">
-                {stat.slots} Slot{stat.slots !== 1 ? 's' : ''} Assigned
-              </span>
+        {stats.map((stat, idx) => {
+          const isOverThreshold = stat.assets >= threshold;
+          return (
+            <div key={idx} className="bg-white border border-slate-200 rounded-2xl p-4 flex items-center justify-between shadow-sm">
+              <div className="flex flex-col">
+                <span className="text-sm font-black text-slate-900">{stat.name}</span>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">
+                  {stat.slots} Slot{stat.slots !== 1 ? 's' : ''} Assigned
+                </span>
+              </div>
+              
+              <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border transition-all ${
+                isOverThreshold 
+                  ? 'bg-rose-50 text-rose-700 border-rose-100' 
+                  : 'bg-indigo-50 text-indigo-700 border-transparent'
+              }`}>
+                <Package className={`w-3.5 h-3.5 ${isOverThreshold ? 'text-rose-600' : 'text-indigo-600'}`} />
+                <span className="text-sm font-black">{stat.assets.toLocaleString()} / {threshold.toLocaleString()}</span>
+              </div>
             </div>
-            
-            <div className="flex items-center gap-2 bg-indigo-50 px-3 py-1.5 rounded-xl">
-              <Package className="w-3.5 h-3.5 text-indigo-600" />
-              <span className="text-sm font-black text-indigo-700">{stat.assets.toLocaleString()}</span>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

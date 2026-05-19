@@ -338,6 +338,7 @@ const App: React.FC = () => {
           departments={departmentsWithAssets}
           locations={locations}
           institutionKPIs={institutionKPIs}
+          openAuditThreshold={openAuditThreshold}
           onRequestRenewal={appActions.handleRequestRenewal}
           onUpdateDate={handleUpdateAuditDate}
           onUpdateAudit={handleUpdateAudit}
