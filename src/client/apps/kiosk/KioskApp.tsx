@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { ShieldCheck, RefreshCw, Download, Smartphone, X, AlertTriangle, CheckCircle, Info, XCircle, LogOut, UserCircle, Phone, Save } from 'lucide-react';
 
 import { KioskSchedule, KioskUser, KioskPhase, AssignRole } from './components/types';
@@ -56,7 +56,7 @@ export const KioskApp: React.FC = () => {
   };
 
   // ── Data loading ──────────────────────────────────────────────────────────
-  const load = async (silent = false) => {
+  const load = useCallback(async (silent = false) => {
     const token = getAuthToken();
     // If auth hasn't resolved yet and there's no JWT, skip silently.
     // The authChecked effect will re-trigger once exchange completes.
@@ -75,7 +75,7 @@ export const KioskApp: React.FC = () => {
     } catch { /* graceful – keep previous data */ } finally {
       if (!silent) setLoading(false);
     }
-  };
+  }, [authChecked]);
 
   // ── Auth init: handle ?google_callback= then check existing session ────────
   useEffect(() => {
@@ -112,11 +112,6 @@ export const KioskApp: React.FC = () => {
   useEffect(() => { 
     load(); 
 
-    // Keep the kiosk auto-synced with main site location changes (poll every 10 seconds)
-    const intervalId = setInterval(() => {
-      load(true);
-    }, 10000);
-
     // Detect if iOS device
     const userAgent = window.navigator.userAgent.toLowerCase();
     setIsIOS(/iphone|ipad|ipod/.test(userAgent));
@@ -134,10 +129,61 @@ export const KioskApp: React.FC = () => {
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     return () => {
-      clearInterval(intervalId);
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     };
-  }, []);
+  }, [load]);
+
+  // Real-time visibility-aware background sync and tab-focus refetching for the kiosk
+  useEffect(() => {
+    if (!authChecked || !currentUser) return;
+
+    let pollInterval: NodeJS.Timeout | null = null;
+
+    const performSync = () => {
+      if (document.visibilityState === 'visible') {
+        load(true);
+      }
+    };
+
+    const startPolling = () => {
+      stopPolling();
+      pollInterval = setInterval(performSync, 10000);
+    };
+
+    const stopPolling = () => {
+      if (pollInterval) {
+        clearInterval(pollInterval);
+        pollInterval = null;
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        performSync();
+        startPolling();
+      } else {
+        stopPolling();
+      }
+    };
+
+    const handleWindowFocus = () => {
+      performSync();
+    };
+
+    // Initialize visibility-aware polling
+    if (document.visibilityState === 'visible') {
+      startPolling();
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleWindowFocus);
+
+    return () => {
+      stopPolling();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleWindowFocus);
+    };
+  }, [authChecked, currentUser, load]);
 
   // Inactivity Auto-Reset (2 minutes)
   useEffect(() => {

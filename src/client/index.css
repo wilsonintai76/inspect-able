@@ -184,3 +184,20 @@
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
 }
+
+/* Table Min-Width Helper Utilities for Small/Medium Desktop Screens (e.g. 14" Laptops) */
+.min-w-150 {
+  min-width: 600px;
+}
+.min-w-195 {
+  min-width: 780px;
+}
+.min-w-200 {
+  min-width: 800px;
+}
+.min-w-225 {
+  min-width: 900px;
+}
+.min-w-250 {
+  min-width: 1000px;
+}

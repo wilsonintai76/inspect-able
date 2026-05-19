@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useMemo } from 'react';
+import { useState, useCallback, useRef, useMemo, useEffect } from 'react';
 import { 
   AuditSchedule, 
   User, 
@@ -163,6 +163,67 @@ export const useAppData = () => {
       setConnectionErrorMessage((e as any)?.message || "Failed to load data.");
     }
   }, []);
+
+  const syncSchedulesOnly = useCallback(async () => {
+    try {
+      const auditsData = await gateway.getAudits();
+      setSchedules(auditsData);
+    } catch (e) {
+      console.warn('[Sync] Failed to sync schedules:', e);
+    }
+  }, []);
+
+  // Real-time background sync and tab-focus refetching for the main site
+  useEffect(() => {
+    if (viewState !== 'app' || !currentUser) return;
+
+    let pollInterval: NodeJS.Timeout | null = null;
+
+    const performSync = () => {
+      if (document.visibilityState === 'visible') {
+        syncSchedulesOnly();
+      }
+    };
+
+    const startPolling = () => {
+      stopPolling();
+      pollInterval = setInterval(performSync, 10000);
+    };
+
+    const stopPolling = () => {
+      if (pollInterval) {
+        clearInterval(pollInterval);
+        pollInterval = null;
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        performSync();
+        startPolling();
+      } else {
+        stopPolling();
+      }
+    };
+
+    const handleWindowFocus = () => {
+      performSync();
+    };
+
+    // Initialize visibility-aware polling
+    if (document.visibilityState === 'visible') {
+      startPolling();
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleWindowFocus);
+
+    return () => {
+      stopPolling();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleWindowFocus);
+    };
+  }, [viewState, currentUser, syncSchedulesOnly]);
 
   const initSession = useCallback(async () => {
     try {
