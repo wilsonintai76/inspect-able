@@ -43,7 +43,6 @@ export const KioskApp: React.FC = () => {
 
   // ── UI state ────────────────────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState<KioskTab>('schedule');
-  const [viewMode, setViewMode] = useState<'kiosk' | 'hub'>('kiosk');
   const [search, setSearch] = useState('');
   const [phaseFilter, setPhaseFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -218,7 +217,6 @@ export const KioskApp: React.FC = () => {
       setDepartmentFilter('');
       setLocationFilter('');
       setActiveTab('schedule');
-      setViewMode('kiosk');
       
       await handleSignOut();
       alert("You have been logged out due to inactivity to secure your session.");
@@ -651,12 +649,12 @@ export const KioskApp: React.FC = () => {
               </div>
             </div>
 
-            {/* View Switcher */}
-            <div className="flex bg-slate-100 p-0.5 rounded-xl border border-slate-200/50 shrink-0">
+            {/* View Switcher (Desktop only, mobile/tablet uses bottom navigation menu) */}
+            <div className="hidden lg:flex bg-slate-100 p-0.5 rounded-xl border border-slate-200/50 shrink-0">
               <button
-                onClick={() => setViewMode('kiosk')}
+                onClick={() => setActiveTab('schedule')}
                 className={`px-2.5 sm:px-3.5 py-1 text-[9px] sm:text-[10px] font-black uppercase tracking-wider rounded-lg transition-all ${
-                  viewMode === 'kiosk'
+                  activeTab !== 'hub'
                     ? 'bg-white text-indigo-600 shadow-xs'
                     : 'text-slate-500 hover:text-slate-900'
                 }`}
@@ -664,9 +662,9 @@ export const KioskApp: React.FC = () => {
                 Board
               </button>
               <button
-                onClick={() => setViewMode('hub')}
+                onClick={() => setActiveTab('hub')}
                 className={`px-2.5 sm:px-3.5 py-1 text-[9px] sm:text-[10px] font-black uppercase tracking-wider rounded-lg transition-all ${
-                  viewMode === 'hub'
+                  activeTab === 'hub'
                     ? 'bg-white text-indigo-600 shadow-xs'
                     : 'text-slate-500 hover:text-slate-900'
                 }`}
@@ -753,13 +751,11 @@ export const KioskApp: React.FC = () => {
         onClose={() => setShowIOSBanner(false)}
       />
 
-      {viewMode === 'kiosk' && (
-        <KioskTabs activeTab={activeTab} onTabChange={setActiveTab} badgeCount={activeFiltersCount} />
-      )}
+      <KioskTabs activeTab={activeTab} onTabChange={setActiveTab} badgeCount={activeFiltersCount} />
 
       {/* Body */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-6 animate-in fade-in duration-300">
-        {viewMode === 'kiosk' ? (
+        {activeTab !== 'hub' ? (
           <>
             {/* Stats Tab / Desktop Stats Bar */}
             <div className={`${activeTab === 'stats' ? 'block animate-in fade-in slide-in-from-bottom-4 duration-300' : 'hidden'} lg:block mb-6`}>
@@ -832,7 +828,6 @@ export const KioskApp: React.FC = () => {
             onDateChange={handleDateChange}
             onLocate={(locationName) => {
               setSearch(locationName);
-              setViewMode('kiosk');
               setActiveTab('schedule');
             }}
           />

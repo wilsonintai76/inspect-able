@@ -1,7 +1,7 @@
 import React from 'react';
-import { Calendar, BarChart3, Filter } from 'lucide-react';
+import { Calendar, BarChart3, Filter, ShieldCheck } from 'lucide-react';
 
-export type KioskTab = 'schedule' | 'stats' | 'filters';
+export type KioskTab = 'schedule' | 'stats' | 'filters' | 'hub';
 
 interface Props {
   activeTab: KioskTab;
@@ -14,6 +14,7 @@ export const KioskTabs: React.FC<Props> = ({ activeTab, onTabChange, badgeCount 
     { id: 'filters' as const,  label: 'Filters',  icon: Filter, badge: badgeCount },
     { id: 'schedule' as const, label: 'Schedule', icon: Calendar },
     { id: 'stats' as const,    label: 'Stats',    icon: BarChart3 },
+    { id: 'hub' as const,      label: 'My Hub',   icon: ShieldCheck },
   ];
 
   return (
