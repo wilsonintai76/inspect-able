@@ -66,6 +66,11 @@
     background-image: radial-gradient(#1e293b 1px, transparent 1px);
     background-size: 40px 40px;
   }
+
+  /* CSS-variable-driven progress bar (avoids inline style lint) */
+  .progress-pct {
+    width: var(--pct, 0%);
+  }
 }
 
 @theme inline {

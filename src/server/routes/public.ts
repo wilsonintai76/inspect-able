@@ -337,6 +337,16 @@ pub.patch('/kiosk/schedules/:id', async (c) => {
       const colMap: Record<string, string> = { auditor1: 'auditor1_id', auditor2: 'auditor2_id', supervisor: 'supervisor_id' };
       const col = colMap[role];
 
+      // ATOMIC CONCURRENCY CHECK (Race Condition Guard)
+      // Prevent users from overwriting a slot that was just taken by someone else
+      const currentSlot = await c.env.DB.prepare(
+        `SELECT ${col} AS assigned_id FROM audit_schedules WHERE id = ?`
+      ).bind(scheduleId).first<{ assigned_id: string | null }>();
+      
+      if (currentSlot && currentSlot.assigned_id && currentSlot.assigned_id !== userId) {
+        return c.json({ error: 'RACE CONDITION DETECTED: This slot was just taken by another user. Please refresh your view to see the latest assignments.' }, 409);
+      }
+
       const updates: string[] = [`${col} = ?`];
       const values: any[] = [userId];
 
@@ -373,11 +383,19 @@ pub.patch('/kiosk/schedules/:id', async (c) => {
         'SELECT status, date, supervisor_id, auditor1_id, auditor2_id FROM audit_schedules WHERE id = ?'
       ).bind(scheduleId).first<{ status: string; date: string | null; supervisor_id: string | null; auditor1_id: string | null; auditor2_id: string | null }>();
 
-      if (updatedSchedule && updatedSchedule.status === 'Pending') {
-        if (updatedSchedule.date && updatedSchedule.supervisor_id && updatedSchedule.auditor1_id && updatedSchedule.auditor2_id) {
-          await c.env.DB.prepare(
-            "UPDATE audit_schedules SET status = 'In Progress' WHERE id = ?"
-          ).bind(scheduleId).run();
+      if (updatedSchedule) {
+        if (updatedSchedule.status === 'Pending') {
+          if (updatedSchedule.date && updatedSchedule.supervisor_id && updatedSchedule.auditor1_id && updatedSchedule.auditor2_id) {
+            await c.env.DB.prepare(
+              "UPDATE audit_schedules SET status = 'In Progress' WHERE id = ?"
+            ).bind(scheduleId).run();
+          }
+        } else if (updatedSchedule.status === 'In Progress') {
+          if (!updatedSchedule.date || !updatedSchedule.supervisor_id || !updatedSchedule.auditor1_id || !updatedSchedule.auditor2_id) {
+            await c.env.DB.prepare(
+              "UPDATE audit_schedules SET status = 'Pending' WHERE id = ?"
+            ).bind(scheduleId).run();
+          }
         }
       }
 
@@ -401,15 +419,17 @@ pub.patch('/kiosk/schedules/:id', async (c) => {
         `UPDATE audit_schedules SET ${col} = NULL WHERE id = ?`
       ).bind(scheduleId).run();
 
-      // Revert In Progress → Pending if no auditors remain assigned
+      // Revert In Progress -> Pending if any assignment is missing
       const remaining = await c.env.DB.prepare(
-        `SELECT status, auditor1_id, auditor2_id FROM audit_schedules WHERE id = ?`
-      ).bind(scheduleId).first<{ status: string; auditor1_id: string | null; auditor2_id: string | null }>();
-      if (remaining && remaining.status === 'In Progress' && !remaining.auditor1_id && !remaining.auditor2_id) {
-        await c.env.DB.prepare(
-          `UPDATE audit_schedules SET status = 'Pending' WHERE id = ?`
-        ).bind(scheduleId).run();
-        return c.json({ success: true, revertedToPending: true });
+        `SELECT status, date, supervisor_id, auditor1_id, auditor2_id FROM audit_schedules WHERE id = ?`
+      ).bind(scheduleId).first<{ status: string; date: string | null; supervisor_id: string | null; auditor1_id: string | null; auditor2_id: string | null }>();
+      if (remaining && remaining.status === 'In Progress') {
+        if (!remaining.date || !remaining.supervisor_id || !remaining.auditor1_id || !remaining.auditor2_id) {
+          await c.env.DB.prepare(
+            `UPDATE audit_schedules SET status = 'Pending' WHERE id = ?`
+          ).bind(scheduleId).run();
+          return c.json({ success: true, revertedToPending: true });
+        }
       }
 
       return c.json({ success: true });
@@ -472,11 +492,19 @@ pub.patch('/kiosk/schedules/:id/date', async (c) => {
       'SELECT status, date, supervisor_id, auditor1_id, auditor2_id FROM audit_schedules WHERE id = ?'
     ).bind(scheduleId).first<{ status: string; date: string | null; supervisor_id: string | null; auditor1_id: string | null; auditor2_id: string | null }>();
 
-    if (updatedSchedule && updatedSchedule.status === 'Pending') {
-      if (updatedSchedule.date && updatedSchedule.supervisor_id && updatedSchedule.auditor1_id && updatedSchedule.auditor2_id) {
-        await c.env.DB.prepare(
-          "UPDATE audit_schedules SET status = 'In Progress' WHERE id = ?"
-        ).bind(scheduleId).run();
+    if (updatedSchedule) {
+      if (updatedSchedule.status === 'Pending') {
+        if (updatedSchedule.date && updatedSchedule.supervisor_id && updatedSchedule.auditor1_id && updatedSchedule.auditor2_id) {
+          await c.env.DB.prepare(
+            "UPDATE audit_schedules SET status = 'In Progress' WHERE id = ?"
+          ).bind(scheduleId).run();
+        }
+      } else if (updatedSchedule.status === 'In Progress') {
+        if (!updatedSchedule.date || !updatedSchedule.supervisor_id || !updatedSchedule.auditor1_id || !updatedSchedule.auditor2_id) {
+          await c.env.DB.prepare(
+            "UPDATE audit_schedules SET status = 'Pending' WHERE id = ?"
+          ).bind(scheduleId).run();
+        }
       }
     }
 

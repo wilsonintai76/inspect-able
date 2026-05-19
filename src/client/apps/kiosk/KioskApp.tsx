@@ -320,8 +320,8 @@ export const KioskApp: React.FC = () => {
         };
         // If server reverted status, reflect it optimistically
         if (unassignData.revertedToPending) updated.status = 'Pending';
-        // Also check client-side: if both auditor slots are now empty, revert
-        else if (updated.status === 'In Progress' && !updated.auditor1Id && !updated.auditor2Id) {
+        // Also check client-side: if any required field is missing, revert
+        else if (updated.status === 'In Progress' && (!updated.date || !updated.supervisorId || !updated.auditor1Id || !updated.auditor2Id)) {
           updated.status = 'Pending';
         }
         return updated;
@@ -382,6 +382,8 @@ export const KioskApp: React.FC = () => {
         const hasAll = updated.date && updated.supervisorId && updated.auditor1Id && updated.auditor2Id;
         if (hasAll && updated.status === 'Pending') {
           updated.status = 'In Progress';
+        } else if (!hasAll && updated.status === 'In Progress') {
+          updated.status = 'Pending';
         }
         return updated;
       }));

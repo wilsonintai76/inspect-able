@@ -223,7 +223,20 @@ export const useAppActions = (props: AppActionsProps) => {
 
   const handleUnassign = async (id: string, slot: 1 | 2) => {
     try {
-      const updates = slot === 1 ? { auditor1Id: null } : { auditor2Id: null };
+      const audit = schedules.find(s => s.id === id);
+      const updates: Partial<AuditSchedule> = slot === 1 ? { auditor1Id: null } : { auditor2Id: null };
+      
+      if (audit && (updates.status || audit.status) === 'In Progress') {
+        const finalDate = updates.date !== undefined ? updates.date : audit.date;
+        const finalSupervisor = updates.supervisorId !== undefined ? updates.supervisorId : audit.supervisorId;
+        const finalAuditor1 = updates.auditor1Id !== undefined ? updates.auditor1Id : audit.auditor1Id;
+        const finalAuditor2 = updates.auditor2Id !== undefined ? updates.auditor2Id : audit.auditor2Id;
+
+        if (!finalDate || !finalSupervisor || !finalAuditor1 || !finalAuditor2) {
+          updates.status = 'Pending';
+        }
+      }
+
       await gateway.updateAudit(id, updates);
       setSchedules(prev => prev.map(s => s.id === id ? { ...s, ...updates } : s));
     } catch (e) { showError(e); }
@@ -249,14 +262,20 @@ export const useAppActions = (props: AppActionsProps) => {
           }
         }
 
-        // Auto-activation check
-        if ((updates.status || audit.status) === 'Pending') {
-          const finalDate = updates.date !== undefined ? updates.date : audit.date;
-          const finalSupervisor = updates.supervisorId !== undefined ? updates.supervisorId : audit.supervisorId;
-          const finalAuditor = updates.auditor1Id !== undefined ? updates.auditor1Id : audit.auditor1Id;
+        // Auto status transitions
+        const currentStatus = updates.status || audit.status;
+        const finalDate = updates.date !== undefined ? updates.date : audit.date;
+        const finalSupervisor = updates.supervisorId !== undefined ? updates.supervisorId : audit.supervisorId;
+        const finalAuditor1 = updates.auditor1Id !== undefined ? updates.auditor1Id : audit.auditor1Id;
+        const finalAuditor2 = updates.auditor2Id !== undefined ? updates.auditor2Id : audit.auditor2Id;
 
-          if (finalDate && finalSupervisor && finalAuditor) {
+        if (currentStatus === 'Pending') {
+          if (finalDate && finalSupervisor && finalAuditor1 && finalAuditor2) {
             updates.status = 'In Progress';
+          }
+        } else if (currentStatus === 'In Progress') {
+          if (!finalDate || !finalSupervisor || !finalAuditor1 || !finalAuditor2) {
+            updates.status = 'Pending';
           }
         }
       }
@@ -273,14 +292,22 @@ export const useAppActions = (props: AppActionsProps) => {
         : null;
       let updates: Partial<AuditSchedule> = resolvedPhaseId ? { date, phaseId: resolvedPhaseId } : { date };
       
-      // Auto-activation check
-      if (audit && (updates.status || audit.status) === 'Pending') {
+      // Auto status transitions
+      if (audit) {
+        const currentStatus = updates.status || audit.status;
         const finalDate = date;
         const finalSupervisor = audit.supervisorId;
-        const finalAuditor = audit.auditor1Id;
+        const finalAuditor1 = audit.auditor1Id;
+        const finalAuditor2 = audit.auditor2Id;
 
-        if (finalDate && finalSupervisor && finalAuditor) {
-          updates.status = 'In Progress';
+        if (currentStatus === 'Pending') {
+          if (finalDate && finalSupervisor && finalAuditor1 && finalAuditor2) {
+            updates.status = 'In Progress';
+          }
+        } else if (currentStatus === 'In Progress') {
+          if (!finalDate || !finalSupervisor || !finalAuditor1 || !finalAuditor2) {
+            updates.status = 'Pending';
+          }
         }
       }
 

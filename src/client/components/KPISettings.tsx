@@ -401,14 +401,15 @@ export const KPISettings: React.FC<KPISettingsProps> = ({
         </div>
       </div>
 
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+      {/* Section header */}
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-6">
         <div>
           <h3 className="text-xl font-bold text-slate-900">Inspection Completion KPI Targets</h3>
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-slate-500 mt-0.5">
             Set percentage boundaries to group your departments into Small, Medium, and Large.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           {onAutoCalculateTierTargets && (
             <button 
               onClick={async () => {
@@ -432,134 +433,146 @@ export const KPISettings: React.FC<KPISettingsProps> = ({
         </div>
       </div>
 
-      <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-200">
-        <table className="w-full text-left min-w-200">
-          <thead className="bg-slate-50/50 border-b border-slate-100">
-            <tr>
-              <th className="px-6 py-4 text-[10px] font-black uppercase text-slate-400 tracking-widest w-48">Movable Asset Tier</th>
-              <th className="px-6 py-4 text-[10px] font-black uppercase text-slate-400 tracking-widest w-64">Size Threshold (%)</th>
-              {sortedPhases.map(phase => (
-                <th key={phase.id} className="px-4 py-4 text-[10px] font-black uppercase text-slate-400 tracking-widest text-center">
-                  {phase.name} <br/>
-                  <span className="text-[9px] font-normal opacity-70">Target %</span>
-                </th>
-              ))}
-              <th className="px-6 py-4 text-[10px] font-black uppercase text-slate-400 tracking-widest text-right sticky right-0 bg-slate-50/80">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-50">
-            {sortedTiers.map((tier, idx) => {
+      {/* Column header row */}
+      {sortedTiers.length > 0 && (
+        <div className="flex items-center gap-3 px-4 mb-2">
+          <span className="w-44 shrink-0 text-[10px] font-black uppercase tracking-widest text-slate-400">Tier</span>
+          <span className="flex-1 text-[10px] font-black uppercase tracking-widest text-slate-400">Asset Range</span>
+          {sortedPhases.map(phase => (
+            <span key={phase.id} className="w-28 shrink-0 text-[10px] font-black uppercase tracking-widest text-slate-400 text-center">
+              {phase.name}
+              <span className="block text-[9px] font-normal opacity-60 normal-case tracking-normal">Target %</span>
+            </span>
+          ))}
+          <span className="w-20 shrink-0" />
+        </div>
+      )}
+
+      {/* Tier cards */}
+      {(!sortedTiers || sortedTiers.length === 0) ? (
+        <div className="py-12 text-center text-slate-400 italic text-sm">
+          No asset tiers defined. Add a tier to start tracking KPIs.
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {(() => {
+            const TIER_STYLES = [
+              { badge: 'bg-emerald-100 text-emerald-700 border-emerald-200', bar: 'bg-emerald-500', ring: 'ring-emerald-200' },
+              { badge: 'bg-amber-100 text-amber-700 border-amber-200',       bar: 'bg-amber-500',   ring: 'ring-amber-200' },
+              { badge: 'bg-blue-100 text-blue-700 border-blue-200',          bar: 'bg-blue-500',    ring: 'ring-blue-200' },
+              { badge: 'bg-purple-100 text-purple-700 border-purple-200',    bar: 'bg-purple-500',  ring: 'ring-purple-200' },
+            ];
+            return sortedTiers.map((tier, idx) => {
               const isEditing = editingId === tier.id;
-              
+              const style = TIER_STYLES[idx % TIER_STYLES.length];
+              const nextMin = sortedTiers[idx + 1]?.minAssets ?? 100;
+              const isLast = idx === sortedTiers.length - 1;
+
               return (
-                <tr key={tier.id} className={isEditing ? 'bg-blue-50/30' : 'hover:bg-slate-50/50 transition-colors'}>
-                  {/* Tier Name */}
-                  <td className="px-6 py-4">
-                    {isEditing ? (
-                       <input 
-                         readOnly
-                         title="Tier name"
-                         aria-label="Tier name"
-                         placeholder="Tier name"
-                         className="w-full px-2 py-1.5 bg-slate-100 border border-slate-200 rounded-lg text-xs font-bold text-slate-400 cursor-not-allowed outline-none"
-                         value={formData.name}
-                       />
-                    ) : (
-                       <span className="font-bold text-slate-900 text-xs">{tier.name}</span>
-                    )}
-                  </td>
+                <div
+                  key={tier.id}
+                  className={`rounded-2xl border-2 transition-all duration-200 ${
+                    isEditing
+                      ? `bg-blue-50/60 border-blue-300 ring-4 ring-blue-100`
+                      : `bg-white border-slate-100 hover:border-slate-200 hover:shadow-sm`
+                  }`}
+                >
+                  <div className="flex items-center gap-3 p-4">
+                    {/* Tier name */}
+                    <div className="w-44 shrink-0 flex items-center gap-2">
+                      <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-black border ${style.badge}`}>
+                        {tier.name}
+                      </span>
+                    </div>
 
-                  {/* Range */}
-                  <td className="px-6 py-4">
-                    {isEditing ? (
-                      <div className="flex items-center gap-1">
-                        <input 
-                          type="number"
-                          min={0}
-                          max={100}
-                          disabled={tier.id === sortedTiers[0].id}
-                          title="Minimum asset threshold percentage"
-                          aria-label="Minimum asset threshold percentage"
-                          placeholder="0"
-                          className="w-16 px-2 py-1.5 bg-white border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-blue-500/20 disabled:bg-slate-100 disabled:text-slate-400"
-                          value={formData.minAssets}
-                          onChange={e => setFormData({...formData, minAssets: parseInt(e.target.value) || 0})}
-                        />
-                        <span className="text-xs text-slate-400 font-bold">%</span>
-                      </div>
-                    ) : (
-                      <div className="flex flex-col">
-                        <span className="text-sm font-bold text-slate-700">
-                          {tier.minAssets}% 
-                          {idx === sortedTiers.length - 1 ? ' and above' : ` to ${(sortedTiers[idx+1]?.minAssets || 100) - 1}%`}
-                        </span>
-                        <span className="text-[10px] text-slate-400 mt-0.5">
-                           ({Math.round(institutionTotalAssets * (tier.minAssets / 100)).toLocaleString()} 
-                           {idx === sortedTiers.length - 1 ? ' assets +' : ` to ${(Math.round(institutionTotalAssets * (((sortedTiers[idx+1]?.minAssets || 100)) / 100)) - 1).toLocaleString()} assets`})
-                        </span>
-                      </div>
-                    )}
-                  </td>
+                    {/* Asset range */}
+                    <div className="flex-1 min-w-0">
+                      {isEditing ? (
+                        <div className="flex items-center gap-1.5">
+                          <input
+                            type="number"
+                            min={0}
+                            max={100}
+                            disabled={tier.id === sortedTiers[0].id}
+                            title="Minimum asset threshold percentage"
+                            aria-label="Minimum asset threshold percentage"
+                            placeholder="0"
+                            className="w-16 px-2 py-1.5 bg-white border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-blue-500/20 disabled:bg-slate-100 disabled:text-slate-400"
+                            value={formData.minAssets}
+                            onChange={e => setFormData({ ...formData, minAssets: parseInt(e.target.value) || 0 })}
+                          />
+                          <span className="text-xs text-slate-400 font-bold">%</span>
+                        </div>
+                      ) : (
+                        <div>
+                          <p className="text-sm font-bold text-slate-800">
+                            {tier.minAssets}%{isLast ? ' and above' : ` – ${nextMin - 1}%`}
+                          </p>
+                          <p className="text-[11px] text-slate-400 mt-0.5">
+                            {Math.round(institutionTotalAssets * (tier.minAssets / 100)).toLocaleString()}
+                            {isLast
+                              ? ' assets +'
+                              : ` – ${(Math.round(institutionTotalAssets * (nextMin / 100)) - 1).toLocaleString()} assets`}
+                          </p>
+                        </div>
+                      )}
+                    </div>
 
-                  {/* Phase Targets */}
-                  {sortedPhases.map(phase => (
-                    <td key={phase.id} className="px-4 py-4 text-center">
-                       {isEditing ? (
-                         <div className="flex items-center justify-center">
-                           <input 
-                              type="number"
-                              min="0"
-                              max="100"
-                              className="w-12 px-2 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-center focus:ring-2 focus:ring-blue-500/20"
-                              value={formData.targets[phase.id] ?? ''}
-                              placeholder="-"
-                              onChange={e => handleTargetChange(phase.id, e.target.value)}
-                           />
-                           <span className="ml-1 text-[10px] text-slate-400">%</span>
-                         </div>
-                       ) : (
-                         <div className="flex items-center justify-center gap-1">
-                            <span className={`text-xs font-black ${(targetsByTier.get(tier.id)?.[phase.id] ?? tier.targets?.[phase.id] ?? 0) ? 'text-slate-700' : 'text-slate-300'}`}>
-                              {targetsByTier.get(tier.id)?.[phase.id] ?? tier.targets?.[phase.id] ?? 0}%
-                            </span>
-                         </div>
-                       )}
-                    </td>
-                  ))}
+                    {/* Phase targets */}
+                    {sortedPhases.map(phase => {
+                      const val = targetsByTier.get(tier.id)?.[phase.id] ?? tier.targets?.[phase.id] ?? 0;
+                      return (
+                        <div key={phase.id} className="w-28 shrink-0 flex items-center justify-center">
+                          {isEditing ? (
+                            <div className="flex items-center gap-1">
+                              <input
+                                type="number"
+                                min="0"
+                                max="100"
+                                title={`${phase.name} target percentage`}
+                                aria-label={`${phase.name} target percentage`}
+                                className="w-14 px-2 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-center focus:ring-2 focus:ring-blue-500/20"
+                                value={formData.targets[phase.id] ?? ''}
+                                placeholder="0"
+                                onChange={e => handleTargetChange(phase.id, e.target.value)}
+                              />
+                              <span className="text-[10px] text-slate-400">%</span>
+                            </div>
+                          ) : (
+                            <div className="text-center">
+                              <span className={`text-base font-black ${val ? 'text-slate-800' : 'text-slate-300'}`}>
+                                {val}%
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
 
-                  {/* Actions */}
-                  <td className="px-6 py-4 text-right sticky right-0 bg-white">
-                    {isEditing ? (
-                      <div className="flex justify-end gap-2">
-                        <button title="Save tier" aria-label="Save tier" onClick={saveEdit} className="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center hover:bg-blue-700 shadow-lg shadow-blue-500/20">
-                          <Check className="w-4 h-4" />
-                        </button>
-                        <button title="Cancel edit" aria-label="Cancel edit" onClick={resetForm} className="w-8 h-8 rounded-lg bg-slate-200 text-slate-600 flex items-center justify-center hover:bg-slate-300">
-                           <X className="w-4 h-4" />
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="flex justify-end gap-2">
-                        <button title="Edit tier" aria-label="Edit tier" onClick={() => startEdit(tier)} className="w-8 h-8 rounded-lg border border-slate-200 text-slate-400 hover:text-blue-600 hover:border-blue-200 flex items-center justify-center transition-colors">
+                    {/* Actions */}
+                    <div className="w-20 shrink-0 flex justify-end gap-1.5">
+                      {isEditing ? (
+                        <>
+                          <button title="Save tier" aria-label="Save tier" onClick={saveEdit} className="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center hover:bg-blue-700 shadow-md shadow-blue-500/20 transition-colors">
+                            <Check className="w-4 h-4" />
+                          </button>
+                          <button title="Cancel edit" aria-label="Cancel edit" onClick={resetForm} className="w-8 h-8 rounded-lg bg-slate-200 text-slate-600 flex items-center justify-center hover:bg-slate-300 transition-colors">
+                            <X className="w-4 h-4" />
+                          </button>
+                        </>
+                      ) : (
+                        <button title="Edit tier" aria-label="Edit tier" onClick={() => startEdit(tier)} className="w-8 h-8 rounded-lg border border-slate-200 text-slate-400 hover:text-blue-600 hover:border-blue-200 hover:bg-blue-50 flex items-center justify-center transition-colors">
                           <Pencil className="w-4 h-4" />
                         </button>
-                        {/* Remove Delete button to lock to 3 tiers */}
-                      </div>
-                    )}
-                  </td>
-                </tr>
+                      )}
+                    </div>
+                  </div>
+                </div>
               );
-            })}
-            {(!sortedTiers || sortedTiers.length === 0) && (
-               <tr>
-                 <td colSpan={3 + (sortedPhases?.length || 0)} className="px-6 py-12 text-center text-slate-400 italic">
-                    No asset tiers defined. Add a tier to start tracking KPIs.
-                 </td>
-               </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+            });
+          })()}
+        </div>
+      )}
     </div>
     <ConfirmationModal 
       isOpen={!!tierToDelete}

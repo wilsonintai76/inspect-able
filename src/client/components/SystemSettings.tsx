@@ -8,7 +8,7 @@ import { suggestThresholds } from '../services/aiService';
 import { DataManagementWorkflow } from './DataManagementWorkflow';
 import { RBACMatrix } from './RBACMatrix';
 import { Zap, Sliders, AlertCircle, Eye, Calendar, UserCheck, Users, UserPlus, Edit, ShieldAlert, ShieldCheck, Network, Lock, Unlock, RotateCcw, Building2, Trash2, Database, RefreshCcw } from 'lucide-react';
-import { BackupButton } from './BackupButton';
+import { BackupManager } from './BackupManager';
 import { PageHeader } from './PageHeader';
 import { AuditConstraints } from './AuditConstraints';
 import { BrandingSettings } from './BrandingSettings';
@@ -583,7 +583,7 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
 
       {isAdmin && <BrandingSettings showToast={showToast} />}
 
-      {isAdmin && <BackupButton />}
+      {isAdmin && <BackupManager />}
 
       {isAdmin && (
         <div className={`rounded-[32px] p-8 border-2 transition-all duration-500 ${

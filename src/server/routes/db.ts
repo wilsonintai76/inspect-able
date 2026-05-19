@@ -8,6 +8,7 @@ import { rbacGuard } from '../middleware/rbacGuard';
 import { auditAssignmentGuard } from '../middleware/conflictOfInterest';
 import { verifyNativeJwt } from '../middleware/auth';
 import { hashPassword } from '../services/authService';
+import { backupD1ToR2 } from '../services/backupService';
 
 const DEFAULT_USER_PASSWORD = 'Poliku@2024';
 
@@ -112,7 +113,7 @@ const zeroAssetGuard = async (c: Context<{ Bindings: Bindings; Variables: Variab
 // Applies to PATCH /audits/:id when status is being changed.
 const VALID_TRANSITIONS: Record<string, string[]> = {
   'Pending':     ['In Progress'],
-  'In Progress': ['Completed'],
+  'In Progress': ['Pending', 'Completed'],
   'Completed':   [],
 };
 
@@ -122,18 +123,20 @@ const statusTransitionGuard = async (c: Context<{ Bindings: Bindings; Variables:
     date?: string | null; 
     supervisorId?: string | null; 
     auditor1Id?: string | null; 
+    auditor2Id?: string | null;
     reportPath?: string | null;
   };
   if (!updates.status) return next();
 
   const id = c.req.param('id');
   const existing = await c.env.DB.prepare(
-    'SELECT status, date, supervisor_id, auditor1_id, report_path FROM audit_schedules WHERE id = ?',
+    'SELECT status, date, supervisor_id, auditor1_id, auditor2_id, report_path FROM audit_schedules WHERE id = ?',
   ).bind(id).first<{ 
     status: string; 
     date: string | null; 
     supervisor_id: string | null; 
     auditor1_id: string | null; 
+    auditor2_id: string | null;
     report_path: string | null;
   }>();
 
@@ -151,16 +154,17 @@ const statusTransitionGuard = async (c: Context<{ Bindings: Bindings; Variables:
     );
   }
 
-  // 1. Enforce that "In Progress" requires date, supervisor, and auditor
+  // 1. Enforce that "In Progress" requires date, supervisor, and BOTH auditors
   if (updates.status === 'In Progress') {
     const finalDate = updates.date !== undefined ? updates.date : existing.date;
     const finalSupervisor = updates.supervisorId !== undefined ? updates.supervisorId : existing.supervisor_id;
-    const finalAuditor = updates.auditor1Id !== undefined ? updates.auditor1Id : existing.auditor1_id;
+    const finalAuditor1 = updates.auditor1Id !== undefined ? updates.auditor1Id : existing.auditor1_id;
+    const finalAuditor2 = updates.auditor2Id !== undefined ? updates.auditor2Id : existing.auditor2_id;
 
-    if (!finalDate || !finalSupervisor || !finalAuditor) {
+    if (!finalDate || !finalSupervisor || !finalAuditor1 || !finalAuditor2) {
       return c.json(
         {
-          error: 'ACTION BLOCKED: Date, Site Supervisor, and Inspecting Officer (Auditor) must all be assigned before starting the inspection.',
+          error: 'ACTION BLOCKED: Date, Site Supervisor, and both Inspecting Officers must all be assigned before starting the inspection.',
           code: 'ASSIGNMENT_INCOMPLETE'
         },
         422
@@ -396,19 +400,26 @@ db.patch('/audits/:id', zValidator('json', patchAuditSchema), patchAuditPermissi
     }
   }
 
-  // Automatic activation from Pending to In Progress when assignments are completed (requires BOTH auditor slots)
+  // Automatic status transitions between Pending and In Progress based on assignment completeness
   const existingForActivation = await c.env.DB.prepare(
     'SELECT status, date, supervisor_id, auditor1_id, auditor2_id FROM audit_schedules WHERE id = ?'
   ).bind(id).first<{ status: string; date: string | null; supervisor_id: string | null; auditor1_id: string | null; auditor2_id: string | null }>();
 
-  if (existingForActivation && (updates.status || existingForActivation.status) === 'Pending') {
+  if (existingForActivation) {
+    const currentStatus = updates.status || existingForActivation.status;
     const finalDate = updates.date !== undefined ? updates.date : existingForActivation.date;
     const finalSupervisor = updates.supervisorId !== undefined ? updates.supervisorId : existingForActivation.supervisor_id;
     const finalAuditor1 = updates.auditor1Id !== undefined ? updates.auditor1Id : existingForActivation.auditor1_id;
     const finalAuditor2 = updates.auditor2Id !== undefined ? updates.auditor2Id : existingForActivation.auditor2_id;
 
-    if (finalDate && finalSupervisor && finalAuditor1 && finalAuditor2) {
-      updates.status = 'In Progress';
+    if (currentStatus === 'Pending') {
+      if (finalDate && finalSupervisor && finalAuditor1 && finalAuditor2) {
+        updates.status = 'In Progress';
+      }
+    } else if (currentStatus === 'In Progress') {
+      if (!finalDate || !finalSupervisor || !finalAuditor1 || !finalAuditor2) {
+        updates.status = 'Pending';
+      }
     }
   }
 
@@ -2294,6 +2305,118 @@ db.post('/system/full-reset', rbacGuard('admin:hub'), async (c) => {
       return c.json({ success: true, warnings: errors });
     }
     return c.json({ success: true });
+  } catch (err: any) {
+    return c.json({ error: err.message }, 500);
+  }
+});
+
+// ─── Backup Routes ────────────────────────────────────────────────────────────
+
+// POST /db/backup — manually trigger a D1→R2 backup (Admin only)
+db.post('/backup', rbacGuard('system:settings'), async (c) => {
+  try {
+    const result = await backupD1ToR2({ db: c.env.DB, bucket: c.env.BACKUP });
+    return c.json({ success: true, key: result.key, tablesSync: result.tablesSync, rowsSync: result.rowsSync, errors: result.errors });
+  } catch (err: any) {
+    return c.json({ error: err.message }, 500);
+  }
+});
+
+// GET /db/backups — list all backup files in R2 (Admin only)
+db.get('/backups', rbacGuard('system:settings'), async (c) => {
+  try {
+    const listed = await c.env.BACKUP.list({ prefix: 'backups/' });
+    const files = (listed.objects || []).map((obj: any) => ({
+      key: obj.key,
+      size: obj.size,
+      uploaded: obj.uploaded instanceof Date ? obj.uploaded.toISOString() : String(obj.uploaded),
+    })).sort((a: any, b: any) => b.uploaded.localeCompare(a.uploaded));
+    return c.json({ files });
+  } catch (err: any) {
+    return c.json({ error: err.message }, 500);
+  }
+});
+
+// GET /db/backups/download?key=backups/... — stream a backup file as download (Admin only)
+db.get('/backups/download', rbacGuard('system:settings'), async (c) => {
+  const key = c.req.query('key');
+  if (!key || !key.startsWith('backups/')) {
+    return c.json({ error: 'Invalid key' }, 400);
+  }
+  try {
+    const obj = await c.env.BACKUP.get(key);
+    if (!obj) return c.json({ error: 'Backup not found' }, 404);
+    const filename = key.split('/').pop() ?? 'backup.json';
+    return new Response(obj.body as any, {
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Disposition': `attachment; filename="${filename}"`,
+      },
+    });
+  } catch (err: any) {
+    return c.json({ error: err.message }, 500);
+  }
+});
+
+// POST /db/backups/restore — restore D1 from uploaded JSON backup (Admin only)
+db.post('/backups/restore', rbacGuard('system:settings'), async (c) => {
+  try {
+    const body = await c.req.json() as { snapshot: Record<string, any[]>; confirmation?: string };
+    if (!body.snapshot || typeof body.snapshot !== 'object') {
+      return c.json({ error: 'Invalid backup file: missing snapshot' }, 400);
+    }
+    // Restore order respects dependencies (settings first, then reference data, then schedules)
+    const restoreOrder = [
+      'system_settings',
+      'audit_groups',
+      'audit_phases',
+      'kpi_tiers',
+      'kpi_tier_targets',
+      'institution_kpi_targets',
+      'buildings',
+      'departments',
+      'users',
+      'locations',
+      'cross_audit_permissions',
+      'department_mappings',
+      'audit_schedules',
+      'system_activities',
+    ];
+    const results: Record<string, { deleted: number; inserted: number }> = {};
+    const errors: string[] = [];
+    for (const table of restoreOrder) {
+      const rows: any[] = body.snapshot[table];
+      if (!Array.isArray(rows)) continue;
+      try {
+        // Delete existing rows
+        const delResult = await c.env.DB.prepare(`DELETE FROM ${table}`).run();
+        const deleted = (delResult.meta as any)?.changes ?? 0;
+        let inserted = 0;
+        if (rows.length > 0) {
+          const columns = Object.keys(rows[0]);
+          const placeholders = columns.map(() => '?').join(', ');
+          const sql = `INSERT OR REPLACE INTO ${table} (${columns.join(', ')}) VALUES (${placeholders})`;
+          // Batch in groups of 50 to stay within D1 limits
+          for (let i = 0; i < rows.length; i += 50) {
+            const chunk = rows.slice(i, i + 50);
+            await c.env.DB.batch(
+              chunk.map(row => c.env.DB.prepare(sql).bind(...columns.map(col => {
+                const v = row[col];
+                // JSON stringify objects/arrays stored as text
+                return (v !== null && typeof v === 'object') ? JSON.stringify(v) : v;
+              })))
+            );
+            inserted += chunk.length;
+          }
+        }
+        results[table] = { deleted, inserted };
+      } catch (e: any) {
+        errors.push(`${table}: ${e.message}`);
+      }
+    }
+    // Invalidate caches
+    await c.env.SETTINGS.delete('buildings').catch(() => {});
+    return c.json({ success: true, results, errors });
   } catch (err: any) {
     return c.json({ error: err.message }, 500);
   }

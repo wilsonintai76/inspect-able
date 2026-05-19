@@ -51,20 +51,34 @@ export const auditAssignmentGuard = async (
     }
   }
 
-  // ── Resolve the audit's target department ────────────────────────────────
-  // For PATCH: fetch existing departmentId from DB if not overridden in body
+  // ── Resolve the audit's target department and check concurrency ──────────
+  // For PATCH: fetch existing data from DB if not overridden in body
   // For POST:  departmentId will always be in the body
   let targetDeptId: string | null = updates.departmentId ?? null;
+  const auditId = c.req.param('id'); // undefined on POST, present on PATCH
 
-  if (!targetDeptId) {
-    const auditId = c.req.param('id'); // undefined on POST, present on PATCH
-    if (auditId) {
-      const existing = await c.env.DB.prepare(
-        'SELECT department_id FROM audit_schedules WHERE id = ?',
-      )
-        .bind(auditId)
-        .first<{ department_id: string | null }>();
-      targetDeptId = existing?.department_id ?? null;
+  if (auditId) {
+    const existing = await c.env.DB.prepare(
+      'SELECT department_id, auditor1_id, auditor2_id FROM audit_schedules WHERE id = ?',
+    )
+      .bind(auditId)
+      .first<{ department_id: string | null; auditor1_id: string | null; auditor2_id: string | null }>();
+    
+    if (existing) {
+      if (!targetDeptId) {
+        targetDeptId = existing.department_id;
+      }
+
+      // ATOMIC CONCURRENCY CHECK (Race Condition Guard)
+      // If the caller is just self-assigning, prevent them from overwriting someone else's slot
+      if (!canAssignOthers) {
+        if (updates.auditor1Id && existing.auditor1_id && existing.auditor1_id !== caller.id) {
+          return c.json({ error: 'RACE CONDITION DETECTED: Auditor Slot 1 was just taken by someone else. Please refresh your view.' }, 409);
+        }
+        if (updates.auditor2Id && existing.auditor2_id && existing.auditor2_id !== caller.id) {
+          return c.json({ error: 'RACE CONDITION DETECTED: Auditor Slot 2 was just taken by someone else. Please refresh your view.' }, 409);
+        }
+      }
     }
   }
 
