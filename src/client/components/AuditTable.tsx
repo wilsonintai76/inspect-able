@@ -485,8 +485,8 @@ export const AuditTable: React.FC<AuditTableProps> = ({
         onPhaseChange={onPhaseChange}
       />
 
-      <div className="bg-white rounded-[40px] border border-slate-200 shadow-sm flex flex-col flex-1 min-h-0 overflow-hidden">
-        <div className="w-full overflow-auto scrollbar-thumb-slate-300 rounded-[40px] flex-1">
+      <div className="bg-white rounded-3xl border border-slate-200 shadow-sm flex flex-col flex-1 min-h-0 overflow-hidden">
+        <div className="w-full overflow-auto scrollbar-thumb-slate-300 rounded-3xl flex-1">
           <table className="w-full text-left min-w-250 border-separate border-spacing-0">
             <thead className="bg-slate-50/50 border-b border-slate-100 sticky top-0 z-20">
               <tr>

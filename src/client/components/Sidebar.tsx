@@ -114,7 +114,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </button>
           </div>
 
-          <nav className="grow space-y-2">
+          <nav className="grow space-y-2 overflow-y-auto pr-1">
             <div className="px-2 pb-2 text-[10px] font-black uppercase tracking-widest text-slate-400">{t('ui.main_menu')}</div>
             {showMainDashboard && (
               <NavItem 
