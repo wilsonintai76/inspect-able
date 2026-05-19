@@ -11,11 +11,15 @@ interface AuditorStat {
 interface Props {
   phases: KioskPhase[];
   uniqueDepartments: { id: string; name: string }[];
-  uniqueLocations: { id: string; name: string }[];
+  uniqueBuildings: { id: string; name: string; abbr: string }[];
+  uniqueLevels: string[];
+  uniqueLocations: { id: string; name: string; buildingId?: string | null; buildingName?: string | null; buildingAbbr?: string | null; level?: string | null }[];
   search: string;
   phaseFilter: string;
   statusFilter: string;
   departmentFilter: string;
+  buildingFilter: string;
+  levelFilter: string;
   locationFilter: string;
   auditorStats: AuditorStat[];
   threshold: number;
@@ -23,6 +27,8 @@ interface Props {
   onPhaseChange: (v: string) => void;
   onStatusChange: (v: string) => void;
   onDepartmentChange: (v: string) => void;
+  onBuildingChange: (v: string) => void;
+  onLevelChange: (v: string) => void;
   onLocationChange: (v: string) => void;
   onClearFilters: () => void;
 }
@@ -30,11 +36,15 @@ interface Props {
 export const KioskSidebar: React.FC<Props> = ({
   phases,
   uniqueDepartments,
+  uniqueBuildings,
+  uniqueLevels,
   uniqueLocations,
   search,
   phaseFilter,
   statusFilter,
   departmentFilter,
+  buildingFilter,
+  levelFilter,
   locationFilter,
   auditorStats,
   threshold,
@@ -42,10 +52,12 @@ export const KioskSidebar: React.FC<Props> = ({
   onPhaseChange,
   onStatusChange,
   onDepartmentChange,
+  onBuildingChange,
+  onLevelChange,
   onLocationChange,
   onClearFilters,
 }) => {
-  const hasFilters = !!(search || phaseFilter || statusFilter || departmentFilter || locationFilter);
+  const hasFilters = !!(search || phaseFilter || statusFilter || departmentFilter || buildingFilter || levelFilter || locationFilter);
 
   return (
     <div className="space-y-5">
@@ -56,25 +68,15 @@ export const KioskSidebar: React.FC<Props> = ({
           Filters
         </p>
 
-        {/* Search */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
-          <input
-            id="kiosk-search"
-            value={search}
-            onChange={e => onSearchChange(e.target.value)}
-            placeholder="Location, dept, name…"
-            className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium outline-none focus:border-indigo-400 transition-colors"
-          />
-        </div>
-
-        {/* Department select */}
+        {/* 1. Department select */}
         <div className="relative">
           <select
             title="Filter by department"
             value={departmentFilter}
             onChange={e => {
               onDepartmentChange(e.target.value);
+              onBuildingChange(''); // reset building when dept changes
+              onLevelChange(''); // reset level when dept changes
               onLocationChange(''); // reset location when dept changes
             }}
             className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium outline-none appearance-none focus:border-indigo-400 transition-colors"
@@ -87,7 +89,50 @@ export const KioskSidebar: React.FC<Props> = ({
           <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
         </div>
 
-        {/* Location select */}
+        {/* 2. Building select */}
+        <div className="relative">
+          <select
+            title="Filter by building"
+            value={buildingFilter}
+            onChange={e => {
+              onBuildingChange(e.target.value);
+              onLevelChange(''); // reset level when building changes
+              onLocationChange(''); // reset location when building changes
+            }}
+            className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium outline-none appearance-none focus:border-indigo-400 transition-colors"
+          >
+            <option value="">All Buildings</option>
+            {uniqueBuildings.map(b => (
+              <option key={b.id} value={b.id}>
+                {b.name} ({b.abbr})
+              </option>
+            ))}
+          </select>
+          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+        </div>
+
+        {/* 3. Level select */}
+        <div className="relative">
+          <select
+            title="Filter by level"
+            value={levelFilter}
+            onChange={e => {
+              onLevelChange(e.target.value);
+              onLocationChange(''); // reset location when level changes
+            }}
+            className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium outline-none appearance-none focus:border-indigo-400 transition-colors"
+          >
+            <option value="">All Levels</option>
+            {uniqueLevels.map(lvl => (
+              <option key={lvl} value={lvl}>
+                Level {lvl}
+              </option>
+            ))}
+          </select>
+          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+        </div>
+
+        {/* 4. Location select */}
         <div className="relative">
           <select
             title="Filter by location"
@@ -96,14 +141,22 @@ export const KioskSidebar: React.FC<Props> = ({
             className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium outline-none appearance-none focus:border-indigo-400 transition-colors"
           >
             <option value="">All Locations</option>
-            {uniqueLocations.map(l => (
-              <option key={l.id} value={l.id}>{l.name}</option>
-            ))}
+            {uniqueLocations.map(l => {
+              const buildingPart = l.buildingAbbr ? l.buildingAbbr : (l.buildingName || '');
+              const levelPart = l.level ? `Lvl ${l.level}` : '';
+              const suffixParts = [buildingPart, levelPart].filter(Boolean).join(' - ');
+              const displayName = suffixParts ? `${l.name} (${suffixParts})` : l.name;
+              return (
+                <option key={l.id} value={l.id}>
+                  {displayName}
+                </option>
+              );
+            })}
           </select>
           <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
         </div>
 
-        {/* Phase select */}
+        {/* 5. Phase select */}
         <div className="relative">
           <select
             id="kiosk-phase-filter"
@@ -122,7 +175,7 @@ export const KioskSidebar: React.FC<Props> = ({
           <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
         </div>
 
-        {/* Status select */}
+        {/* 6. Status select */}
         <div className="relative">
           <select
             id="kiosk-status-filter"

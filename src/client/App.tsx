@@ -132,7 +132,7 @@ const App: React.FC = () => {
     handleAddDepartmentMapping, handleDeleteDepartmentMapping,
     handleSyncLocationMappings, handleUpsertLocations,
     handleSetDeptTotalsFromMapping, handleUpdateUninspectedAssetCounts,
-    handleBulkDeleteAuditGroups, handleAutoConsolidate, handleCommitGroups, handleCancelGroupSimulation, handleRunStrategicPairing, handleSaveFeasibilityReport, handleResetPairingData, handleResetOnlyPermissions,
+    handleBulkDeleteAuditGroups, handleAutoConsolidate, handleCommitGroups, handleCancelGroupSimulation, handleRunStrategicPairing, handleSaveFeasibilityReport, handleResetOnlyPermissions,
     handleUpdateAssignmentMode, handleUpdateOpenAuditThreshold,
     handleSyncLocationNotes,
     handleMergeLocations,
@@ -529,7 +529,6 @@ const App: React.FC = () => {
           onDeleteAuditGroup={handleDeleteAuditGroup}
           onAutoConsolidate={handleAutoConsolidate}
           onRunStrategicPairing={handleRunStrategicPairing}
-          onResetPairingData={handleResetPairingData}
           auditGroups={auditGroups}
           feasibilityReport={appData.feasibilityReport}
           onSaveFeasibilityReport={handleSaveFeasibilityReport}

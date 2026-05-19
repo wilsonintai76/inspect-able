@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { AuditFlow } from './docs/AuditFlow';
-import { AccessMatrix } from './docs/AccessMatrix';
+import { RBACMatrix } from './RBACMatrix';
 import { SetupGuide } from './docs/SetupGuide';
 import { Network, Shield, Rocket, Headset, Route, Flag, Building, BookOpen } from 'lucide-react';
 
@@ -100,7 +100,7 @@ export const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ phases = [] }) => 
               </div>
               <h3 className="text-2xl font-black text-slate-900">Access Control Matrix</h3>
             </div>
-            <AccessMatrix />
+            <RBACMatrix hideHeader />
           </section>
 
           {/* SETUP GUIDE SECTION */}

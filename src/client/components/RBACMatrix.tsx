@@ -5,6 +5,7 @@ import { UserRole } from '@shared/types';
 
 interface RBACMatrixProps {
   showToast?: (message: string, type?: 'success' | 'warning' | 'error' | 'info') => void;
+  hideHeader?: boolean;
 }
 
 const Zap = ({ className }: { className?: string }) => (
@@ -89,30 +90,35 @@ const PERMISSIONS_LIST = [
   },
 ];
 
-export const RBACMatrix: React.FC<RBACMatrixProps> = () => {
+export const RBACMatrix: React.FC<RBACMatrixProps> = ({ hideHeader = false }) => {
   const { rbacMatrix } = useRBAC();
 
   if (!rbacMatrix) return null;
 
   return (
-    <div className="bg-white rounded-[40px] p-8 md:p-12 border border-slate-200 shadow-xl animate-in fade-in slide-in-from-bottom-5 overflow-hidden">
+    <div className={hideHeader 
+      ? "bg-white rounded-[40px] border border-slate-200 shadow-sm overflow-hidden p-6 md:p-8"
+      : "bg-white rounded-[40px] p-8 md:p-12 border border-slate-200 shadow-xl animate-in fade-in slide-in-from-bottom-5 overflow-hidden"
+    }>
 
       {/* ── Header ─────────────────────────────────────────────── */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
-        <div className="flex items-center gap-5">
-          <div className="w-14 h-14 bg-indigo-600 rounded-[20px] flex items-center justify-center text-white shadow-2xl shadow-indigo-500/40">
-            <Lock className="w-7 h-7" />
+      {!hideHeader && (
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
+          <div className="flex items-center gap-5">
+            <div className="w-14 h-14 bg-indigo-600 rounded-[20px] flex items-center justify-center text-white shadow-2xl shadow-indigo-500/40">
+              <Lock className="w-7 h-7" />
+            </div>
+            <div>
+              <h3 className="text-2xl font-black text-slate-900 tracking-tight">Institutional RBAC Matrix</h3>
+              <p className="text-sm text-slate-500 font-medium">Full horizontal visibility across all roles and permissions.</p>
+            </div>
           </div>
-          <div>
-            <h3 className="text-2xl font-black text-slate-900 tracking-tight">Institutional RBAC Matrix</h3>
-            <p className="text-sm text-slate-500 font-medium">Full horizontal visibility across all roles and permissions.</p>
+          <div className="flex items-center gap-2 px-4 py-2 bg-slate-100 rounded-full border border-slate-200 shrink-0">
+            <Info className="w-3.5 h-3.5 text-slate-400" />
+            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Read-only view</span>
           </div>
         </div>
-        <div className="flex items-center gap-2 px-4 py-2 bg-slate-100 rounded-full border border-slate-200 shrink-0">
-          <Info className="w-3.5 h-3.5 text-slate-400" />
-          <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Read-only view</span>
-        </div>
-      </div>
+      )}
 
       {/* ── Matrix Table ────────────────────────────────────────── */}
       <div className="relative overflow-auto border border-slate-100 rounded-[32px] bg-slate-50/30 max-h-170 scrollbar-thin scrollbar-thumb-slate-200">

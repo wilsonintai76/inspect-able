@@ -88,6 +88,11 @@ export const ScheduleCard: React.FC<Props> = ({
             <h3 className="font-black text-slate-900 text-sm leading-tight mb-0.5 line-clamp-2 wrap-break-word">
               {schedule.locationName}
             </h3>
+            {(schedule.buildingName || schedule.level) && (
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">
+                {schedule.buildingName}{schedule.level ? ` • Level ${schedule.level}` : ''}
+              </p>
+            )}
             <p className="text-[11px] text-slate-500 font-medium line-clamp-2 wrap-break-word">
               {schedule.departmentName}
             </p>

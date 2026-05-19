@@ -5,6 +5,10 @@ export interface KioskSchedule {
   departmentAbbr: string;
   locationId: string;
   locationName: string;
+  buildingId?: string | null;
+  buildingName?: string | null;
+  buildingAbbr?: string | null;
+  level?: string | null;
   totalAssets: number;
   supervisorId: string | null;
   supervisorName: string | null;

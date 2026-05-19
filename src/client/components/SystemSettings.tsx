@@ -6,7 +6,6 @@ import { KPISettings } from './KPISettings';
 import { TierDistributionTable } from './TierDistributionTable';
 import { suggestThresholds } from '../services/aiService';
 import { DataManagementWorkflow } from './DataManagementWorkflow';
-import { RBACMatrix } from './RBACMatrix';
 import { Zap, Sliders, AlertCircle, Eye, Calendar, UserCheck, Users, UserPlus, Edit, ShieldAlert, ShieldCheck, Network, Lock, Unlock, RotateCcw, Building2, Trash2, Database, RefreshCcw } from 'lucide-react';
 import { BackupManager } from './BackupManager';
 import { PageHeader } from './PageHeader';
@@ -89,7 +88,6 @@ interface SystemSettingsProps {
   pairingLockInfo?: { lockedAt: string; lockedBy: string; pairingCount: number; cycleYear: number } | null;
   onLockPairing?: (pairingCount: number) => Promise<void>;
   onUnlockPairing?: () => Promise<void>;
-  onResetPairingData?: () => void;
   showToast?: (message: string, type?: any) => void;
   currentUser?: User | null;
   // Simulation props
@@ -121,7 +119,6 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
   onAddPhase,
   onUpdatePhase,
   onDeletePhase,
-  onResetPairingData,
   onAddKPITier,
   onUpdateKPITier,
   onDeleteKPITier,
@@ -455,21 +452,6 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
             onRebalance={onRebalanceSchedule}
             isAdmin={isAdmin}
           />
-          
-          {isAdmin && (
-            <div className="flex justify-center">
-              <button
-                onClick={onRebalanceSchedule}
-                className="group relative px-8 py-4 bg-slate-900 text-white rounded-[24px] text-sm font-black uppercase tracking-widest shadow-2xl hover:scale-105 active:scale-95 transition-all overflow-hidden"
-              >
-                <div className="absolute inset-0 bg-linear-to-r from-blue-600/20 to-emerald-600/20 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                <div className="relative flex items-center gap-3">
-                  <Zap className="w-5 h-5 text-emerald-400" />
-                  Rebalance Inspection Schedule
-                </div>
-              </button>
-            </div>
-          )}
         </div>
       )}
 
@@ -578,8 +560,6 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
           </div>
         </div>
       )}
-
-      {(isAdmin || isCoordinator) && <RBACMatrix showToast={showToast} />}
 
       {isAdmin && <BrandingSettings showToast={showToast} />}
 
@@ -710,34 +690,6 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
               </button>
             </div>
 
-            {/* Reset Pairings */}
-            <div className={`rounded-2xl border p-4 transition-all ${
-              isSystemLocked ? 'border-slate-100 bg-slate-50' : 'border-amber-100 bg-white hover:border-amber-200 shadow-sm'
-            }`}>
-              <div className="flex items-center gap-3 mb-2">
-                <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${
-                  isSystemLocked ? 'bg-slate-100 text-slate-300' : 'bg-amber-50 text-amber-500'
-                }`}>
-                  <ShieldCheck className="w-4 h-4" />
-                </div>
-                <div>
-                  <h4 className={`text-sm font-bold ${isSystemLocked ? 'text-slate-400' : 'text-slate-900'}`}>Reset Pairings</h4>
-                  <p className={`text-[10px] ${isSystemLocked ? 'text-slate-300' : 'text-slate-400'}`}>Purges assigned pairs from database (Hard Reset)</p>
-                </div>
-              </div>
-              <button
-                onClick={onResetPairingData}
-                disabled={isSystemLocked || !onResetPairingData}
-                className={`w-full mt-2 px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${
-                  isSystemLocked
-                    ? 'bg-slate-100 text-slate-300 cursor-not-allowed'
-                    : 'bg-white border-2 border-amber-200 text-amber-600 hover:bg-amber-600 hover:text-white shadow-xl shadow-amber-100/20'
-                }`}
-              >
-                <RotateCcw className="w-3.5 h-3.5 italic" />
-                Clear All Assignments
-              </button>
-            </div>
 
             {/* Full System Reset */}
             <div className={`rounded-2xl border p-4 transition-all ${

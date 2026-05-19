@@ -28,7 +28,7 @@ const DEFAULT_MATRIX: Record<string, string[]> = {
   'manage:locations':            ['Admin', 'Coordinator', 'Supervisor'],
   // System
   'manage:system':               ['Admin'],
-  'view:admin:dashboard':        ['Admin'],
+  'view:admin:dashboard':        ['Admin', 'Coordinator'],
 };
 
 // ─── Immutable safety locks ───────────────────────────────────────────────────

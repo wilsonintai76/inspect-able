@@ -2,8 +2,7 @@
 import React, { useMemo, useState } from 'react';
 import { KPITier, AuditPhase, KPITierTarget, Department, InstitutionKPITarget } from '@shared/types';
 import { ConfirmationModal } from './ConfirmationModal';
-import { Lock, Plus, Check, X, Pencil, Trash2, Boxes, Building2, Sparkles, BrainCircuit, AlertTriangle, TrendingUp, Info, Loader2 } from 'lucide-react';
-import { api, getAuthHeaders } from '../services/honoClient';
+import { Lock, Plus, Check, X, Pencil, Trash2, Boxes, Building2, Sparkles } from 'lucide-react';
 
 interface KPISettingsProps {
   tiers: KPITier[];
@@ -45,23 +44,7 @@ export const KPISettings: React.FC<KPISettingsProps> = ({
   const [formData, setFormData] = useState<{ name: string; minAssets: number; targets: Record<string, number> }>({
     targets: {}
   });
-  const [feasibilityReport, setFeasibilityReport] = React.useState<{
-    score: number;
-    riskLevel: string;
-    bottlenecks: string[];
-    recommendations: string[];
-    projections: Record<string, string>;
-    rawText?: string;
-  } | null>(globalFeasibilityReport || null);
-  const [showRawOutput, setShowRawOutput] = useState(false);
-  const [isFeasibilityLoading, setIsFeasibilityLoading] = useState(false);
 
-  // Sync with global report when it changes (e.g. from tab switch)
-  React.useEffect(() => {
-    if (globalFeasibilityReport) {
-      setFeasibilityReport(globalFeasibilityReport);
-    }
-  }, [globalFeasibilityReport]);
 
   const sortedPhases = [...phases].sort((a,b) => a.startDate.localeCompare(b.startDate));
   const sortedTiers = [...tiers].sort((a, b) => {
@@ -155,49 +138,7 @@ export const KPISettings: React.FC<KPISettingsProps> = ({
     setTierToDelete(id);
   };
 
-  const handleCheckFeasibility = async () => {
-    setIsFeasibilityLoading(true);
-    try {
-      const response = await (api as any).compute.feasibility.$post({}, { headers: await getAuthHeaders() });
-      if (response.ok) {
-        const report = await response.json();
-        setFeasibilityReport(report);
-        onSaveFeasibilityReport?.(report);
-        showToast?.('AI Strategy Assessment generated successfully', 'success');
-      } else {
-        const errData = await response.json().catch(() => ({}));
-        showToast?.(`Assessment failed: ${errData.error || response.statusText}`, 'error');
-      }
-    } catch (err: any) {
-      console.error(err);
-      showToast?.(`Connection error: ${err.message}`, 'error');
-    } finally {
-      setIsFeasibilityLoading(false);
-    }
-  };
 
-  const fetchFeasibility = async () => {
-    setIsFeasibilityLoading(true);
-    try {
-      const res = await (api as any).compute.feasibility.$post(
-        {},
-        { headers: await getAuthHeaders() }
-      );
-      if (res.ok) {
-        const report = await res.json();
-        setFeasibilityReport(report);
-        onSaveFeasibilityReport?.(report);
-        showToast?.('Strategy assessment updated.', 'success');
-      } else {
-        showToast?.('Failed to update strategy.', 'error');
-      }
-    } catch (err: any) {
-      console.error('Feasibility fetch failed:', err);
-      showToast?.('Resource projection unavailable.', 'error');
-    } finally {
-      setIsFeasibilityLoading(false);
-    }
-  };
 
   const confirmDelete = () => {
     if (tierToDelete) {
@@ -290,115 +231,7 @@ export const KPISettings: React.FC<KPISettingsProps> = ({
         </div>
       </div>
 
-        {/* AI Feasibility Insight */}
-        <div className="mt-8 bg-linear-to-br from-slate-900 to-slate-800 rounded-[28px] p-8 text-white relative overflow-hidden shadow-xl shadow-slate-200">
-           <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/10 blur-[100px] pointer-events-none"></div>
-           <div className="relative z-10">
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center border border-white/20 backdrop-blur-sm">
-                    <BrainCircuit className="w-6 h-6 text-blue-400" />
-                  </div>
-                  <div>
-                    <h4 className="text-xl font-black tracking-tight">AI Strategy Assessment</h4>
-                    <p className="text-slate-400 text-sm font-medium">Predicting target feasibility based on headcount & complexity.</p>
-                  </div>
-                </div>
-                <button 
-                  onClick={fetchFeasibility}
-                  disabled={isFeasibilityLoading}
-                  className="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-lg shadow-blue-500/30 flex items-center gap-2 active:scale-95 disabled:opacity-50"
-                >
-                  {isFeasibilityLoading ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div> : <TrendingUp className="w-4 h-4" />}
-                  {feasibilityReport ? 'Refresh Strategy' : 'Run Resource Projection'}
-                </button>
-              </div>
 
-              {feasibilityReport ? (
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-in fade-in zoom-in-95 duration-500">
-                   <div className="lg:col-span-1 bg-white/5 border border-white/10 rounded-3xl p-6 backdrop-blur-md">
-                      <div className="text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Feasibility Score</div>
-                      <div className="flex items-baseline gap-2 mb-1">
-                        <span className={`text-6xl font-black ${feasibilityReport.score > 70 ? 'text-emerald-400' : feasibilityReport.score > 40 ? 'text-amber-400' : 'text-red-400'}`}>
-                          {feasibilityReport.score}
-                        </span>
-                        <span className="text-xl font-bold text-slate-500">%</span>
-                      </div>
-                      <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-white/10 rounded-full text-[10px] font-black uppercase tracking-wider mb-6">
-                        <AlertTriangle className="w-3 h-3" />
-                        Risk Level: {feasibilityReport.riskLevel}
-                      </div>
-
-                      <div className="space-y-4">
-                         {Object.entries(feasibilityReport.projections || {}).map(([phase, prediction]) => (
-                            <div key={phase} className="flex items-center justify-between text-xs">
-                               <span className="text-slate-400 font-bold">{phase}</span>
-                               <span className="text-white font-black">{prediction} completion</span>
-                            </div>
-                         ))}
-                      </div>
-                   </div>
-
-                   <div className="lg:col-span-2 space-y-6">
-                       <div>
-                         <div className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
-                            <Sparkles className="w-3.5 h-3.5 text-blue-400" />
-                            AI Recommendations & Policy Proposals
-                         </div>
-                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            {(feasibilityReport.recommendations || []).map((r, i) => (
-                              <div key={i} className="bg-blue-500/10 border border-blue-500/20 text-blue-100 p-3 rounded-2xl text-[11px] font-medium leading-relaxed italic">
-                                 "{r}"
-                              </div>
-                            ))}
-                            {(feasibilityReport as any).exemptionRecommendations?.map((ex: any, i: number) => (
-                              <div key={`ex-${i}`} className="bg-amber-500/10 border border-amber-500/20 text-amber-100 p-3 rounded-2xl text-[11px] font-medium leading-relaxed">
-                                 <span className="font-black text-amber-400 uppercase text-[9px] block mb-1">PROPOSED EXEMPTION: {ex.unit}</span>
-                                 {ex.reason}
-                              </div>
-                            ))}
-                         </div>
-                       </div>
-                      <div>
-                        <div className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
-                           <Info className="w-3.5 h-3.5 text-blue-400" />
-                           Strategic Bottlenecks
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                           {(feasibilityReport.bottlenecks || []).map((b, i) => (
-                             <div key={i} className="bg-red-500/10 border border-red-500/20 text-red-200 p-3 rounded-2xl text-[11px] font-medium leading-relaxed">
-                                {b}
-                             </div>
-                           ))}
-                        </div>
-                        {feasibilityReport.riskLevel === 'System Error' && feasibilityReport.rawText && (
-                           <div className="mt-4 border-t border-white/10 pt-4">
-                             <button
-                               onClick={() => setShowRawOutput(!showRawOutput)}
-                               className="text-[10px] font-black uppercase text-red-400 hover:text-red-300 transition-colors underline decoration-dotted underline-offset-4"
-                             >
-                               {showRawOutput ? 'Hide Technical Details' : 'Show Technical Details'}
-                             </button>
-                             {showRawOutput && (
-                               <div className="mt-2 bg-black/40 border border-white/5 p-3 rounded-xl overflow-x-auto">
-                                 <p className="text-[9px] font-mono text-slate-400 break-all whitespace-pre-wrap leading-tight">
-                                   {feasibilityReport.rawText}
-                                 </p>
-                               </div>
-                             )}
-                           </div>
-                        )}
-                      </div>
-
-                    </div>
-                 </div>
-               ) : (
-                <div className="border-2 border-dashed border-white/10 rounded-3xl p-12 text-center">
-                   <p className="text-slate-400 font-medium italic">Run the strategy projection to see how your targets align with actual headcount capacity.</p>
-                </div>
-              )}
-           </div>
-        </div>
       </div>
 
       {/* Section header */}
@@ -435,7 +268,7 @@ export const KPISettings: React.FC<KPISettingsProps> = ({
 
       {/* Column header row */}
       {sortedTiers.length > 0 && (
-        <div className="flex items-center gap-3 px-4 mb-2">
+        <div className="flex items-center gap-3 px-6 mb-2">
           <span className="w-44 shrink-0 text-[10px] font-black uppercase tracking-widest text-slate-400">Tier</span>
           <span className="flex-1 text-[10px] font-black uppercase tracking-widest text-slate-400">Asset Range</span>
           {sortedPhases.map(phase => (
@@ -477,7 +310,7 @@ export const KPISettings: React.FC<KPISettingsProps> = ({
                       : `bg-white border-slate-100 hover:border-slate-200 hover:shadow-sm`
                   }`}
                 >
-                  <div className="flex items-center gap-3 p-4">
+                  <div className="flex items-center gap-3 py-4 px-6">
                     {/* Tier name */}
                     <div className="w-44 shrink-0 flex items-center gap-2">
                       <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-black border ${style.badge}`}>

@@ -78,13 +78,13 @@ pub.get('/kiosk', async (c) => {
 
   try {
     const db = c.env.DB;
-
-    const [schedulesResult, usersResult, deptsResult, locsResult, phasesResult] = await db.batch([
+    const [schedulesResult, usersResult, deptsResult, locsResult, phasesResult, buildingsResult] = await db.batch([
       db.prepare(`
         SELECT s.id, s.department_id, s.location_id, s.supervisor_id,
                s.auditor1_id, s.auditor2_id, s.date, s.status, s.phase_id, s.is_locked,
                d.name AS dept_name, d.abbr AS dept_abbr,
                l.name AS loc_name, l.total_assets, l.contact AS loc_contact,
+               l.building_id, l.level,
                p.name AS phase_name, p.start_date, p.end_date
         FROM audit_schedules s
         LEFT JOIN departments d ON s.department_id = d.id
@@ -102,6 +102,7 @@ pub.get('/kiosk', async (c) => {
       db.prepare(`SELECT id, name, abbr FROM departments ORDER BY name ASC`),
       db.prepare(`SELECT id, name, total_assets FROM locations`),
       db.prepare(`SELECT id, name, start_date, end_date, status FROM audit_phases ORDER BY start_date ASC`),
+      db.prepare(`SELECT id, name, abbr FROM buildings ORDER BY name ASC`),
     ]);
 
     // Build a lookup map for user names
@@ -115,6 +116,11 @@ pub.get('/kiosk', async (c) => {
         certExpiry: u.certification_expiry ?? null,
         contactNumber: u.contact_number ?? null,
       });
+    }
+
+    const buildingMap = new Map<string, { name: string; abbr: string }>();
+    for (const b of (buildingsResult?.results ?? []) as any[]) {
+      buildingMap.set(b.id, { name: b.name, abbr: b.abbr });
     }
 
     // Compute per-auditor asset count from all schedules
@@ -132,6 +138,10 @@ pub.get('/kiosk', async (c) => {
       departmentAbbr: s.dept_abbr ?? '',
       locationId: s.location_id,
       locationName: s.loc_name ?? '—',
+      buildingId: s.building_id ?? null,
+      buildingName: s.building_id ? (buildingMap.get(s.building_id)?.name ?? null) : null,
+      buildingAbbr: s.building_id ? (buildingMap.get(s.building_id)?.abbr ?? null) : null,
+      level: s.level ?? null,
       totalAssets: s.total_assets ?? 0,
       supervisorId: s.supervisor_id,
       supervisorName: s.supervisor_id ? (userMap.get(s.supervisor_id)?.name ?? 'Unknown') : null,
@@ -170,6 +180,12 @@ pub.get('/kiosk', async (c) => {
       status: p.status,
     }));
 
+    const buildings = (buildingsResult?.results ?? []).map((b: any) => ({
+      id: b.id,
+      name: b.name,
+      abbr: b.abbr,
+    }));
+
     let strategyStr = await c.env.SETTINGS.get('audit_strategy');
     if (!strategyStr) {
       // Fallback to D1 if KV is empty
@@ -180,10 +196,10 @@ pub.get('/kiosk', async (c) => {
     const maxAssets = strategy.openAuditThreshold || 500;
 
     c.header('Cache-Control', 'no-store');
-    return c.json({ schedules, users, phases, maxAssets });
+    return c.json({ schedules, users, phases, maxAssets, buildings });
   } catch (err: any) {
     console.error('[Public Kiosk] Error:', err);
-    return c.json({ schedules: [], users: [], phases: [], maxAssets: 500 });
+    return c.json({ schedules: [], users: [], phases: [], maxAssets: 500, buildings: [] });
   }
 });
 

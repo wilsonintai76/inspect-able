@@ -32,6 +32,7 @@ export const KioskApp: React.FC = () => {
   const [schedules, setSchedules] = useState<KioskSchedule[]>([]);
   const [users, setUsers] = useState<KioskUser[]>([]);
   const [phases, setPhases] = useState<KioskPhase[]>([]);
+  const [buildings, setBuildings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
   const [lastRefresh, setLastRefresh] = useState(new Date());
@@ -48,6 +49,8 @@ export const KioskApp: React.FC = () => {
   const [phaseFilter, setPhaseFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [departmentFilter, setDepartmentFilter] = useState('');
+  const [buildingFilter, setBuildingFilter] = useState('');
+  const [levelFilter, setLevelFilter] = useState('');
   const [locationFilter, setLocationFilter] = useState('');
   const [toasts, setToasts] = useState<{ id: string; message: string; type: 'success' | 'warning' | 'error' | 'info' }[]>([]);
 
@@ -70,10 +73,11 @@ export const KioskApp: React.FC = () => {
       const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
       const res = await fetch('/api/public/kiosk', { credentials: 'include', headers });
       if (res.status === 401) { if (!silent) setLoading(false); return; }
-      const data = await res.json() as { schedules: KioskSchedule[]; users: KioskUser[]; phases: KioskPhase[]; maxAssets: number };
+      const data = await res.json() as { schedules: KioskSchedule[]; users: KioskUser[]; phases: KioskPhase[]; maxAssets: number; buildings: any[] };
       setSchedules(data.schedules ?? []);
       setUsers(data.users ?? []);
       setPhases(data.phases ?? []);
+      setBuildings(data.buildings ?? []);
       if (data.maxAssets) setMaxAssets(data.maxAssets);
       setLastRefresh(new Date());
     } catch { /* graceful – keep previous data */ } finally {
@@ -227,6 +231,13 @@ export const KioskApp: React.FC = () => {
   };
 
   const handleSignOut = async () => {
+    setSearch('');
+    setPhaseFilter('');
+    setStatusFilter('');
+    setDepartmentFilter('');
+    setBuildingFilter('');
+    setLocationFilter('');
+    setActiveTab('schedule');
     await authService.logout();
     setCurrentUser(null);
   };
@@ -244,6 +255,8 @@ export const KioskApp: React.FC = () => {
       setPhaseFilter('');
       setStatusFilter('');
       setDepartmentFilter('');
+      setBuildingFilter('');
+      setLevelFilter('');
       setLocationFilter('');
       setActiveTab('schedule');
       
@@ -481,11 +494,15 @@ export const KioskApp: React.FC = () => {
       if (phaseFilter && s.phaseId !== phaseFilter) return false;
       if (statusFilter && s.status !== statusFilter) return false;
       if (departmentFilter && s.departmentId !== departmentFilter) return false;
+      if (buildingFilter && s.buildingId !== buildingFilter) return false;
+      if (levelFilter && s.level !== levelFilter) return false;
       if (locationFilter && s.locationId !== locationFilter) return false;
       if (q) {
         return (
           s.locationName.toLowerCase().includes(q) ||
           s.departmentName.toLowerCase().includes(q) ||
+          (s.buildingName ?? '').toLowerCase().includes(q) ||
+          (s.buildingAbbr ?? '').toLowerCase().includes(q) ||
           (s.auditor1Name ?? '').toLowerCase().includes(q) ||
           (s.auditor2Name ?? '').toLowerCase().includes(q) ||
           (s.supervisorName ?? '').toLowerCase().includes(q)
@@ -493,7 +510,7 @@ export const KioskApp: React.FC = () => {
       }
       return true;
     });
-  }, [schedules, search, phaseFilter, statusFilter, departmentFilter, locationFilter]);
+  }, [schedules, search, phaseFilter, statusFilter, departmentFilter, buildingFilter, levelFilter, locationFilter]);
 
   const activeFiltersCount = useMemo(() => {
     let count = 0;
@@ -501,9 +518,11 @@ export const KioskApp: React.FC = () => {
     if (phaseFilter) count++;
     if (statusFilter) count++;
     if (departmentFilter) count++;
+    if (buildingFilter) count++;
+    if (levelFilter) count++;
     if (locationFilter) count++;
     return count;
-  }, [search, phaseFilter, statusFilter, departmentFilter, locationFilter]);
+  }, [search, phaseFilter, statusFilter, departmentFilter, buildingFilter, levelFilter, locationFilter]);
 
   const uniqueDepartments = useMemo(() => {
     const map = new Map<string, string>();
@@ -511,15 +530,52 @@ export const KioskApp: React.FC = () => {
     return Array.from(map.entries()).map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
   }, [schedules]);
 
-  const uniqueLocations = useMemo(() => {
-    const map = new Map<string, string>();
+  const uniqueBuildings = useMemo(() => {
+    const map = new Map<string, { id: string; name: string; abbr: string }>();
     schedules.forEach(s => {
-      if (!departmentFilter || s.departmentId === departmentFilter) {
-        map.set(s.locationId, s.locationName);
+      if (s.buildingId && s.buildingName) {
+        if (!departmentFilter || s.departmentId === departmentFilter) {
+          map.set(s.buildingId, { id: s.buildingId, name: s.buildingName, abbr: s.buildingAbbr || '' });
+        }
       }
     });
-    return Array.from(map.entries()).map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
+    return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
   }, [schedules, departmentFilter]);
+
+  const uniqueLevels = useMemo(() => {
+    const set = new Set<string>();
+    schedules.forEach(s => {
+      if (s.level) {
+        if (!departmentFilter || s.departmentId === departmentFilter) {
+          if (!buildingFilter || s.buildingId === buildingFilter) {
+            set.add(s.level);
+          }
+        }
+      }
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  }, [schedules, departmentFilter, buildingFilter]);
+
+  const uniqueLocations = useMemo(() => {
+    const map = new Map<string, { id: string; name: string; buildingId?: string | null; buildingName?: string | null; buildingAbbr?: string | null; level?: string | null }>();
+    schedules.forEach(s => {
+      if (!departmentFilter || s.departmentId === departmentFilter) {
+        if (!buildingFilter || s.buildingId === buildingFilter) {
+          if (!levelFilter || s.level === levelFilter) {
+            map.set(s.locationId, {
+              id: s.locationId,
+              name: s.locationName,
+              buildingId: s.buildingId,
+              buildingName: s.buildingName,
+              buildingAbbr: s.buildingAbbr,
+              level: s.level,
+            });
+          }
+        }
+      }
+    });
+    return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
+  }, [schedules, departmentFilter, buildingFilter, levelFilter]);
 
   const auditorStats = useMemo(() => {
     const map = new Map<string, { name: string; assets: number; slots: number }>();
@@ -804,19 +860,27 @@ export const KioskApp: React.FC = () => {
                   phaseFilter={phaseFilter}
                   statusFilter={statusFilter}
                   departmentFilter={departmentFilter}
+                  buildingFilter={buildingFilter}
+                  levelFilter={levelFilter}
                   locationFilter={locationFilter}
+                  uniqueBuildings={uniqueBuildings}
+                  uniqueLevels={uniqueLevels}
                   auditorStats={auditorStats}
                   threshold={maxAssets}
                   onSearchChange={setSearch}
                   onPhaseChange={setPhaseFilter}
                   onStatusChange={setStatusFilter}
                   onDepartmentChange={setDepartmentFilter}
+                  onBuildingChange={setBuildingFilter}
+                  onLevelChange={setLevelFilter}
                   onLocationChange={setLocationFilter}
                   onClearFilters={() => { 
                     setSearch(''); 
                     setPhaseFilter(''); 
                     setStatusFilter(''); 
                     setDepartmentFilter(''); 
+                    setBuildingFilter('');
+                    setLevelFilter('');
                     setLocationFilter(''); 
                   }}
                 />
