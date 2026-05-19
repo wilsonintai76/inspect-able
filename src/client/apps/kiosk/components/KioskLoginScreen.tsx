@@ -1,5 +1,5 @@
 import React from 'react';
-import { ShieldCheck } from 'lucide-react';
+import { BRANDING } from '../../../constants';
 import { User } from '@shared/types';
 
 interface Props {
@@ -18,10 +18,14 @@ export const KioskLoginScreen: React.FC<Props> = () => {
 
         {/* Header */}
         <div className="bg-indigo-600 px-8 pt-8 pb-6 text-center">
-          <div className="w-14 h-14 bg-white/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <ShieldCheck className="w-7 h-7 text-white" />
+          <div className="h-12 flex items-center justify-center mx-auto mb-4">
+            <img 
+              src={BRANDING.logoBrand} 
+              alt="Inspect-able" 
+              className="max-h-10 w-auto object-contain brightness-0 invert" 
+            />
           </div>
-          <h1 className="text-xl font-black text-white mb-1">Audit Kiosk</h1>
+          <h1 className="text-xl font-black text-white mb-1">Inspect-able Kiosk</h1>
           <p className="text-indigo-200 text-xs font-medium">Sign in to access the schedule board</p>
         </div>
 
