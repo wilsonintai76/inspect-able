@@ -20,6 +20,7 @@ export const KioskApp: React.FC = () => {
   // ── Auth state ────────────────────────────────────────────────────────────
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
+  const [logoBrand, setLogoBrand] = useState('/brandhorizontal.png');
 
   // ── PWA Installation state ──────────────────────────────────────────────
   const [installPrompt, setInstallPrompt] = useState<any>(null);
@@ -100,6 +101,34 @@ export const KioskApp: React.FC = () => {
       setAuthChecked(true);
     };
     init();
+  }, []);
+
+  // Load public branding on startup
+  useEffect(() => {
+    const loadPublicBranding = async () => {
+      try {
+        const res = await fetch('/api/public/branding');
+        if (res.ok) {
+          const { branding } = (await res.json()) as any;
+          if (branding) {
+            const { BRANDING } = await import('../../constants');
+            let brandLogoUrl = BRANDING.logoBrand;
+            if (branding.logoBrand) {
+              BRANDING.logoBrand = branding.logoBrand;
+              brandLogoUrl = branding.logoBrand;
+            } else if (branding.logoHorizontal || branding.logoSquare) {
+              BRANDING.logoBrand = branding.logoHorizontal || branding.logoSquare;
+              brandLogoUrl = branding.logoHorizontal || branding.logoSquare;
+            }
+            if (branding.logoInstitution) BRANDING.logoInstitution = branding.logoInstitution;
+            setLogoBrand(brandLogoUrl);
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to fetch public branding settings for Kiosk:', err);
+      }
+    };
+    loadPublicBranding();
   }, []);
 
   // ── Load data once auth is confirmed (handles post-SSO-redirect case) ──────
@@ -568,7 +597,7 @@ export const KioskApp: React.FC = () => {
     );
   }
   if (!currentUser) {
-    return <KioskLoginScreen onLogin={setCurrentUser} />;
+    return <KioskLoginScreen onLogin={setCurrentUser} logoBrand={logoBrand} />;
   }
 
   // ── Certified-officer gate ─────────────────────────────────────────────────

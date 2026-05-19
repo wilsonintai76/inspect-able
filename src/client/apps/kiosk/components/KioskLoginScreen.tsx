@@ -5,10 +5,12 @@ import { User } from '@shared/types';
 interface Props {
   // kept for symmetry — not used since we do a full redirect
   onLogin: (user: User) => void;
+  logoBrand?: string;
 }
 
-export const KioskLoginScreen: React.FC<Props> = () => {
+export const KioskLoginScreen: React.FC<Props> = ({ logoBrand }) => {
   const googleUrl = `https://auth.inspect-able.com/api/auth/google?returnTo=${encodeURIComponent(window.location.origin)}`;
+  const displayLogo = logoBrand || BRANDING.logoBrand;
 
   return (
     <div className="min-h-dvh bg-slate-50 flex flex-col items-center justify-center p-4">
@@ -17,16 +19,16 @@ export const KioskLoginScreen: React.FC<Props> = () => {
       <div className="w-full max-w-xs bg-white rounded-3xl border border-slate-200 shadow-xl overflow-hidden">
 
         {/* Header */}
-        <div className="bg-indigo-600 px-8 pt-8 pb-6 text-center">
+        <div className="bg-white border-b border-slate-100 px-8 pt-8 pb-6 text-center">
           <div className="h-12 flex items-center justify-center mx-auto mb-4">
             <img 
-              src={BRANDING.logoBrand} 
+              src={displayLogo} 
               alt="Inspect-able" 
-              className="max-h-10 w-auto object-contain brightness-0 invert" 
+              className="max-h-10 w-auto object-contain" 
             />
           </div>
-          <h1 className="text-xl font-black text-white mb-1">Inspect-able Kiosk</h1>
-          <p className="text-indigo-200 text-xs font-medium">Sign in to access the schedule board</p>
+          <h1 className="text-xl font-black text-slate-900 mb-1">Inspect-able Kiosk</h1>
+          <p className="text-slate-500 text-xs font-medium">Sign in to access the schedule board</p>
         </div>
 
         <div className="p-6 space-y-3">
