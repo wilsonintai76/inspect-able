@@ -1,7 +1,7 @@
 import React from 'react';
 import { Menu, BookOpen, AlertCircle, ShieldCheck } from 'lucide-react';
 import { User, AppView, SystemActivity, AppNotification } from '@shared/types';
-import Sidebar from './Sidebar';
+import { Sidebar } from './Sidebar';
 import { NotificationCenter } from './NotificationCenter';
 
 interface MainAppLayoutProps {
