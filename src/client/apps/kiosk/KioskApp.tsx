@@ -185,25 +185,43 @@ export const KioskApp: React.FC = () => {
     };
   }, [authChecked, currentUser, load]);
 
-  // Inactivity Auto-Reset (2 minutes)
+  const handleInstallApp = async () => {
+    if (!installPrompt) return;
+    installPrompt.prompt();
+    const { outcome } = await installPrompt.userChoice;
+    if (outcome === 'accepted') {
+      setInstallPrompt(null);
+    }
+  };
+
+  const handleSignOut = async () => {
+    await authService.logout();
+    setCurrentUser(null);
+  };
+
+  // Inactivity Auto-Logout (2 minutes)
   useEffect(() => {
-    const RESET_TIMEOUT = 2 * 60 * 1000; // 2 minutes
+    if (!currentUser) return;
+
+    const LOGOUT_TIMEOUT = 2 * 60 * 1000; // 2 minutes
     let timeoutId: NodeJS.Timeout;
 
-    const resetUI = () => {
+    const performLogout = async () => {
+      // Clear filters so it's clean for the next user session
       setSearch('');
       setPhaseFilter('');
       setStatusFilter('');
       setDepartmentFilter('');
       setLocationFilter('');
       setActiveTab('schedule');
+      
+      await handleSignOut();
+      alert("You have been logged out due to inactivity to secure your session.");
     };
 
     const resetTimer = () => {
       clearTimeout(timeoutId);
-      timeoutId = setTimeout(() => {
-        resetUI();
-      }, RESET_TIMEOUT);
+      timeoutId = setTimeout(performLogout, LOGOUT_TIMEOUT);
     };
 
     // Events to monitor
@@ -221,21 +239,7 @@ export const KioskApp: React.FC = () => {
         window.removeEventListener(event, resetTimer);
       });
     };
-  }, []);
-
-  const handleInstallApp = async () => {
-    if (!installPrompt) return;
-    installPrompt.prompt();
-    const { outcome } = await installPrompt.userChoice;
-    if (outcome === 'accepted') {
-      setInstallPrompt(null);
-    }
-  };
-
-  const handleSignOut = async () => {
-    await authService.logout();
-    setCurrentUser(null);
-  };
+  }, [currentUser]);
 
   const handleToggleProfile = () => {
     if (!showProfile) setProfilePhone(currentUser?.contactNumber || '');
