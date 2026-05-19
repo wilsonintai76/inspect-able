@@ -151,7 +151,7 @@ export const AuditorAssignmentSlot: React.FC<AuditorAssignmentSlotProps> = ({
   return (
     <div className="min-h-11">
       {isAssigned ? (
-        <div className="flex items-center justify-between w-full bg-blue-50/50 rounded-xl p-2 border border-blue-100 group transition-all">
+        <div className="flex items-center justify-between w-full bg-blue-50/50 rounded-lg p-2 border border-blue-100 group transition-all">
           <div className="min-w-0 pr-2">
             <div className="text-xs font-black text-slate-900 truncate flex items-center gap-1.5 uppercase tracking-tighter">
               {auditor?.name || "Unknown"}
@@ -180,7 +180,7 @@ export const AuditorAssignmentSlot: React.FC<AuditorAssignmentSlotProps> = ({
           {canAssignOthers && (
             <select
               title="Assign Officer"
-              className={`w-full px-3 py-2 rounded-xl text-[10px] font-bold border-2 transition-all outline-none ${
+              className={`w-full px-3 py-1.5 rounded-lg text-[10px] font-bold border-2 transition-all outline-none ${
                 isPast || !audit.date
                   ? 'bg-slate-50 border-slate-200 text-slate-400 cursor-not-allowed'
                   : 'bg-white border-indigo-100 text-indigo-600 focus:border-indigo-300'
@@ -198,7 +198,7 @@ export const AuditorAssignmentSlot: React.FC<AuditorAssignmentSlotProps> = ({
           <button 
             onClick={() => onAssign(audit.id, slotNum, audit.date, audit.phaseId)}
             disabled={isDisabled}
-            className={`w-full flex items-center justify-center gap-2 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+            className={`w-full flex items-center justify-center gap-2 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
               isDisabled 
                 ? 'bg-slate-50 text-slate-400 border border-slate-200 cursor-not-allowed'
                 : 'bg-white border-2 border-blue-100 text-blue-600 hover:border-blue-300 hover:bg-blue-50 shadow-sm'

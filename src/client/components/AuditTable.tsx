@@ -487,15 +487,15 @@ export const AuditTable: React.FC<AuditTableProps> = ({
 
       <div className="bg-white rounded-3xl border border-slate-200 shadow-sm flex flex-col flex-1 min-h-0 overflow-hidden">
         <div className="w-full overflow-auto scrollbar-thumb-slate-300 rounded-3xl flex-1">
-          <table className="w-full text-left min-w-250 border-separate border-spacing-0">
+          <table className="w-full text-left min-w-[1300px] border-separate border-spacing-0">
             <thead className="bg-slate-50/50 border-b border-slate-100 sticky top-0 z-20">
               <tr>
-                <th className="px-8 py-6 text-[10px] font-black uppercase text-slate-400 tracking-widest w-48 sticky left-0 bg-slate-50 z-30 border-r border-slate-100">Date</th>
-                <th className="px-8 py-6 text-[10px] font-black uppercase text-slate-400 tracking-widest w-64 sticky left-48 bg-slate-50 z-30 border-r border-slate-100">Asset Location</th>
-                <th className="px-8 py-6 text-[10px] font-black uppercase text-slate-400 tracking-widest w-64">Site Supervisor</th>
-                <th className="px-8 py-6 text-[10px] font-black uppercase text-slate-400 tracking-widest w-64">Inspecting Officers</th>
-                <th className="px-8 py-6 text-[10px] font-black uppercase text-slate-400 tracking-widest w-32 text-center">Status</th>
-                <th className="px-8 py-6 text-[10px] font-black uppercase text-slate-400 tracking-widest w-16 text-center"></th>
+                <th className="px-5 py-4 text-[10px] font-black uppercase text-slate-400 tracking-widest w-64 sticky left-0 bg-slate-50 z-30 border-r border-slate-100">Date</th>
+                <th className="px-5 py-4 text-[10px] font-black uppercase text-slate-400 tracking-widest w-72 sticky left-64 bg-slate-50 z-30 border-r border-slate-100">Asset Location</th>
+                <th className="px-5 py-4 text-[10px] font-black uppercase text-slate-400 tracking-widest w-64">Site Supervisor</th>
+                <th className="px-5 py-4 text-[10px] font-black uppercase text-slate-400 tracking-widest w-80">Inspecting Officers</th>
+                <th className="px-5 py-4 text-[10px] font-black uppercase text-slate-400 tracking-widest w-32 text-center">Status</th>
+                <th className="px-5 py-4 text-[10px] font-black uppercase text-slate-400 tracking-widest w-16 text-center"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">

@@ -82,11 +82,11 @@ export const AuditTableRow: React.FC<AuditTableRowProps> = ({
     <tr className={`hover:bg-slate-50/50 transition-colors ${isLocked ? 'bg-slate-50/30 opacity-90' : ''}`}>
 
       {/* ── Date Cell ── */}
-      <td className="px-8 py-6 align-top sticky left-0 bg-white z-10 border-r border-slate-100">
-        <div className="flex flex-col gap-2">
-          <div className="relative group flex items-center gap-2">
-            <div className="relative flex-1 min-w-32.5">
-              <Calendar className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none z-10 ${!audit.date ? 'text-amber-500' : 'text-slate-400'}`} />
+      <td className="px-5 py-4 align-top sticky left-0 bg-white z-10 border-r border-slate-100 w-64">
+        <div className="flex flex-col gap-1.5">
+          <div className="relative group flex items-center gap-1.5">
+            <div className="relative flex-1 min-w-[130px]">
+              <Calendar className={`absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 pointer-events-none z-10 ${!audit.date ? 'text-amber-500' : 'text-slate-400'}`} />
               <input
                 type="date"
                 title="Audit Date"
@@ -94,7 +94,7 @@ export const AuditTableRow: React.FC<AuditTableRowProps> = ({
                 value={audit.date || ''}
                 disabled={!hasPhases || !canEditDates}
                 onChange={(e) => onDateChange(audit.id, e.target.value, audit.phaseId)}
-                className={`w-full pl-10 pr-4 py-2.5 rounded-xl text-xs font-bold border outline-none transition-all ${
+                className={`w-full pl-8 pr-2 py-1.5 rounded-lg text-xs font-bold border outline-none transition-all ${
                   !canEditDates
                     ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed'
                     : !hasPhases
@@ -126,7 +126,7 @@ export const AuditTableRow: React.FC<AuditTableRowProps> = ({
                     onDateChange(audit.id, phase.startDate, audit.phaseId);
                   }
                 }}
-                className="shrink-0 px-3 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/20 text-[10px] font-black uppercase tracking-widest active:scale-95"
+                className="shrink-0 px-2 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all shadow-md shadow-blue-500/20 text-[9px] font-black uppercase tracking-widest active:scale-95"
                 title="Quick Pick: Set to Today or Phase Start"
               >
                 Pick
@@ -142,9 +142,9 @@ export const AuditTableRow: React.FC<AuditTableRowProps> = ({
                   }
                   onToggleLock(audit.id);
                 }}
-                className={`shrink-0 w-10 h-10 flex items-center justify-center rounded-xl transition-all border ${
+                className={`shrink-0 w-8 h-8 flex items-center justify-center rounded-lg transition-all border ${
                   isLocked
-                    ? 'bg-slate-800 border-slate-700 text-amber-400 shadow-lg'
+                    ? 'bg-slate-800 border-slate-700 text-amber-400 shadow-md'
                     : !canToggleLock
                     ? 'bg-slate-50 border-slate-100 text-slate-200 cursor-not-allowed'
                     : 'bg-white border-slate-200 text-slate-400 hover:border-slate-300 hover:bg-slate-50'
@@ -157,7 +157,7 @@ export const AuditTableRow: React.FC<AuditTableRowProps> = ({
                     : 'Lock Inspection — Freezes date & assignments'
                 }
               >
-                {isLocked ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
+                {isLocked ? <Lock className="w-3.5 h-3.5" /> : <Unlock className="w-3.5 h-3.5" />}
               </button>
             )}
           </div>
@@ -171,9 +171,9 @@ export const AuditTableRow: React.FC<AuditTableRowProps> = ({
       </td>
 
       {/* ── Location Cell ── */}
-      <td className="px-8 py-6 align-top sticky left-48 bg-white z-10 border-r border-slate-100">
+      <td className="px-5 py-4 align-top sticky left-64 bg-white z-10 border-r border-slate-100 w-72">
         <div className="flex flex-col gap-1.5">
-          <div className="font-bold text-slate-900 text-base">{loc?.name || audit.locationId}</div>
+          <div className="font-bold text-slate-900 text-sm">{loc?.name || audit.locationId}</div>
 
           {(() => {
             const bDisplay = getBuildingAbbr(loc?.buildingId, loc?.building);
@@ -242,7 +242,7 @@ export const AuditTableRow: React.FC<AuditTableRowProps> = ({
       </td>
 
       {/* ── Site Supervisor Cell ── */}
-      <td className="px-8 py-6 align-top">
+      <td className="px-5 py-4 align-top">
         <div className="flex flex-col gap-2">
           {(() => {
             const supervisorIds = audit.supervisorId
@@ -276,7 +276,7 @@ export const AuditTableRow: React.FC<AuditTableRowProps> = ({
       </td>
 
       {/* ── Inspecting Officers Cell ── */}
-      <td className="px-8 py-6 align-top">
+      <td className="px-5 py-4 align-top">
         <div className="space-y-3">
           {([1, 2] as const).map(slotNum => (
             <AuditorAssignmentSlot
@@ -313,7 +313,7 @@ export const AuditTableRow: React.FC<AuditTableRowProps> = ({
       </td>
 
       {/* ── Status Cell ── */}
-      <td className="px-8 py-6 align-top text-center">
+      <td className="px-5 py-4 align-top text-center">
         {(() => {
           const canComplete = isAdmin || isCoordinator || (isCurrentUserAssigned && isCertified && isAuditor);
           return (
@@ -334,7 +334,7 @@ export const AuditTableRow: React.FC<AuditTableRowProps> = ({
       </td>
 
       {/* ── Actions Cell ── */}
-      <td className="px-8 py-6 align-top text-center">
+      <td className="px-5 py-4 align-top text-center">
         <div className="flex items-center justify-center gap-2">
           {audit.reportPath && (
             <a
