@@ -603,7 +603,7 @@ db.post('/users', rbacGuard('edit:team'), zValidator('json', userSchema), async 
     ).bind(
       id,
       newUser.name,
-      newUser.email,
+      newUser.email.toLowerCase().trim(),
       defaultHash,
       JSON.stringify(roles),
       newUser.designation ?? null,
@@ -672,7 +672,7 @@ db.patch('/users/:id', zValidator('json', patchUserSchema), async (c) => {
     fields.push('password_hash = ?'); 
     values.push(hash); 
   }
-  if (updates.email !== undefined) { fields.push('email = ?'); values.push(updates.email); }
+  if (updates.email !== undefined) { fields.push('email = ?'); values.push(updates.email.toLowerCase().trim()); }
   if (updates.name !== undefined) { fields.push('name = ?'); values.push(updates.name); }
   if (updates.roles !== undefined) { fields.push('roles = ?'); values.push(JSON.stringify(updates.roles)); }
   if (updates.designation !== undefined) { fields.push('designation = ?'); values.push(updates.designation); }
@@ -764,10 +764,15 @@ db.post('/users/:id/verify', rbacGuard('admin:hub'), async (c) => {
 // Departments
 db.get('/departments', async (c) => {
   try {
+    // Idempotent migrations for existing deployments
+    await c.env.DB.prepare('ALTER TABLE departments ADD COLUMN is_archived INTEGER DEFAULT 0').run().catch(() => {});
+    await c.env.DB.prepare('ALTER TABLE departments ADD COLUMN archived_by TEXT').run().catch(() => {});
+    await c.env.DB.prepare('ALTER TABLE departments ADD COLUMN archived_at TEXT').run().catch(() => {});
+
     const caller = c.get('user');
     const isSuperAdmin = caller?.email?.toLowerCase() === 'admin@poliku.edu.my';
 
-    let sql = 'SELECT id, name, abbr, description, head_of_dept_id, audit_group_id, is_exempted, total_assets, uninspected_asset_count FROM departments';
+    let sql = 'SELECT id, name, abbr, description, head_of_dept_id, audit_group_id, is_exempted, total_assets, uninspected_asset_count, is_archived, archived_by, archived_at FROM departments';
     const binds: any[] = [];
 
     if (!isSuperAdmin) {
@@ -786,6 +791,9 @@ db.get('/departments', async (c) => {
       isExempted: d.is_exempted === 1,
       totalAssets: d.total_assets ?? 0,
       uninspectedAssetCount: d.uninspected_asset_count ?? 0,
+      isArchived: d.is_archived === 1,
+      archivedBy: d.archived_by ?? null,
+      archivedAt: d.archived_at ?? null,
     })));
   } catch (err: any) {
     return c.json({ error: err.message }, 500);
@@ -800,12 +808,12 @@ db.post('/departments/refresh', rbacGuard('manage:departments'), async (c) => {
       SET total_assets = (
         SELECT COALESCE(SUM(l.total_assets), 0) 
         FROM locations l 
-        WHERE l.department_id = departments.id
+        WHERE l.department_id = departments.id AND l.status != 'Archived'
       ),
       uninspected_asset_count = (
         SELECT COALESCE(SUM(l.uninspected_asset_count), 0) 
         FROM locations l 
-        WHERE l.department_id = departments.id
+        WHERE l.department_id = departments.id AND l.status != 'Archived'
       )
       WHERE id IN (SELECT DISTINCT department_id FROM locations)
     `).run();
@@ -858,6 +866,18 @@ db.patch('/departments/:id', rbacGuard('manage:departments'), async (c) => {
   if (updates.isExempted !== undefined) { fields.push('is_exempted = ?'); values.push(updates.isExempted ? 1 : 0); }
   if (updates.totalAssets !== undefined) { fields.push('total_assets = ?'); values.push(updates.totalAssets); }
   if (updates.uninspectedAssetCount !== undefined) { fields.push('uninspected_asset_count = ?'); values.push(updates.uninspectedAssetCount); }
+  if (updates.isArchived !== undefined) {
+    fields.push('is_archived = ?'); values.push(updates.isArchived ? 1 : 0);
+    const caller = c.get('user');
+    if (updates.isArchived) {
+      fields.push('archived_by = ?'); values.push(caller ? `${caller.name} (${caller.email})` : 'Unknown');
+      fields.push('archived_at = ?'); values.push(new Date().toISOString());
+    } else {
+      // Restoring — clear audit trail
+      fields.push('archived_by = ?'); values.push(null);
+      fields.push('archived_at = ?'); values.push(null);
+    }
+  }
 
   if (fields.length === 0) return c.json({ success: true });
 
@@ -871,7 +891,26 @@ db.patch('/departments/:id', rbacGuard('manage:departments'), async (c) => {
 
 db.delete('/departments/:id', rbacGuard('manage:departments'), async (c) => {
   const id = c.req.param('id');
+  const caller = c.get('user');
   try {
+    await c.env.DB.prepare(
+      'UPDATE departments SET is_archived = 1, archived_by = ?, archived_at = ? WHERE id = ?'
+    ).bind(caller ? `${caller.name} (${caller.email})` : 'Unknown', new Date().toISOString(), id).run();
+    return c.json({ success: true });
+  } catch (err: any) {
+    return c.json({ error: err.message }, 500);
+  }
+});
+
+db.delete('/departments/:id/purge', rbacGuard('manage:departments'), async (c) => {
+  const id = c.req.param('id');
+  try {
+    // Only allow purge if already archived
+    const row = await c.env.DB.prepare('SELECT is_archived FROM departments WHERE id = ? LIMIT 1').bind(id).first<{ is_archived: number }>();
+    if (!row) return c.json({ error: 'Not found' }, 404);
+    if (row.is_archived !== 1) return c.json({ error: 'Department must be archived before purging' }, 400);
+    // Orphan locations (clear dept link) rather than cascade-deleting them
+    await c.env.DB.prepare('UPDATE locations SET department_id = NULL WHERE department_id = ?').bind(id).run();
     await c.env.DB.prepare('DELETE FROM departments WHERE id = ?').bind(id).run();
     return c.json({ success: true });
   } catch (err: any) {
@@ -928,8 +967,12 @@ db.post('/departments/clear', rbacGuard('admin:hub'), async (c) => {
 // Locations
 db.get('/locations', async (c) => {
   try {
+    // Idempotent migrations for archived_by / archived_at
+    await c.env.DB.prepare('ALTER TABLE locations ADD COLUMN archived_by TEXT').run().catch(() => {});
+    await c.env.DB.prepare('ALTER TABLE locations ADD COLUMN archived_at TEXT').run().catch(() => {});
+
     const { results } = await c.env.DB.prepare(
-    'SELECT id, name, abbr, department_id, building_id, level, description, supervisor_id, contact, total_assets, uninspected_asset_count, is_active, status FROM locations',
+    'SELECT id, name, abbr, department_id, building_id, level, description, supervisor_id, contact, total_assets, uninspected_asset_count, is_active, status, archived_by, archived_at FROM locations',
   ).all();
     return c.json((results || []).map((l: any) => ({
       id: l.id,
@@ -944,7 +987,9 @@ db.get('/locations', async (c) => {
       totalAssets: l.total_assets ?? 0,
       uninspectedAssetCount: l.uninspected_asset_count ?? 0,
       isActive: l.is_active === 1,
-      status: l.status
+      status: l.status,
+      archivedBy: l.archived_by ?? null,
+      archivedAt: l.archived_at ?? null,
     })));
   } catch (err: any) {
     return c.json({ error: err.message }, 500);
@@ -1004,7 +1049,17 @@ db.patch('/locations/:id', rbacGuard('manage:locations'), async (c) => {
   if (updates.totalAssets !== undefined) { fields.push('total_assets = ?'); values.push(updates.totalAssets); }
   if (updates.uninspectedAssetCount !== undefined) { fields.push('uninspected_asset_count = ?'); values.push(updates.uninspectedAssetCount); }
   if (updates.isActive !== undefined) { fields.push('is_active = ?'); values.push(updates.isActive ? 1 : 0); }
-  if (updates.status !== undefined) { fields.push('status = ?'); values.push(updates.status); }
+  if (updates.status !== undefined) {
+    fields.push('status = ?'); values.push(updates.status);
+    const caller = c.get('user');
+    if (updates.status === 'Archived') {
+      fields.push('archived_by = ?'); values.push(caller ? `${caller.name} (${caller.email})` : 'Unknown');
+      fields.push('archived_at = ?'); values.push(new Date().toISOString());
+    } else if (updates.status === 'Active') {
+      fields.push('archived_by = ?'); values.push(null);
+      fields.push('archived_at = ?'); values.push(null);
+    }
+  }
 
   if (fields.length === 0) return c.json({ success: true });
 
@@ -1021,7 +1076,24 @@ db.patch('/locations/:id', rbacGuard('manage:locations'), async (c) => {
 
 db.delete('/locations/:id', rbacGuard('manage:locations'), async (c) => {
   const id = c.req.param('id');
+  const caller = c.get('user');
   try {
+    await c.env.DB.prepare(
+      "UPDATE locations SET status = 'Archived', is_active = 0, archived_by = ?, archived_at = ? WHERE id = ?"
+    ).bind(caller ? `${caller.name} (${caller.email})` : 'Unknown', new Date().toISOString(), id).run();
+    return c.json({ success: true });
+  } catch (err: any) {
+    return c.json({ error: err.message }, 500);
+  }
+});
+
+db.delete('/locations/:id/purge', rbacGuard('manage:locations'), async (c) => {
+  const id = c.req.param('id');
+  try {
+    const row = await c.env.DB.prepare("SELECT status FROM locations WHERE id = ? LIMIT 1").bind(id).first<{ status: string }>();
+    if (!row) return c.json({ error: 'Not found' }, 404);
+    if (row.status !== 'Archived') return c.json({ error: 'Location must be archived before purging' }, 400);
+    await c.env.DB.prepare('DELETE FROM audit_schedules WHERE location_id = ?').bind(id).run();
     await c.env.DB.prepare('DELETE FROM locations WHERE id = ?').bind(id).run();
     return c.json({ success: true });
   } catch (err: any) {
@@ -1934,6 +2006,9 @@ db.post('/activity', async (c) => {
 // so it is safe to call repeatedly and will never duplicate rows.
 db.post('/system/initialize-defaults', rbacGuard('admin:hub'), async (c) => {
   try {
+    // 0. Schema migrations (idempotent — safe to call repeatedly)
+    await c.env.DB.prepare('ALTER TABLE departments ADD COLUMN is_archived INTEGER DEFAULT 0').run().catch(() => {});
+
     // 1. Read what already exists
     const [existingPhases, existingTiers] = await Promise.all([
       c.env.DB.prepare('SELECT id, name FROM audit_phases').all(),

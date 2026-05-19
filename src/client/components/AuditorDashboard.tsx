@@ -230,6 +230,7 @@ export const AuditorDashboard: React.FC<AuditorDashboardProps> = ({
                       <label className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Tarikh Pemeriksaan</label>
                       <input
                         type="date"
+                        title="Tarikh Pemeriksaan"
                         value={audit.date || ''}
                         onChange={(e) => onUpdateDate(audit.id, e.target.value)}
                         className="px-3 py-1.5 bg-slate-50 border border-slate-200 text-xs font-bold text-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all cursor-pointer"

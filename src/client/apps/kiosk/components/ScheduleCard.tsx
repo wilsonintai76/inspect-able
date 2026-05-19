@@ -1,8 +1,7 @@
 import React from 'react';
-import { Calendar, Package, Loader2, Phone } from 'lucide-react';
+import { Calendar, Package, Loader2, Phone, Plus, X } from 'lucide-react';
 import { KioskSchedule, KioskUser, KioskPhase, AssignRole } from './types';
 import { StatusBadge } from './StatusBadge';
-import { UserSearchBox } from './UserSearchBox';
 
 const ROLE_LABELS: Record<AssignRole, string> = {
   supervisor: 'Supervisor',
@@ -16,9 +15,12 @@ interface Props {
   phases: KioskPhase[];
   maxAssets: number;
   saving: string | null;
+  currentUserId: string;
+  currentUserRoles: string[];
   onAssign: (scheduleId: string, userId: string, role: AssignRole) => Promise<void>;
   onUnassign: (scheduleId: string, role: AssignRole) => Promise<void>;
   onDateChange: (scheduleId: string, date: string) => Promise<void>;
+  onShowToast: (message: string, type: 'success' | 'warning' | 'error' | 'info') => void;
 }
 
 export const ScheduleCard: React.FC<Props> = ({
@@ -27,13 +29,18 @@ export const ScheduleCard: React.FC<Props> = ({
   phases,
   maxAssets,
   saving,
+  currentUserId,
+  currentUserRoles,
   onAssign,
   onUnassign,
   onDateChange,
+  onShowToast,
 }) => {
   const isSaving = saving === schedule.id;
   const isCompleted = schedule.status === 'Completed';
-  const isLocked = schedule.isLocked === false ? false : !!(schedule.isLocked || (schedule.date && schedule.auditor1Id && schedule.auditor2Id));
+  const isLocked = schedule.isLocked === true;
+
+  // Kiosk is self-assign only — no admin "assign others"
 
   // Get global date boundaries across all phases to allow planned phase overwriting
   const minDate = phases.length > 0
@@ -46,18 +53,14 @@ export const ScheduleCard: React.FC<Props> = ({
   const phaseActive = today >= schedule.phaseStart && today <= schedule.phaseEnd;
  
   const roleUsers = (role: AssignRole): KioskUser[] => {
-    if (role === 'supervisor') {
-      return users.filter(
-        u =>
-          (u.roles.includes('Supervisor') || u.roles.includes('Coordinator') || u.roles.includes('Admin')) &&
-          u.departmentId === schedule.departmentId,
-      );
-    }
+    // Supervisor is handled in main app — not assignable from kiosk
+    if (role === 'supervisor') return [];
     // Certified officers (auditors) cannot audit their own department
     return users.filter(
       u =>
         (u.roles.includes('Auditor') || u.roles.includes('Coordinator') || u.roles.includes('Supervisor') || u.roles.includes('Admin')) &&
-        u.departmentId !== schedule.departmentId,
+        u.departmentId !== schedule.departmentId &&
+        u.id === currentUserId,
     );
   };
  
@@ -82,10 +85,10 @@ export const ScheduleCard: React.FC<Props> = ({
                 </span>
               )}
             </div>
-            <h3 className="font-black text-slate-900 text-sm leading-tight mb-0.5 line-clamp-2 break-words">
+            <h3 className="font-black text-slate-900 text-sm leading-tight mb-0.5 line-clamp-2 wrap-break-word">
               {schedule.locationName}
             </h3>
-            <p className="text-[11px] text-slate-500 font-medium line-clamp-2 break-words">
+            <p className="text-[11px] text-slate-500 font-medium line-clamp-2 wrap-break-word">
               {schedule.departmentName}
             </p>
           </div>
@@ -124,8 +127,8 @@ export const ScheduleCard: React.FC<Props> = ({
               <input
                 type="date"
                 value={schedule.date ?? ''}
-                min={minDate}
-                max={maxDate}
+                title="Set audit date"
+                placeholder="YYYY-MM-DD"
                 onChange={e => onDateChange(schedule.id, e.target.value)}
                 className="w-full text-[11px] font-bold bg-transparent text-slate-700 border-0 outline-none cursor-pointer"
               />
@@ -144,6 +147,10 @@ export const ScheduleCard: React.FC<Props> = ({
         {(['supervisor', 'auditor1', 'auditor2'] as AssignRole[]).map(role => {
           const currentName = schedule[`${role}Name` as keyof KioskSchedule] as string | null;
           const currentContact = schedule[`${role}Contact` as keyof KioskSchedule] as string | null;
+          const assignedId = schedule[`${role}Id` as keyof KioskSchedule] as string | null;
+          const isAssignedToMe = assignedId === currentUserId;
+          // Supervisor is always read-only in kiosk — assigned from main site only
+          const showReadOnly = role === 'supervisor' || isCompleted || isLocked || (!!currentName && !isAssignedToMe);
  
           return (
             <div key={role}>
@@ -151,7 +158,7 @@ export const ScheduleCard: React.FC<Props> = ({
                 {ROLE_LABELS[role]}
               </p>
  
-              {isCompleted || isLocked || (role === 'supervisor' && currentName) ? (
+              {showReadOnly ? (
                 <div className="px-3 py-2 bg-slate-50 rounded-xl flex flex-col gap-0.5">
                   <span className="text-xs font-bold text-slate-600">{currentName ?? '—'}</span>
                   {currentContact && (
@@ -161,17 +168,56 @@ export const ScheduleCard: React.FC<Props> = ({
                     </span>
                   )}
                 </div>
+              ) : isAssignedToMe ? (
+                // Assigned to me — show name + remove button
+                <div className="flex items-center justify-between px-3 py-2 bg-indigo-50 border border-indigo-200 rounded-xl">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-bold text-indigo-800 truncate">{currentName}</p>
+                    {currentContact && (
+                      <p className="text-[10px] text-indigo-600/70 font-bold font-mono flex items-center gap-1 mt-0.5">
+                        <Phone className="w-2.5 h-2.5 opacity-60" />{currentContact}
+                      </p>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => onUnassign(schedule.id, role)}
+                    title="Remove my assignment"
+                    className="ml-2 p-1.5 text-indigo-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all shrink-0"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               ) : (
-                <UserSearchBox
-                  users={roleUsers(role)}
-                  maxAssets={maxAssets}
-                  scheduleAssets={schedule.totalAssets}
-                  placeholder={`Search ${ROLE_LABELS[role]}…`}
-                  currentName={currentName}
-                  currentContact={currentContact}
-                  onSelect={u => onAssign(schedule.id, u.id, role)}
-                  onClear={() => onUnassign(schedule.id, role)}
-                />
+                // Empty slot — self-assign button
+                (() => {
+                  const eligible = roleUsers(role);
+                  const auditIsPast = !!(schedule.date && schedule.date < today);
+                  const noDate = !schedule.date;
+                  const canAssign = eligible.length > 0 && !auditIsPast;
+                  return (
+                    <button
+                      onClick={() => {
+                        if (noDate) {
+                          onShowToast('Please set the audit date for this schedule before assigning yourself.', 'warning');
+                          return;
+                        }
+                        if (canAssign) onAssign(schedule.id, currentUserId, role);
+                      }}
+                      disabled={eligible.length === 0 || auditIsPast}
+                      className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all ${
+                        noDate
+                          ? 'bg-amber-50 border-2 border-amber-200 text-amber-600 hover:border-amber-300 hover:bg-amber-100 shadow-sm'
+                          : canAssign
+                          ? 'bg-white border-2 border-blue-100 text-blue-600 hover:border-blue-300 hover:bg-blue-50 shadow-sm'
+                          : 'bg-slate-50 border border-slate-200 text-slate-400 cursor-not-allowed'
+                      }`}
+                      title={eligible.length === 0 ? 'You are not eligible for this slot' : auditIsPast ? 'Audit date has passed' : noDate ? 'Tap to see what to do first' : ''}
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      Assign Myself
+                    </button>
+                  );
+                })()
               )}
             </div>
           );

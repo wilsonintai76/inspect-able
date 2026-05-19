@@ -1,9 +1,10 @@
 import React, { useState, useMemo } from 'react';
 import { Location, UserRole, Department, User, AuditPhase, Building, AuditSchedule } from '@shared/types';
 import { useRBAC } from '../contexts/RBACContext';
-import { Network, ChevronDown, MapPin, Landmark, User as UserIcon, Phone, Pencil, Trash2, MapPinned, Building2, Layers, Plus } from 'lucide-react';
+import { Network, ChevronDown, MapPin, Landmark, User as UserIcon, Phone, Pencil, Archive, ArchiveRestore, MapPinned, Building2, Layers, Plus, Flame } from 'lucide-react';
 import { LocationModal } from './LocationModal';
 import { PageHeader } from './PageHeader';
+import { PurgeConfirmModal } from './PurgeConfirmModal';
 
 interface LocationManagementProps {
   locations: Location[];
@@ -15,20 +16,23 @@ interface LocationManagementProps {
   onAdd: (loc: Omit<Location, 'id'>) => void;
   onUpdate: (id: string, loc: Partial<Location>) => void;
   onDelete: (id: string) => void;
+  onPurge: (id: string) => void;
   phases?: AuditPhase[];
   buildings: Building[];
   schedules: AuditSchedule[];
 }
 
 export const LocationManagement: React.FC<LocationManagementProps> = ({ 
-  locations, departments, users, userRoles, userDeptId, currentUser, onAdd, onUpdate, onDelete, phases = [], buildings, schedules
+  locations, departments, users, userRoles, userDeptId, currentUser, onAdd, onUpdate, onDelete, onPurge, phases = [], buildings, schedules
 }) => {
   const { rbacMatrix } = useRBAC();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingLocation, setEditingLocation] = useState<Location | null>(null);
   const [selectedDeptFilter, setSelectedDeptFilter] = useState('All');
   const [selectedBlockFilter, setSelectedBlockFilter] = useState('All');
+  const [purgeTarget, setPurgeTarget] = useState<Location | null>(null);
   const [selectedLevelFilter, setSelectedLevelFilter] = useState('All');
+  const [showArchived, setShowArchived] = useState(false);
 
   const LEVELS = ["LEVEL 1", "LEVEL 2", "LEVEL 3", "LEVEL 4", "LEVEL 5"];
 
@@ -63,6 +67,9 @@ export const LocationManagement: React.FC<LocationManagementProps> = ({
       ? locations.filter(l => l.departmentId === userDeptId) 
       : locations;
 
+    // Hide archived unless showArchived is on
+    if (!showArchived) base = base.filter(l => l.status !== 'Archived');
+
     if (selectedDeptFilter !== 'All') {
       base = base.filter(l => l.departmentId === selectedDeptFilter);
     }
@@ -87,7 +94,7 @@ export const LocationManagement: React.FC<LocationManagementProps> = ({
       if (indexA !== -1 && indexB !== -1) return indexA - indexB;
       return (a.level || '').localeCompare(b.level || '');
     });
-  }, [locations, isCoordinator, isAdmin, userDeptId, selectedDeptFilter, selectedBlockFilter, selectedLevelFilter]);
+  }, [locations, showArchived, isCoordinator, isAdmin, userDeptId, selectedDeptFilter, selectedBlockFilter, selectedLevelFilter]);
 
   const availableBlocks = useMemo(() => {
     let base = (isCoordinator && !isAdmin) ? locations.filter(l => l.departmentId === userDeptId) : locations;
@@ -169,17 +176,34 @@ export const LocationManagement: React.FC<LocationManagementProps> = ({
         description={(isCoordinator && !isAdmin) ? `Managing locations for ${departments.find(d => d.id === userDeptId)?.name || userDeptId}` : 'Institutional site mapping and audit execution points.'}
       >
         {canManage && (
-          <button 
-            onClick={startAdd}
-            className={`px-4 py-2 rounded-2xl text-[13px] font-bold shadow-lg transition-all flex items-center justify-center gap-2 whitespace-nowrap active:scale-95 ${
-              activePhase 
-                ? 'bg-white/10 text-white border border-white/20 hover:bg-white/20 shadow-none' 
-                : 'bg-blue-600 text-white shadow-blue-500/20 hover:bg-blue-700'
-            }`}
-          >
-            <Plus className="w-4 h-4" />
-            New Location
-          </button>
+          <>
+            {(() => {
+              const archivedCount = locations.filter(l => l.status === 'Archived').length;
+              return archivedCount > 0 ? (
+                <button
+                  onClick={() => setShowArchived(v => !v)}
+                  className={`px-3 py-2 rounded-2xl text-[12px] font-bold transition-all flex items-center gap-2 border ${
+                    showArchived ? 'bg-amber-50 border-amber-200 text-amber-700' : 'bg-white/10 border-white/20 text-white hover:bg-white/20'
+                  }`}
+                  title={showArchived ? 'Hide archived locations' : `Show ${archivedCount} archived location${archivedCount > 1 ? 's' : ''}`}
+                >
+                  <Archive className="w-4 h-4" />
+                  {archivedCount}
+                </button>
+              ) : null;
+            })()}
+            <button 
+              onClick={startAdd}
+              className={`px-4 py-2 rounded-2xl text-[13px] font-bold shadow-lg transition-all flex items-center justify-center gap-2 whitespace-nowrap active:scale-95 ${
+                activePhase 
+                  ? 'bg-white/10 text-white border border-white/20 hover:bg-white/20 shadow-none' 
+                  : 'bg-blue-600 text-white shadow-blue-500/20 hover:bg-blue-700'
+              }`}
+            >
+              <Plus className="w-4 h-4" />
+              New Location
+            </button>
+          </>
         )}
       </PageHeader>
 
@@ -263,8 +287,9 @@ export const LocationManagement: React.FC<LocationManagementProps> = ({
               {filteredLocations.map(loc => {
                  const dept = departments.find(d => d.id === loc.departmentId);
                  const colorClass = AVATAR_COLORS[getColorIndex(dept?.name || loc.departmentId) % AVATAR_COLORS.length];
+                 const isArchivedLoc = loc.status === 'Archived';
                  return (
-                  <tr key={loc.id} className="hover:bg-slate-50/50 transition-colors group">
+                  <tr key={loc.id} className={`transition-colors group ${isArchivedLoc ? 'opacity-50 bg-slate-50/80' : 'hover:bg-slate-50/50'}`}>
                     <td className="px-6 py-4">
                       <div className="flex items-start gap-4">
                         <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-xs font-black shadow-sm border ${colorClass} shrink-0`}>
@@ -273,6 +298,7 @@ export const LocationManagement: React.FC<LocationManagementProps> = ({
                         <div>
                           <div className="font-bold text-slate-900 text-sm flex items-center gap-2">
                             {loc.name}
+                            {isArchivedLoc && <span className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-400 text-[9px] font-black border border-slate-200 uppercase tracking-widest">Archived</span>}
                             {(loc.buildingId && buildings.find(b => b.id === loc.buildingId)?.abbr) && (
                               <span className="text-[10px] text-slate-400 font-normal italic border-l border-slate-200 pl-2">
                                 {buildings.find(b => b.id === loc.buildingId)?.abbr}
@@ -284,6 +310,12 @@ export const LocationManagement: React.FC<LocationManagementProps> = ({
                               </span>
                             )}
                           </div>
+                          {isArchivedLoc && (loc.archivedBy || loc.archivedAt) && (
+                            <div className="text-[10px] text-slate-400 mt-0.5">
+                              {loc.archivedBy && <span>by {loc.archivedBy}</span>}
+                              {loc.archivedAt && <span className="ml-1">&middot; {new Date(loc.archivedAt).toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' })}</span>}
+                            </div>
+                          )}
                           
                           {/* Original / Merged Names Display */}
                           {loc.description && (
@@ -358,8 +390,30 @@ export const LocationManagement: React.FC<LocationManagementProps> = ({
                           {canManage && (
                             (() => {
                               const isAssigned = schedules.some(s => s.locationId === loc.id && (s.date || s.auditor1Id || s.auditor2Id));
-                              const isPendingDelete = loc.status === 'Pending_Delete';
+                              const isArchived = loc.status === 'Archived';
                               
+                              if (isArchived) {
+                                return (
+                                  <>
+                                    <button
+                                      onClick={() => onUpdate(loc.id, { status: 'Active' })}
+                                      className="w-9 h-9 flex items-center justify-center bg-amber-50 border border-amber-200 text-amber-500 hover:text-amber-700 hover:border-amber-300 rounded-xl transition-all"
+                                      title="Restore location"
+                                    >
+                                      <ArchiveRestore className="w-4 h-4" />
+                                    </button>
+                                    {(isAdmin || userRoles.includes('Admin' as UserRole)) && (
+                                      <button
+                                        onClick={() => setPurgeTarget(loc)}
+                                        className="w-9 h-9 flex items-center justify-center bg-red-50 border border-red-200 text-red-400 hover:text-red-600 hover:border-red-300 rounded-xl transition-all"
+                                        title="Purge permanently"
+                                      >
+                                        <Flame className="w-4 h-4" />
+                                      </button>
+                                    )}
+                                  </>
+                                );
+                              }
                               return (
                                 <button 
                                   onClick={() => !isAssigned && onDelete(loc.id)} 
@@ -367,13 +421,11 @@ export const LocationManagement: React.FC<LocationManagementProps> = ({
                                   className={`w-9 h-9 flex items-center justify-center border rounded-xl transition-all ${
                                     isAssigned 
                                       ? 'bg-slate-50 border-slate-100 text-slate-200 cursor-not-allowed' 
-                                      : isPendingDelete
-                                        ? 'bg-amber-50 border-amber-200 text-amber-500'
-                                        : 'bg-white border-slate-200 text-slate-400 hover:text-red-600 hover:border-red-200'
+                                      : 'bg-white border-slate-200 text-slate-400 hover:text-amber-600 hover:border-amber-200'
                                   }`}
-                                  title={isAssigned ? "Cannot delete: Location has active assignments" : isPendingDelete ? "Archive request pending" : "Request Archiving"}
+                                  title={isAssigned ? "Cannot archive: Location has active assignments" : "Archive location"}
                                 >
-                                  <Trash2 className="w-4 h-4" />
+                                  <Archive className="w-4 h-4" />
                                 </button>
                               );
                             })()
@@ -415,6 +467,16 @@ export const LocationManagement: React.FC<LocationManagementProps> = ({
         userDeptId={userDeptId}
         currentUser={currentUser}
         buildings={buildings}
+      />
+
+      <PurgeConfirmModal
+        isOpen={purgeTarget !== null}
+        onClose={() => setPurgeTarget(null)}
+        onConfirm={() => { if (purgeTarget) onPurge(purgeTarget.id); }}
+        itemType="location"
+        itemName={purgeTarget?.name ?? ''}
+        archivedBy={purgeTarget?.archivedBy}
+        archivedAt={purgeTarget?.archivedAt}
       />
     </div>
   );

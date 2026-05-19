@@ -55,6 +55,9 @@ export interface Department {
   auditorCount?: number;
   isExempted?: boolean;
   isSystemExempted?: boolean;
+  isArchived?: boolean;
+  archivedBy?: string | null;
+  archivedAt?: string | null;
   tier?: 'Small' | 'Medium' | 'Large';
   isTaskForce?: boolean;
   auditorsRequiredOverride?: number;
@@ -92,6 +95,8 @@ export interface Location {
   uninspectedAssetCount?: number;
   isActive?: boolean;
   status?: 'Active' | 'Archived' | 'Pending_Delete';
+  archivedBy?: string | null;
+  archivedAt?: string | null;
 }
 
 export interface DashboardConfig {

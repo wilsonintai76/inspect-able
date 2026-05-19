@@ -87,14 +87,15 @@ export const StrategyControls: React.FC<StrategyControlsProps> = ({
                      <div className="flex items-center gap-4">
                        <input 
                          type="range" 
+                         title="Daily team inspection capacity"
                          min="500" 
                          max="2500" 
                          step="100"
                          value={dailyInspectionCapacity || 1500}
                          onChange={(e) => onUpdateDailyInspectionCapacity?.(parseInt(e.target.value))}
-                         className="flex-grow h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                         className="grow h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-500"
                        />
-                       <span className="text-[11px] font-black text-slate-700 min-w-[3rem] tabular-nums italic">{dailyInspectionCapacity || 1500}</span>
+                       <span className="text-[11px] font-black text-slate-700 min-w-12 tabular-nums italic">{dailyInspectionCapacity || 1500}</span>
                      </div>
                    </div>
 
@@ -103,14 +104,15 @@ export const StrategyControls: React.FC<StrategyControlsProps> = ({
                      <div className="flex items-center gap-4">
                        <input 
                          type="range" 
+                         title="Maximum assets per day"
                          min="100" 
                          max="2000" 
                          step="50"
                          value={maxAssetsPerDay}
                          onChange={(e) => onUpdateMaxAssetsPerDay?.(parseInt(e.target.value))}
-                         className="flex-grow h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-amber-500"
+                         className="grow h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-amber-500"
                        />
-                       <span className="text-[11px] font-black text-slate-700 min-w-[3rem] tabular-nums italic">{maxAssetsPerDay}</span>
+                       <span className="text-[11px] font-black text-slate-700 min-w-12 tabular-nums italic">{maxAssetsPerDay}</span>
                      </div>
                    </div>
 
@@ -119,14 +121,15 @@ export const StrategyControls: React.FC<StrategyControlsProps> = ({
                      <div className="flex items-center gap-4">
                        <input 
                          type="range" 
+                         title="Maximum locations per day"
                          min="5" 
                          max="30" 
                          step="1"
                          value={maxLocationsPerDay}
                          onChange={(e) => onUpdateMaxLocationsPerDay?.(parseInt(e.target.value))}
-                         className="flex-grow h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+                         className="grow h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-emerald-500"
                        />
-                       <span className="text-[11px] font-black text-slate-700 min-w-[3rem] tabular-nums italic">{maxLocationsPerDay}</span>
+                       <span className="text-[11px] font-black text-slate-700 min-w-12 tabular-nums italic">{maxLocationsPerDay}</span>
                      </div>
                    </div>
 
@@ -135,14 +138,15 @@ export const StrategyControls: React.FC<StrategyControlsProps> = ({
                      <div className="flex items-center gap-4">
                        <input 
                          type="range" 
+                         title="Minimum auditors per location"
                          min="1" 
                          max="5" 
                          step="1"
                          value={minAuditorsPerLocation}
                          onChange={(e) => onUpdateMinAuditorsPerLocation?.(parseInt(e.target.value))}
-                         className="flex-grow h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                         className="grow h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-500"
                        />
-                       <span className="text-[11px] font-black text-slate-700 min-w-[3rem] tabular-nums italic">{minAuditorsPerLocation}</span>
+                       <span className="text-[11px] font-black text-slate-700 min-w-12 tabular-nums italic">{minAuditorsPerLocation}</span>
                      </div>
                    </div>
 
@@ -154,6 +158,7 @@ export const StrategyControls: React.FC<StrategyControlsProps> = ({
                       </div>
                       <input 
                         type="range" 
+                        title="Asset matching gap tolerance"
                         min="0" 
                         max="5000" 
                         step="100"
@@ -170,6 +175,7 @@ export const StrategyControls: React.FC<StrategyControlsProps> = ({
                       </div>
                       <input 
                         type="range" 
+                        title="Auditor matching gap tolerance"
                         min="0" 
                         max="20" 
                         step="1"

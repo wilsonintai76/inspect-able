@@ -96,10 +96,10 @@ export const AutoUpdater: React.FC<AutoUpdaterProps> = ({ isKioskApp }) => {
   const currentVersion = import.meta.env.VITE_APP_VERSION;
 
   return (
-    <div className="fixed inset-0 z-[9999] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-9999 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
       <div className="bg-white rounded-3xl shadow-2xl max-w-sm w-full overflow-hidden">
         {/* Header */}
-        <div className="bg-gradient-to-br from-blue-600 to-blue-700 px-8 pt-8 pb-6 text-center">
+        <div className="bg-linear-to-br from-blue-600 to-blue-700 px-8 pt-8 pb-6 text-center">
           <div className="w-14 h-14 bg-white/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
             <Sparkles className="w-7 h-7 text-white" />
           </div>

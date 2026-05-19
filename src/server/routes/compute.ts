@@ -1201,7 +1201,7 @@ compute.post(
       db.prepare('SELECT id, name, min_assets FROM kpi_tiers ORDER BY min_assets ASC').all(),
       db.prepare('SELECT id, name, start_date, end_date FROM audit_phases ORDER BY start_date ASC').all(),
       db.prepare('SELECT phase_id, target_percentage FROM institution_kpi_targets').all(),
-      db.prepare('SELECT department_id, SUM(total_assets) AS loc_sum FROM locations GROUP BY department_id').all(),
+      db.prepare('SELECT department_id, SUM(total_assets) AS loc_sum FROM locations WHERE status != \'Archived\' GROUP BY department_id').all(),
     ]);
 
     const depts = (deptsRes.results || []) as any[];

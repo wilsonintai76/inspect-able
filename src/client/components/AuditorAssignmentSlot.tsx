@@ -11,6 +11,7 @@ interface AuditorAssignmentSlotProps {
   canManageAssignments: boolean;
   canAssignOthers: boolean;
   canSelfAssignSelf: boolean;
+  isAdmin: boolean;
   userCanAudit: boolean;
   isCurrentUserAssigned: boolean;
   isPast: boolean;
@@ -39,6 +40,7 @@ export const AuditorAssignmentSlot: React.FC<AuditorAssignmentSlotProps> = ({
   canManageAssignments,
   canAssignOthers,
   canSelfAssignSelf,
+  isAdmin,
   userCanAudit,
   isCurrentUserAssigned,
   isPast,
@@ -63,7 +65,7 @@ export const AuditorAssignmentSlot: React.FC<AuditorAssignmentSlotProps> = ({
   const contact = auditorId ? getUserContact(auditorId) : null;
   const isMe = auditorId === currentUser?.id;
   
-  const canRemove = isAssigned && (canAssignOthers || (isMe && !isPast));
+  const canRemove = isAssigned && (isAdmin || (isMe && !isPast));
   
   const supervisorIds = audit.supervisorId ? audit.supervisorId.split(',').map(id => id.trim()).filter(Boolean) : [];
   const isUserSupervisor = supervisorIds.includes(currentUser?.id || '');

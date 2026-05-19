@@ -21,7 +21,8 @@ export const FeasibilityAnalysis: React.FC<FeasibilityAnalysisProps> = ({
           <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-2">Institutional Target Achievement</p>
           <div className="text-5xl font-black italic tracking-tighter mb-6">{projectedKPIPercentage.toFixed(1)}%</div>
           <div className="h-2 w-full bg-slate-800 rounded-full overflow-hidden">
-            <div className="h-full bg-indigo-500 transition-all duration-1000" style={{ width: `${projectedKPIPercentage}%` }} />
+            {/* biome-ignore lint/style/noInlineStyle: Dynamic progress bar width */}
+            <div className="h-full bg-indigo-500 transition-all duration-1000 [width:var(--pct)]" style={{ '--pct': `${projectedKPIPercentage}%` } as React.CSSProperties} />
           </div>
           <p className="text-[10px] font-medium text-slate-500 mt-4">Projected Coverage: {projectedAssetsMet.toLocaleString()} / {overallTotalAssets.toLocaleString()} Movable Assets.</p>
        </div>

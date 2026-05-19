@@ -33,6 +33,23 @@ export const authService = {
     }
   },
 
+  /**
+   * Exchanges a one-time Google OAuth exchange token (from the ?google_callback=
+   * query param) for a standard JWT session.  The exchange token is deleted
+   * server-side on first use and expires after 60 seconds.
+   */
+  exchangeGoogleToken: async (exchangeToken: string): Promise<User> => {
+    const res = await fetch('/api/auth/google/exchange', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ exchangeToken }),
+    });
+    const data = await res.json() as any;
+    if (!data.success) throw new Error(data.message || 'Google sign-in failed');
+    setAuthToken(data.token);
+    return mapProfileToUser(data.user);
+  },
+
   logout: async () => {
     try {
       // 1. Evict server session
@@ -71,9 +88,8 @@ export const authService = {
 
   getCurrentUser: async (): Promise<User | null> => {
     try {
-      const token = getAuthToken();
-      if (!token) return null;
-
+      // Always call the server — session may be established via SSO cookie
+      // even when no JWT is stored in localStorage.
       console.log("[Auth] Checking current user via native API...");
       const res = await api.auth.me.$get();
       const data = await res.json() as any;

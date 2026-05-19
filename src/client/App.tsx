@@ -115,9 +115,9 @@ const App: React.FC = () => {
     handleAddMember, handleBulkAddMembers, handleUpdateMember,
     handleDeleteMember, handleUpdateUserRoles, handleUpdateUserStatus,
     handleResetUserPassword, handleAddDept, handleUpdateDept,
-    handleBulkUpdateDepts, handleDeleteDept, handleAddAuditGroup,
+    handleBulkUpdateDepts, handleArchiveDept, handleAddAuditGroup,
     handleUpdateAuditGroup, handleDeleteAuditGroup, handleAddLoc,
-    handleBulkAddLocs, handleUpdateLoc, handleDeleteLoc,
+    handleBulkAddLocs, handleUpdateLoc, handleArchiveLoc,
     handleApproveArchive, handleRejectArchive, handleAddBuilding, handleUpdateBuilding,
     handleBulkAddBuildings, handleDeleteBuilding, handleAddPermission,
     handleRemovePermission, handleTogglePermission, handleBulkAddPermissions,
@@ -137,6 +137,7 @@ const App: React.FC = () => {
     handleSyncLocationNotes,
     handleMergeLocations,
     handleAddLocationMapping, handleDeleteLocationMapping,
+    handlePurgeDept, handlePurgeLoc,
     showToast, closeToast, showError, customConfirm, customAlert
   } = appActions;
 
@@ -214,7 +215,7 @@ const App: React.FC = () => {
         {showMobileWarning && (
           <div className="fixed bottom-6 left-6 right-6 z-1000 md:left-auto md:right-6 md:w-96 animate-in slide-in-from-bottom duration-500">
             <div className="bg-white/95 backdrop-blur-md border border-amber-100 rounded-3xl p-6 shadow-2xl shadow-slate-900/10 relative overflow-hidden">
-              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-400 to-orange-500"></div>
+              <div className="absolute top-0 left-0 right-0 h-1 bg-linear-to-r from-amber-400 to-orange-500"></div>
               <div className="flex gap-4">
                 <div className="w-12 h-12 rounded-2xl bg-amber-50 flex items-center justify-center text-amber-600 shrink-0 shadow-inner">
                   <Monitor className="w-6 h-6" />
@@ -399,7 +400,8 @@ const App: React.FC = () => {
           onAdd={handleAddDept}
           onUpdate={handleUpdateDept}
           onBulkUpdate={handleBulkUpdateDepts}
-          onDelete={handleDeleteDept}
+          onDelete={handleArchiveDept}
+          onPurge={handlePurgeDept}
           isAdmin={isAdminUser || false}
           phases={auditPhases}
           auditGroups={auditGroups}
@@ -423,7 +425,8 @@ const App: React.FC = () => {
           onAdd={handleAddLoc}
           onBulkAdd={handleBulkAddLocs}
           onUpdate={handleUpdateLoc}
-          onDelete={handleDeleteLoc}
+          onDelete={handleArchiveLoc}
+          onPurge={handlePurgeLoc}
           phases={auditPhases}
           buildings={buildings}
           schedules={appData.schedules}
@@ -568,7 +571,7 @@ const App: React.FC = () => {
       {showMobileWarning && (
         <div className="fixed bottom-6 left-6 right-6 z-1000 md:left-auto md:right-6 md:w-96 animate-in slide-in-from-bottom duration-500">
           <div className="bg-white/95 backdrop-blur-md border border-amber-100 rounded-3xl p-6 shadow-2xl shadow-slate-900/10 relative overflow-hidden">
-            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-400 to-orange-500"></div>
+            <div className="absolute top-0 left-0 right-0 h-1 bg-linear-to-r from-amber-400 to-orange-500"></div>
             <div className="flex gap-4">
               <div className="w-12 h-12 rounded-2xl bg-amber-50 flex items-center justify-center text-amber-600 shrink-0 shadow-inner">
                 <Monitor className="w-6 h-6" />

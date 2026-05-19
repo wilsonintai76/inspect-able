@@ -314,6 +314,7 @@ export const GroupBuilderTab: React.FC<GroupBuilderTabProps> = ({
                   </div>
                   <input 
                     type="range" 
+                    title="Standalone cutoff threshold"
                     min="500" 
                     max="2000" 
                     step="50"
@@ -331,6 +332,7 @@ export const GroupBuilderTab: React.FC<GroupBuilderTabProps> = ({
                   </div>
                   <input 
                     type="range" 
+                    title="Grouping margin percentage"
                     min="0.05" 
                     max="0.30" 
                     step="0.01"
@@ -348,6 +350,7 @@ export const GroupBuilderTab: React.FC<GroupBuilderTabProps> = ({
                   </div>
                   <input 
                     type="range" 
+                    title="Auditor parity gap"
                     min="1" 
                     max="10" 
                     step="1"
@@ -368,6 +371,7 @@ export const GroupBuilderTab: React.FC<GroupBuilderTabProps> = ({
                   </div>
                   <input 
                     type="range" 
+                    title="Manpower baseline"
                     min="2" 
                     max="30" 
                     step="1"
@@ -467,7 +471,7 @@ export const GroupBuilderTab: React.FC<GroupBuilderTabProps> = ({
                             >
                               <Trash2 className="w-5 h-5" />
                             </button>
-                            <button onClick={() => window.location.reload()} className="w-12 h-12 bg-white border-2 border-slate-100 text-slate-300 hover:text-indigo-600 rounded-2xl transition-all flex items-center justify-center shadow-sm">
+                            <button onClick={() => window.location.reload()} title="Reload page" className="w-12 h-12 bg-white border-2 border-slate-100 text-slate-300 hover:text-indigo-600 rounded-2xl transition-all flex items-center justify-center shadow-sm">
                               <RotateCcw className="w-5 h-5" />
                             </button>
                           </div>
@@ -513,6 +517,7 @@ export const GroupBuilderTab: React.FC<GroupBuilderTabProps> = ({
                                   <span>{m.abbr || m.name}</span>
                                   {!pairingLocked && !isSystemLocked && (
                                       <select
+                                        title="Move department to group"
                                         className="absolute inset-0 opacity-0 cursor-pointer"
                                         value={e.id}
                                         onChange={(evt) => handleMoveDepartment(m.id, e.id, evt.target.value)}

@@ -169,7 +169,7 @@ export const useAppActions = (props: AppActionsProps) => {
     try {
       const [allLocs, allDepts, allUsers] = await Promise.all([gateway.getLocations(), gateway.getDepartments(), gateway.getUsers()]);
       const deptTotals: Record<string, number> = {};
-      allLocs.forEach(l => { if (l.departmentId) deptTotals[l.departmentId] = (deptTotals[l.departmentId] || 0) + (l.totalAssets || 0); });
+      allLocs.forEach(l => { if (l.departmentId && l.status !== 'Archived') deptTotals[l.departmentId] = (deptTotals[l.departmentId] || 0) + (l.totalAssets || 0); });
       const updates = allDepts.map(d => ({
         id: d.id, data: { totalAssets: Math.max(deptTotals[d.id] || 0, d.totalAssets || 0), isExempted: d.isExempted || (deptTotals[d.id] === 0 && !allUsers.some(u => u.departmentId === d.id)) }
       })).filter(u => { const d = allDepts.find(dept => dept.id === u.id); return d && (d.totalAssets !== u.data.totalAssets || d.isExempted !== u.data.isExempted); });
@@ -178,8 +178,7 @@ export const useAppActions = (props: AppActionsProps) => {
   }, [setDepartments]);
 
   const isAuditLocked = (audit: AuditSchedule) => {
-    if (audit.isLocked === false) return false;
-    return !!(audit.isLocked || (audit.date && audit.auditor1Id && audit.auditor2Id));
+    return audit.isLocked === true;
   };
 
   const handleToggleLock = async (id: string) => {
@@ -294,8 +293,10 @@ export const useAppActions = (props: AppActionsProps) => {
     try {
       const s = schedules.find(x => x.id === id); if (!s) return;
       const status = s.status === 'In Progress' ? 'Completed' : 'In Progress';
-      await gateway.updateAudit(id, { status });
-      setSchedules(prev => prev.map(x => x.id === id ? { ...x, status } : x));
+      const updates: Partial<AuditSchedule> = { status };
+      if (status === 'Completed') updates.isLocked = true;
+      await gateway.updateAudit(id, updates);
+      setSchedules(prev => prev.map(x => x.id === id ? { ...x, ...updates } : x));
     } catch (e) { showError(e); }
   };
 
@@ -335,11 +336,14 @@ export const useAppActions = (props: AppActionsProps) => {
     } catch (e) { showError(e); }
   };
 
-  const handleDeleteLoc = async (id: string) => {
+  const handleArchiveLoc = async (id: string) => {
     const loc = locations.find(l => l.id === id); if (!loc) return;
-    customConfirm("Delete Location?", `Remove ${loc.name}?`, async () => {
-      try { await gateway.forceDeleteLocation(id); setLocations(prev => prev.filter(l => l.id !== id)); await refreshDepartmentTotals(); }
-      catch (e) { showError(e); }
+    customConfirm('Archive Location?', `Archive "${loc.name}"? It will be hidden and its assets will no longer count toward department totals.`, async () => {
+      try {
+        await gateway.updateLocation(id, { status: 'Archived' });
+        setLocations(await gateway.getLocations());
+        await refreshDepartmentTotals();
+      } catch (e) { showError(e); }
     });
   };
 
@@ -373,11 +377,28 @@ export const useAppActions = (props: AppActionsProps) => {
     catch (e) { showError(e); }
   };
 
-  const handleDeleteDept = async (id: string) => {
-    customConfirm("Delete Dept", "Are you sure?", async () => {
-      try { await gateway.deleteDepartment(id); setDepartments(await gateway.getDepartments()); }
+  const handleArchiveDept = async (id: string) => {
+    customConfirm('Archive Department?', 'Archive this department? It will be hidden and excluded from audit grouping.', async () => {
+      try { await gateway.updateDepartment(id, { isArchived: true }); setDepartments(await gateway.getDepartments()); }
       catch (e) { showError(e); }
     });
+  };
+
+  const handlePurgeDept = async (id: string) => {
+    try {
+      await gateway.purgeDepartment(id);
+      setDepartments(await gateway.getDepartments());
+      showToast('Department permanently deleted');
+    } catch (e) { showError(e); }
+  };
+
+  const handlePurgeLoc = async (id: string) => {
+    try {
+      await gateway.purgeLocation(id);
+      setLocations(await gateway.getLocations());
+      await refreshDepartmentTotals();
+      showToast('Location permanently deleted');
+    } catch (e) { showError(e); }
   };
 
   const handleAddPermission = async (auditorDeptId: string, targetDeptId: string, isMutual: boolean) => {
@@ -849,8 +870,8 @@ export const useAppActions = (props: AppActionsProps) => {
   return {
     showToast, closeToast, showError, customConfirm, customAlert, logActivity, handleLogout, handleLoginSuccess,
     refreshDepartmentTotals, handleToggleLock, handleAssign, handleUnassign, handleDeleteAudit, handleUpdateAudit,
-    handleUpdateAuditDate, handleToggleStatus, handleAddLoc, handleUpdateLoc, handleDeleteLoc, handleAddDept,
-    handleUpdateDept, handleDeleteDept, handleAddPermission, handleRemovePermission, handleUpdatePhase,
+    handleUpdateAuditDate, handleToggleStatus, handleAddLoc, handleUpdateLoc, handleArchiveLoc, handleAddDept,
+    handleUpdateDept, handleArchiveDept, handleAddPermission, handleRemovePermission, handleUpdatePhase,
     handleRebalanceSchedule, handleResetOperationalData, handleLockPairing, handleUnlockPairing, handleResetPairingData, handleViewChange,
     handleResetDepartments, handleResetLocations, handleResetUsers, handleResetPhases, handleResetKPI,
     handleBulkAddAudits, handleBulkAddLocs, handleUpdateUninspectedAssetCounts, handleApproveArchive,
@@ -867,6 +888,7 @@ export const useAppActions = (props: AppActionsProps) => {
     handleUpdateAssignmentMode, handleUpdateOpenAuditThreshold,
     handleSyncLocationNotes,
     handleMergeLocations,
-    handleAddLocationMapping, handleDeleteLocationMapping
+    handleAddLocationMapping, handleDeleteLocationMapping,
+    handlePurgeDept, handlePurgeLoc,
   };
 };

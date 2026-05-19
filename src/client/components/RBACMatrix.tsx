@@ -115,8 +115,8 @@ export const RBACMatrix: React.FC<RBACMatrixProps> = () => {
       </div>
 
       {/* ── Matrix Table ────────────────────────────────────────── */}
-      <div className="relative overflow-auto border border-slate-100 rounded-[32px] bg-slate-50/30 max-h-[680px] scrollbar-thin scrollbar-thumb-slate-200">
-        <table className="w-full text-left border-collapse" style={{ minWidth: '780px' }}>
+      <div className="relative overflow-auto border border-slate-100 rounded-[32px] bg-slate-50/30 max-h-170 scrollbar-thin scrollbar-thumb-slate-200">
+        <table className="w-full text-left border-collapse min-w-195">
           <thead className="sticky top-0 z-20 bg-white border-b border-slate-100 shadow-sm">
             <tr className="bg-slate-50">
               <th className="py-5 px-8 text-[10px] font-black uppercase text-slate-400 tracking-widest w-2/5">

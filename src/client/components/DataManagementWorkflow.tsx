@@ -609,13 +609,13 @@ export const DataManagementWorkflow: React.FC<DataManagementWorkflowProps> = ({
         })}
       </div>
 
-      <div className="min-h-[300px]">
+      <div className="min-h-75">
         {/* Hidden file inputs */}
-        <input type="file" ref={staffFileInputRef} className="hidden" accept=".csv" onChange={handleStaffFileUpload} />
-        <input type="file" ref={deptFileInputRef} className="hidden" accept=".csv" onChange={handleDeptFileUpload} />
-        <input type="file" ref={assetSyncRef} className="hidden" accept=".csv,.xlsx,.xls" onChange={handleAssetSync} />
-        <input type="file" ref={uninspectedAssetRef} className="hidden" accept=".csv,.xlsx,.xls" onChange={handleUninspectedAssetUpload} />
-        <input type="file" ref={bulkMappingRef} className="hidden" accept=".csv" onChange={handleBulkMappingUpload} />
+        <input type="file" ref={staffFileInputRef} className="hidden" title="Import staff CSV" accept=".csv" onChange={handleStaffFileUpload} />
+        <input type="file" ref={deptFileInputRef} className="hidden" title="Import departments CSV" accept=".csv" onChange={handleDeptFileUpload} />
+        <input type="file" ref={assetSyncRef} className="hidden" title="Import assets file" accept=".csv,.xlsx,.xls" onChange={handleAssetSync} />
+        <input type="file" ref={uninspectedAssetRef} className="hidden" title="Import uninspected assets" accept=".csv,.xlsx,.xls" onChange={handleUninspectedAssetUpload} />
+        <input type="file" ref={bulkMappingRef} className="hidden" title="Import bulk mapping CSV" accept=".csv" onChange={handleBulkMappingUpload} />
 
         {activeTab === 'departments' && (
           <div className="animate-in fade-in slide-in-from-left-4 duration-300">
@@ -725,7 +725,7 @@ export const DataManagementWorkflow: React.FC<DataManagementWorkflowProps> = ({
                   <RefreshCw className={`w-4 h-4 ${isAssetSyncing ? 'animate-spin' : ''}`} />
                   Upload Master Registry
                 </button>
-                <input ref={assetSyncRef} type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={handleAssetSync} />
+                <input ref={assetSyncRef} type="file" title="Import assets file" accept=".csv,.xlsx,.xls" className="hidden" onChange={handleAssetSync} />
                 {assetSyncStatus && (
                   <div className={`flex items-start gap-3 px-5 py-3 rounded-2xl text-xs font-medium border flex-1 max-w-md ${
                     assetSyncStatus.type === 'success' ? 'bg-emerald-50 border-emerald-200 text-emerald-800'

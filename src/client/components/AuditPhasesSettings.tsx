@@ -101,7 +101,7 @@ export const AuditPhasesSettings: React.FC<AuditPhasesSettingsProps> = ({ phases
           <p className="text-xs text-slate-400">Phases will be automatically created. Contact your administrator.</p>
         </div>
       ) : (
-        <div className="max-h-[500px] overflow-y-auto custom-scrollbar pr-2">
+        <div className="max-h-125 overflow-y-auto custom-scrollbar pr-2">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {sortedPhases.map(phase => {
             const isActive = checkIsActive(phase);
@@ -154,11 +154,12 @@ export const AuditPhasesSettings: React.FC<AuditPhasesSettingsProps> = ({ phases
                 <div className={`space-y-4 ${isEditing ? 'animate-in fade-in zoom-in-95' : ''}`}>
                   <div className="flex items-center gap-3 text-xs font-bold flex-wrap">
                     {isEditing ? (
-                      <div className="flex-grow space-y-1">
+                      <div className="grow space-y-1">
                         <label className="text-[8px] font-black uppercase text-blue-400 tracking-widest block pl-1">Start Date</label>
                         <input
                           autoFocus
                           type="date"
+                          title="Phase start date"
                           className="w-full px-3 py-1.5 bg-white border-2 border-blue-200 rounded-xl text-xs font-bold focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 outline-none transition-all shadow-sm"
                           value={startDate}
                           onChange={e => handleStartDateChange(e.target.value)}
@@ -183,7 +184,7 @@ export const AuditPhasesSettings: React.FC<AuditPhasesSettingsProps> = ({ phases
 
                   {isEditing && (
                     <div className="flex items-center gap-3 text-xs font-bold pt-1 border-t border-blue-100/50">
-                      <div className="flex-grow space-y-1">
+                      <div className="grow space-y-1">
                          <label className="text-[8px] font-black uppercase text-slate-400 tracking-widest block pl-1">End Date (Auto)</label>
                          <div className="px-3 py-1.5 bg-slate-100/50 border border-slate-200 rounded-xl text-xs text-slate-400 flex items-center gap-2">
                             <CalendarX className="w-3 h-3" />

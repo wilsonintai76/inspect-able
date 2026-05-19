@@ -270,7 +270,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   ];
 
   return (
-    <div className="min-h-[100dvh] bg-slate-50 overflow-x-hidden relative">
+    <div className="min-h-dvh bg-slate-50 overflow-x-hidden relative">
       {/* Background Decor */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
         <div 
@@ -297,7 +297,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                </div>
                <div className="flex flex-col">
                   <span className="text-xl font-black text-slate-900 tracking-tight leading-none">Inspect-<span className="text-blue-600">able</span></span>
-                  <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest mt-0.5">v{import.meta.env.VITE_APP_VERSION || '1.0.0'}</span>
+                  <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest mt-0.5">Asset Inspection &amp; Management</span>
                </div>
             </div>
 
@@ -522,7 +522,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                     {authMode === 'login' ? 'Welcome back, Auditor.' : authMode === 'register' ? 'Request your digital identity.' : 'Notify admin to reset your credentials.'}
                   </p>
                 </div>
-                <button onClick={() => setIsAuthModalOpen(false)} className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-400">
+                <button title="Close" onClick={() => setIsAuthModalOpen(false)} className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-400">
                   <X className="w-6 h-6" />
                 </button>
               </div>
@@ -631,6 +631,25 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               </form>
 
               <div className="mt-8 pt-6 border-t border-slate-100 text-center flex flex-col gap-3">
+                {authMode === 'login' && (
+                  <>
+                    <a
+                      href="/api/auth/google"
+                      className="w-full flex items-center justify-center gap-3 py-3 px-4 border border-slate-200 rounded-2xl text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
+                    >
+                      <svg className="w-5 h-5 shrink-0" viewBox="0 0 48 48" aria-hidden="true">
+                        <path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v8.5h12.7c-.6 3-2.3 5.5-4.9 7.2v6h7.9c4.6-4.3 7.8-10.6 7.8-17.2z"/>
+                        <path fill="#34A853" d="M24 48c6.5 0 12-2.2 16-5.8l-7.9-6c-2.2 1.5-5 2.3-8.1 2.3-6.2 0-11.5-4.2-13.4-9.9H2.4v6.2C6.4 42.5 14.6 48 24 48z"/>
+                        <path fill="#FBBC04" d="M10.6 28.6c-.5-1.5-.8-3-.8-4.6s.3-3.1.8-4.6v-6.2H2.4C.9 16.5 0 20.1 0 24s.9 7.5 2.4 10.8l8.2-6.2z"/>
+                        <path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.5l6.8-6.8C35.9 2.5 30.4 0 24 0 14.6 0 6.4 5.5 2.4 13.2l8.2 6.2c1.9-5.7 7.2-9.9 13.4-9.9z"/>
+                      </svg>
+                      Sign in with Google Workspace
+                    </a>
+                    <p className="text-[10px] text-center text-slate-400 font-medium -mt-1">
+                      @poliku.edu.my institutional accounts only
+                    </p>
+                  </>
+                )}
                 <button 
                   onClick={() => setAuthMode(authMode === 'login' ? 'register' : 'login')}
                   className="text-xs font-bold text-slate-500 hover:text-blue-600 transition-colors"
@@ -715,7 +734,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               />
             </div>
             <span className="text-sm font-black text-slate-900 tracking-tight">Inspect-<span className="text-blue-600">able</span></span>
-          <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mb-4">© 2026 PKS Asset Management Unit</p>
+          <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mb-1">© 2026 PKS Asset Management Unit</p>
+          <p className="text-slate-300 text-[10px] font-mono mb-4">v{import.meta.env.VITE_APP_VERSION || '1.0.0'}</p>
           <a
             href="/privacy_policy.html"
             className="text-[10px] font-black uppercase text-blue-600/60 hover:text-blue-600 tracking-[0.2em] transition-colors"

@@ -59,6 +59,13 @@ export const AuditConstraints: React.FC<AuditConstraintsProps> = ({
     ? Math.min(100, Math.round(((workloadCapacity * 20) / totalAssets) * 100)) 
     : 0;
 
+  const progressBarRef = React.useRef<HTMLDivElement>(null);
+  React.useEffect(() => {
+    if (progressBarRef.current) {
+      progressBarRef.current.style.setProperty('--w', `${monthCompletion}%`);
+    }
+  }, [monthCompletion]);
+
   return (
     <div className={`bg-white border-2 rounded-[32px] p-8 shadow-sm transition-all duration-500 ${isSimulatorActive ? 'border-amber-200 bg-amber-50/5' : 'border-slate-100'}`}>
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8 pb-6 border-b border-slate-50">
@@ -90,6 +97,7 @@ export const AuditConstraints: React.FC<AuditConstraintsProps> = ({
               <input 
                 type="number"
                 readOnly
+                title="Minimum auditors per location (fixed policy)"
                 className="w-full px-4 py-4 bg-slate-100/50 border-2 border-slate-200 rounded-2xl text-base font-black text-slate-400 cursor-not-allowed outline-none"
                 value={policyMinAuditors}
               />
@@ -101,12 +109,14 @@ export const AuditConstraints: React.FC<AuditConstraintsProps> = ({
           </div>
 
           <div className="space-y-4">
-            <label className="text-xs font-black uppercase text-indigo-500 tracking-widest block font-bold">Standalone Workload Threshold (Assets)</label>
+            <label className="text-xs font-black uppercase text-indigo-500 tracking-widest block">Standalone Workload Threshold (Assets)</label>
             <input 
               type="number"
               min="500"
               max="1500"
               step="50"
+              title="Standalone workload threshold in assets"
+              placeholder="1000"
               className="w-full px-4 py-4 bg-indigo-50/30 border-2 border-indigo-100/50 rounded-2xl text-base font-black text-slate-900 focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all"
               value={standaloneThresholdAssets}
               onChange={(e) => onUpdateStandaloneThresholdAssets(parseInt(e.target.value, 10) || 1000)}
@@ -122,11 +132,12 @@ export const AuditConstraints: React.FC<AuditConstraintsProps> = ({
                 min="0.05"
                 max="0.25"
                 step="0.01"
-                className="flex-grow h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+                title="Grouping margin percentage"
+                className="grow h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-emerald-500"
                 value={groupingMargin}
                 onChange={(e) => onUpdateGroupingMargin(parseFloat(e.target.value))}
               />
-              <span className="text-sm font-black text-slate-700 min-w-[3rem]">{Math.round((groupingMargin || 0) * 100)}%</span>
+              <span className="text-sm font-black text-slate-700 min-w-12">{Math.round((groupingMargin || 0) * 100)}%</span>
             </div>
             <p className="text-[10px] text-emerald-400 font-bold leading-relaxed">Safety Buffer: 10–15% margin to prevent rigid consolidation of frontline units.</p>
           </div>
@@ -151,7 +162,7 @@ export const AuditConstraints: React.FC<AuditConstraintsProps> = ({
           <div className="relative z-10 flex flex-col h-full">
             <div className="text-[10px] font-black uppercase text-indigo-400 tracking-[0.2em] mb-6">Resource Health Signal</div>
             
-            <div className="space-y-6 flex-grow">
+            <div className="space-y-6 grow">
                <div className="flex items-center justify-between bg-white/5 border border-white/10 rounded-2xl p-4 transition-all hover:bg-white/10">
                  <div className="flex items-center gap-3">
                     <div className="w-10 h-10 bg-indigo-500/10 rounded-xl flex items-center justify-center">
@@ -180,11 +191,8 @@ export const AuditConstraints: React.FC<AuditConstraintsProps> = ({
                       {monthCompletion}% Phase Completion
                     </span>
                   </div>
-                  <div className="h-4 bg-white/5 rounded-full overflow-hidden mb-3 p-1">
-                     <div 
-                       className="h-full bg-linear-to-r from-indigo-500 to-emerald-400 rounded-full transition-all duration-1000"
-                       style={{ width: `${monthCompletion}%` }}
-                     ></div>
+                  <div className="h-4 bg-white/5 rounded-full overflow-hidden mb-3 p-1" ref={progressBarRef}>
+                     <div className="h-full bg-linear-to-r from-indigo-500 to-emerald-400 rounded-full transition-all duration-1000 w-(--w,0%)" />
                   </div>
                   <div className="flex justify-between items-center text-[10px] mb-2 px-1">
                      <span className="text-slate-400">Capacity: {(workloadCapacity).toLocaleString()} / day</span>

@@ -125,6 +125,7 @@ export const BuildingManagement: React.FC<BuildingManagementProps> = ({
             ref={fileInputRef}
             onChange={handleImportCSV}
             accept=".csv"
+            title="Import buildings CSV"
             className="hidden"
           />
           <button
@@ -151,7 +152,7 @@ export const BuildingManagement: React.FC<BuildingManagementProps> = ({
 
       <div className="bg-white rounded-[32px] border border-slate-200 shadow-sm overflow-hidden">
         <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-200">
-          <table className="w-full text-left min-w-[800px]">
+          <table className="w-full text-left min-w-200">
             <thead className="bg-slate-50/50 border-b border-slate-100">
               <tr>
                 <th className="px-6 py-5 text-[10px] font-black uppercase text-slate-400 tracking-widest w-64">Building / Block</th>
@@ -195,12 +196,14 @@ export const BuildingManagement: React.FC<BuildingManagementProps> = ({
                       <div className="flex gap-1 justify-end">
                         <button 
                           onClick={() => startEdit(building)} 
+                          title="Edit building"
                           className="w-9 h-9 flex items-center justify-center bg-white border border-slate-200 text-slate-400 hover:text-blue-600 hover:border-blue-200 rounded-xl transition-colors"
                         >
                           <Pencil className="w-4 h-4" />
                         </button>
                         <button 
                           onClick={() => setBuildingToDelete(building)} 
+                          title="Delete building"
                           className="w-9 h-9 flex items-center justify-center bg-white border border-slate-200 text-slate-400 hover:text-red-600 hover:border-red-200 rounded-xl transition-colors"
                         >
                           <Trash2 className="w-4 h-4" />

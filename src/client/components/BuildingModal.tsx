@@ -57,7 +57,7 @@ export const BuildingModal: React.FC<BuildingModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-120 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300" onClick={onClose}></div>
       <div className="relative bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200 flex flex-col max-h-[90vh]">
         {/* Header */}
@@ -71,7 +71,7 @@ export const BuildingModal: React.FC<BuildingModalProps> = ({
               <p className="text-blue-100 text-xs mt-0.5">Manage institutional asset storage units.</p>
             </div>
           </div>
-          <button onClick={onClose} className="w-10 h-10 flex items-center justify-center rounded-2xl bg-white/10 hover:bg-white/20 transition-all active:scale-95">
+          <button title="Close" onClick={onClose} className="w-10 h-10 flex items-center justify-center rounded-2xl bg-white/10 hover:bg-white/20 transition-all active:scale-95">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -108,6 +108,7 @@ export const BuildingModal: React.FC<BuildingModalProps> = ({
               <div className="space-y-1.5">
                 <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Building Category</label>
                 <select 
+                  title="Building Category"
                   className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
                   value={formData.type}
                   onChange={e => setFormData({ ...formData, type: e.target.value as any })}
@@ -128,7 +129,7 @@ export const BuildingModal: React.FC<BuildingModalProps> = ({
                 <FileText className="absolute left-4 top-3.5 text-slate-300 w-4 h-4" />
                 <textarea 
                   placeholder="Additional identification details..."
-                  className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm min-h-[100px] focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all resize-none font-medium"
+                  className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm min-h-25 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all resize-none font-medium"
                   value={formData.description}
                   onChange={e => setFormData({ ...formData, description: e.target.value })}
                 />

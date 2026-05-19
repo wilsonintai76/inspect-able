@@ -47,10 +47,11 @@ export const Toast: React.FC<ToastProps> = ({ toast, onClose }) => {
       <div className="shrink-0">
         {getIcon()}
       </div>
-      <p className="text-sm font-bold text-slate-800 flex-grow leading-tight">
+      <p className="text-sm font-bold text-slate-800 grow leading-tight">
         {toast.message}
       </p>
       <button 
+        title="Dismiss"
         onClick={() => onClose(toast.id)}
         className="shrink-0 w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white/50 text-slate-400 hover:text-slate-600 transition-all"
       >
@@ -62,7 +63,7 @@ export const Toast: React.FC<ToastProps> = ({ toast, onClose }) => {
 
 export const ToastContainer: React.FC<{ toasts: ToastMessage[]; onClose: (id: string) => void }> = ({ toasts, onClose }) => {
   return (
-    <div className="fixed bottom-6 right-6 z-[1000] flex flex-col gap-3 pointer-events-none">
+    <div className="fixed bottom-6 right-6 z-1000 flex flex-col gap-3 pointer-events-none">
       {toasts.map(toast => (
         <Toast key={toast.id} toast={toast} onClose={onClose} />
       ))}

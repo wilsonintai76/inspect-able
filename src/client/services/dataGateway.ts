@@ -145,8 +145,16 @@ class DataGateway {
     await this.rpc<unknown>(h => (api as any).db.locations[':id'].force.$delete({ param: { id } }, { headers: h }));
   }
 
+  async purgeLocation(id: string): Promise<void> {
+    await this.rpc<unknown>(h => (api as any).db.locations[':id'].purge.$delete({ param: { id } }, { headers: h }));
+  }
+
   async forceDeleteDepartment(id: string) {
     await this.rpc<unknown>(h => (api as any).db.departments[':id'].force.$delete({ param: { id } }, { headers: h }));
+  }
+
+  async purgeDepartment(id: string): Promise<void> {
+    await this.rpc<unknown>(h => (api as any).db.departments[':id'].purge.$delete({ param: { id } }, { headers: h }));
   }
 
   async clearAllLocations() {

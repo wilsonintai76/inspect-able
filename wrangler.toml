@@ -5,6 +5,10 @@ compatibility_flags = ["nodejs_compat"]
 account_id = "0a95bd1dec2ca90909a8a41fe077dce5"
 
 [[routes]]
+pattern = "auth.inspect-able.com"
+custom_domain = true
+
+[[routes]]
 pattern = "kiosk.inspect-able.com"
 custom_domain = true
 
@@ -21,12 +25,17 @@ crons = ["0 2 * * *"]  # Daily backup at 02:00 UTC
 
 [vars]
 ALLOWED_DOMAIN = "poliku.edu.my"
+APP_URL = "https://www.inspect-able.com"
+AUTH_URL = "https://auth.inspect-able.com"
 # Secrets (set via `wrangler secret put`):
-#   JWT_SECRET — Internal HS256 signing key
+#   JWT_SECRET           — Internal HS256 signing key
+#   GOOGLE_CLIENT_ID     — Google OAuth 2.0 client ID
+#   GOOGLE_CLIENT_SECRET — Google OAuth 2.0 client secret
 
 [assets]
 directory = "./dist/client"
 binding = "ASSETS"
+run_worker_first = true
 
 [ai]
 binding = "AI"

@@ -161,6 +161,10 @@ export const INITIAL_NOTIFICATIONS: AppNotification[] = [
 const fortyFiveDaysLater = new Date();
 fortyFiveDaysLater.setDate(fortyFiveDaysLater.getDate() + 45);
 
+// System Identity
+export const SYSTEM_NAME = 'Asset Inspection Scheduling & Management System';
+export const SYSTEM_SHORT_NAME = 'Inspect-able';
+
 // Branding Assets
 export const BRAND = {
   logoBrand: '/brandhorizontal.png'

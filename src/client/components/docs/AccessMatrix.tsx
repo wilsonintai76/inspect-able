@@ -16,7 +16,7 @@ export const AccessMatrix: React.FC = () => {
   return (
     <div className="bg-white rounded-[40px] border border-slate-200 shadow-sm overflow-hidden">
       <div className="overflow-x-auto">
-        <table className="w-full text-left min-w-[600px]">
+        <table className="w-full text-left min-w-150">
           <thead>
             <tr className="bg-slate-50/50 border-b border-slate-100">
               <th className="px-8 py-6 text-[10px] font-black uppercase text-slate-400 tracking-widest">Core Functionality</th>

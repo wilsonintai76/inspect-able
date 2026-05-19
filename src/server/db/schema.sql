@@ -36,6 +36,7 @@ CREATE TABLE IF NOT EXISTS departments (
   tier TEXT,
   is_task_force INTEGER DEFAULT 0,
   auditors_required_override INTEGER,
+  is_archived INTEGER DEFAULT 0,
   created_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
 

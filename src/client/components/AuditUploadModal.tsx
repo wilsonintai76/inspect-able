@@ -117,6 +117,7 @@ export const AuditUploadModal: React.FC<AuditUploadModalProps> = ({
             </div>
           </div>
           <button 
+            title="Close"
             onClick={onClose} 
             className="w-8 h-8 flex items-center justify-center rounded-full bg-white/10 text-slate-300 hover:bg-white/20 hover:text-white transition-colors"
           >

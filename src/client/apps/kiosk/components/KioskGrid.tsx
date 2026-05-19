@@ -10,9 +10,12 @@ interface Props {
   maxAssets: number;
   loading: boolean;
   saving: string | null;
+  currentUserId: string;
+  currentUserRoles: string[];
   onAssign: (scheduleId: string, userId: string, role: AssignRole) => Promise<void>;
   onUnassign: (scheduleId: string, role: AssignRole) => Promise<void>;
   onDateChange: (scheduleId: string, date: string) => Promise<void>;
+  onShowToast: (message: string, type: 'success' | 'warning' | 'error' | 'info') => void;
 }
 
 export const KioskGrid: React.FC<Props> = ({
@@ -22,9 +25,12 @@ export const KioskGrid: React.FC<Props> = ({
   maxAssets,
   loading,
   saving,
+  currentUserId,
+  currentUserRoles,
   onAssign,
   onUnassign,
   onDateChange,
+  onShowToast,
 }) => {
   if (loading) {
     return (
@@ -58,9 +64,12 @@ export const KioskGrid: React.FC<Props> = ({
             phases={phases}
             maxAssets={maxAssets}
             saving={saving}
+            currentUserId={currentUserId}
+            currentUserRoles={currentUserRoles}
             onAssign={onAssign}
             onUnassign={onUnassign}
             onDateChange={onDateChange}
+            onShowToast={onShowToast}
           />
         ))}
       </div>

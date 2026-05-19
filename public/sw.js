@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kiosk-cache-v1';
+const CACHE_NAME = 'kiosk-cache-v2';
 const ASSETS_TO_CACHE = [
   '/',
   '/kiosk.html',
@@ -13,7 +13,8 @@ self.addEventListener('install', (event) => {
       return cache.addAll(ASSETS_TO_CACHE);
     })
   );
-  self.skipWaiting();
+  // Do NOT skipWaiting — let the AutoUpdater handle controlled updates.
+  // Aggressive skipWaiting can cause mid-session message channel errors.
 });
 
 self.addEventListener('activate', (event) => {
@@ -34,8 +35,12 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
-  // Only handle GET requests and avoid caching API calls to keep them real-time
-  if (event.request.method !== 'GET' || url.pathname.startsWith('/api/')) {
+  // Only handle http(s) GET requests; skip API calls, chrome-extension, etc.
+  if (
+    event.request.method !== 'GET' ||
+    url.pathname.startsWith('/api/') ||
+    (url.protocol !== 'http:' && url.protocol !== 'https:')
+  ) {
     return;
   }
 

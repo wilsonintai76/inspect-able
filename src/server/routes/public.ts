@@ -1,16 +1,81 @@
 import { Hono } from 'hono';
 import { Bindings, Variables } from '../types';
+import { verifyNativeJwt } from '../middleware/auth';
+import { D1Database } from '@cloudflare/workers-types';
 
 const pub = new Hono<{ Bindings: Bindings; Variables: Variables }>();
+
+/**
+ * Resolve the authenticated userId from:
+ *   1. Authorization: Bearer <jwt>  (SPA clients that still have a valid token)
+ *   2. session cookie               (SSO cookie set on any subdomain login)
+ * Returns null if neither is valid.
+ */
+async function getKioskSession(c: any): Promise<string | null> {
+  // ── 1. Bearer JWT ──────────────────────────────────────────────────────────
+  const authHeader = c.req.header('Authorization') || '';
+  if (authHeader.startsWith('Bearer ')) {
+    const token = authHeader.slice(7);
+    const payload = await verifyNativeJwt(token, c.env.JWT_SECRET).catch(() => null);
+    if (payload?.userId) return payload.userId as string;
+  }
+
+  // ── 2. Session cookie ──────────────────────────────────────────────────────
+  const cookieHeader = c.req.header('cookie') || '';
+  const sid = cookieHeader
+    .split(';')
+    .map((s: string) => s.trim())
+    .find((s: string) => s.startsWith('session='))
+    ?.slice('session='.length);
+  if (!sid) return null;
+  try {
+    const userId = await c.env.SETTINGS.get(`sessid:${sid}`);
+    if (!userId) return null;
+    const stored = await c.env.SETTINGS.get(`sess:${userId}`);
+    if (!stored) return null;
+    const { sessionId: storedSid } = JSON.parse(stored) as { sessionId: string };
+    return storedSid === sid ? userId : null;
+  } catch { return null; }
+}
+
+/**
+ * Verify the authenticated user holds the Auditor role and a valid (non-expired)
+ * certification. Returns an error message string, or null if the check passes.
+ */
+async function assertCertifiedOfficer(db: D1Database, userId: string): Promise<string | null> {
+  const today = new Date().toISOString().split('T')[0];
+  const user = await db.prepare(
+    `SELECT status, is_verified, roles, certification_expiry FROM users WHERE id = ?`
+  ).bind(userId).first<{ status: string; is_verified: number; roles: string; certification_expiry: string | null }>();
+  if (!user) return 'User account not found.';
+  if (user.status !== 'Active') return 'Your account is not active.';
+  if (!user.is_verified) return 'Your account is not verified.';
+  let roles: string[] = [];
+  try { roles = JSON.parse(user.roles || '[]'); } catch { roles = []; }
+  if (!roles.includes('Auditor')) return 'Access restricted: this kiosk is for certified officers only.';
+  if (!user.certification_expiry || user.certification_expiry < today) {
+    return 'Your auditor certification has expired or has not been issued. Please renew via the main site.';
+  }
+  return null;
+}
 
 /**
  * GET /api/public/kiosk
  *
  * Returns all audit schedules enriched with department, location, phase,
  * and auditor/supervisor display names. Also returns all active users
- * (for the searchable assignment combobox) and phases. No auth required.
+ * (for the searchable assignment combobox) and phases.
+ * Restricted to certified officers (Auditor role + valid certification).
  */
 pub.get('/kiosk', async (c) => {
+  // Require SSO session — kiosk is no longer publicly accessible
+  const sessionUserId = await getKioskSession(c);
+  if (!sessionUserId) return c.json({ error: 'Authentication required' }, 401);
+
+  // Kiosk is for certified officers only
+  const certError = await assertCertifiedOfficer(c.env.DB, sessionUserId);
+  if (certError) return c.json({ error: certError, code: 'NOT_CERTIFIED' }, 403);
+
   try {
     const db = c.env.DB;
 
@@ -131,19 +196,31 @@ pub.get('/kiosk', async (c) => {
  */
 pub.patch('/kiosk/schedules/:id', async (c) => {
   const scheduleId = c.req.param('id');
+
+  // Require SSO session
+  const sessionUserId = await getKioskSession(c);
+  if (!sessionUserId) return c.json({ error: 'Authentication required' }, 401);
+
+  // Kiosk is for certified officers only
+  const certError = await assertCertifiedOfficer(c.env.DB, sessionUserId);
+  if (certError) return c.json({ error: certError, code: 'NOT_CERTIFIED' }, 403);
+
   try {
     const body = await c.req.json() as { userId?: string; role?: string; date?: string | null; action?: 'assign' | 'unassign' };
-    const { userId, role, date, action = 'assign' } = body;
+    const { role, date, action = 'assign' } = body;
+
+    // Kiosk is self-assign only
+    const userId = sessionUserId;
 
     // Get the schedule details
     const schedule = await c.env.DB.prepare(
-      `SELECT department_id, date, auditor1_id, auditor2_id, is_locked FROM audit_schedules WHERE id = ?`
-    ).bind(scheduleId).first<{ department_id: string; date: string | null; auditor1_id: string | null; auditor2_id: string | null; is_locked: number | null }>();
+      `SELECT department_id, date, auditor1_id, auditor2_id, supervisor_id, is_locked FROM audit_schedules WHERE id = ?`
+    ).bind(scheduleId).first<{ department_id: string; date: string | null; auditor1_id: string | null; auditor2_id: string | null; supervisor_id: string | null; is_locked: number | null }>();
 
     if (!schedule) return c.json({ error: 'Schedule not found' }, 404);
 
-    // Block kiosk re-assignments (both assign and unassign) if the schedule is already locked
-    const isLocked = schedule.is_locked === 0 ? false : !!(schedule.is_locked || (schedule.date && schedule.auditor1_id && schedule.auditor2_id));
+    // Block kiosk re-assignments if the schedule is already manually locked
+    const isLocked = schedule.is_locked === 1;
     if (isLocked) {
       return c.json({ error: 'ACTION BLOCKED: This audit is locked. Re-assignments can only be performed from the main site after unlocking.' }, 403);
     }
@@ -151,6 +228,8 @@ pub.patch('/kiosk/schedules/:id', async (c) => {
     if (action === 'assign') {
       if (!userId || !role) return c.json({ error: 'userId and role are required' }, 400);
       if (!['auditor1', 'auditor2', 'supervisor'].includes(role)) return c.json({ error: 'Invalid role' }, 400);
+      // Supervisor assignment is managed from the main site only
+      if (role === 'supervisor') return c.json({ error: 'Supervisor assignment must be done from the main site.' }, 403);
 
       // Retrieve system setting for audit strategy to check operational mode
       // Force Open Audit by default as the system-wide operational standard
@@ -208,6 +287,12 @@ pub.patch('/kiosk/schedules/:id', async (c) => {
         const certExpiry = user.certification_expiry;
         if (!certExpiry || certExpiry < todayStr) {
           return c.json({ error: 'ACTION BLOCKED: The selected inspecting officer must hold a valid, active certificate.' }, 403);
+        }
+
+        // Conflict of interest: auditor cannot also be the supervisor for this schedule
+        const supervisorIds = schedule.supervisor_id ? schedule.supervisor_id.split(',').map((id: string) => id.trim()).filter(Boolean) : [];
+        if (supervisorIds.includes(userId)) {
+          return c.json({ error: 'Conflict of interest: you are a designated site supervisor for this location and cannot act as its inspector.' }, 409);
         }
 
         // Check for cross-audit permission if in cross-audit mode
@@ -298,15 +383,34 @@ pub.patch('/kiosk/schedules/:id', async (c) => {
 
       return c.json({ success: true, name: user.name });
     } else {
-      // Unassign
+      // Unassign – kiosk users can only remove their own assignment (supervisor slot blocked)
       if (!role) return c.json({ error: 'role is required' }, 400);
+      if (role === 'supervisor') return c.json({ error: 'Supervisor assignment must be managed from the main site.' }, 403);
       const colMap: Record<string, string> = { auditor1: 'auditor1_id', auditor2: 'auditor2_id', supervisor: 'supervisor_id' };
       const col = colMap[role];
       if (!col) return c.json({ error: 'Invalid role' }, 400);
 
+      const current = await c.env.DB.prepare(
+        `SELECT ${col} AS assigned_id FROM audit_schedules WHERE id = ?`
+      ).bind(scheduleId).first<{ assigned_id: string | null }>();
+      if (current?.assigned_id !== sessionUserId) {
+        return c.json({ error: 'You can only remove your own assignment' }, 403);
+      }
+
       await c.env.DB.prepare(
         `UPDATE audit_schedules SET ${col} = NULL WHERE id = ?`
       ).bind(scheduleId).run();
+
+      // Revert In Progress → Pending if no auditors remain assigned
+      const remaining = await c.env.DB.prepare(
+        `SELECT status, auditor1_id, auditor2_id FROM audit_schedules WHERE id = ?`
+      ).bind(scheduleId).first<{ status: string; auditor1_id: string | null; auditor2_id: string | null }>();
+      if (remaining && remaining.status === 'In Progress' && !remaining.auditor1_id && !remaining.auditor2_id) {
+        await c.env.DB.prepare(
+          `UPDATE audit_schedules SET status = 'Pending' WHERE id = ?`
+        ).bind(scheduleId).run();
+        return c.json({ success: true, revertedToPending: true });
+      }
 
       return c.json({ success: true });
     }
@@ -322,6 +426,13 @@ pub.patch('/kiosk/schedules/:id', async (c) => {
  * Body: { date: string | null }
  */
 pub.patch('/kiosk/schedules/:id/date', async (c) => {
+  const sessionUserId = await getKioskSession(c);
+  if (!sessionUserId) return c.json({ error: 'Authentication required' }, 401);
+
+  // Kiosk is for certified officers only
+  const certError = await assertCertifiedOfficer(c.env.DB, sessionUserId);
+  if (certError) return c.json({ error: certError, code: 'NOT_CERTIFIED' }, 403);
+
   const scheduleId = c.req.param('id');
   try {
     const { date } = await c.req.json() as { date: string | null };

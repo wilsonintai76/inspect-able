@@ -1,5 +1,6 @@
 import { Context, Next } from 'hono';
 import { verify } from 'hono/jwt';
+import { getCookie } from 'hono/cookie';
 import { Bindings, Variables } from '../types';
 
 // ─── KV key prefixes ──────────────────────────────────────────────────────────
@@ -28,36 +29,69 @@ export async function verifyNativeJwt(
 }
 
 /**
- * Full auth middleware — verifies native JWT, enforces single-session via KV, 
- * and populates context variables.
+ * Full auth middleware — verifies native JWT or shared session cookie,
+ * enforces single-session via KV, and populates context variables.
+ *
+ * Auth priority:
+ *   1. Authorization: Bearer <jwt>  (SPA / API clients)
+ *   2. Cookie: session=<sessionId>  (SSO — set after any login on any subdomain)
  */
 export const authMiddleware = async (
   c: Context<{ Bindings: Bindings; Variables: Variables }>,
   next: Next,
 ) => {
+  let userId    = '';
+  let email     = '';
+  let sessionId = '';
+  let authMethod: 'bearer' | 'cookie' | null = null;
+
+  // ── 1a. Try Authorization: Bearer <jwt> ───────────────────────────────────
   const authHeader = c.req.header('Authorization');
-  if (!authHeader?.startsWith('Bearer ')) {
-    return c.json({ success: false, message: 'Missing or invalid Authorization header' }, 401);
+  if (authHeader?.startsWith('Bearer ')) {
+    const token = authHeader.slice(7);
+    const payload = await verifyNativeJwt(token, c.env.JWT_SECRET);
+    if (payload) {
+      const uid = payload.userId as string;
+      if (uid) {
+        userId    = uid;
+        email     = (payload.email as string) || '';
+        sessionId = (payload.sessionId as string) || '';
+        authMethod = 'bearer';
+      }
+    }
   }
 
-  const token = authHeader.slice(7);
+  // ── 1b. Fallback: session cookie (SSO path) ───────────────────────────────
+  if (!authMethod) {
+    const cookieSessionId = getCookie(c, 'session');
+    if (cookieSessionId) {
+      try {
+        const storedUserId = await c.env.SETTINGS.get(`sessid:${cookieSessionId}`);
+        if (storedUserId) {
+          // Forward-verify: the active session for this user is still this sessionId
+          const stored = await c.env.SETTINGS.get(`sess:${storedUserId}`);
+          if (stored) {
+            const { sessionId: storedSid } = JSON.parse(stored) as { sessionId: string };
+            if (storedSid === cookieSessionId) {
+              userId    = storedUserId;
+              sessionId = cookieSessionId;
+              authMethod = 'cookie';
+            }
+          }
+        }
+      } catch {
+        // KV unavailable — fail closed below
+      }
+    }
+  }
 
-  // 1. JWT verification
-  const payload = await verifyNativeJwt(token, c.env.JWT_SECRET);
-  if (!payload) {
+  if (!authMethod || !userId) {
     return c.json({ success: false, message: 'Unauthorized' }, 401);
   }
 
-  const userId    = payload.userId as string;
-  const email     = (payload.email as string) || '';
-  const sessionId = (payload.sessionId as string) || '';
-
-  if (!userId) {
-    return c.json({ success: false, message: 'Unauthorized' }, 401);
-  }
-
-  // 2. Single-session enforcement via KV
-  if (sessionId) {
+  // ── 2. Single-session enforcement (Bearer only — cookie is already validated
+  //       by the reverse-lookup above, which proves the session is current)
+  if (authMethod === 'bearer' && sessionId) {
     try {
       const stored = await c.env.SETTINGS.get(`sess:${userId}`);
       if (stored) {
@@ -87,25 +121,28 @@ export const authMiddleware = async (
   try {
     const cached = await c.env.SETTINGS.get(`ucache:${userId}`, { cacheTtl: USER_CACHE_TTL });
     if (cached) {
-      const parsed = JSON.parse(cached) as { roles: string[]; departmentId: string | null; certificationExpiry?: string | null };
+      const parsed = JSON.parse(cached) as { roles: string[]; departmentId: string | null; certificationExpiry?: string | null; email?: string };
       roles = parsed.roles;
       departmentId = parsed.departmentId;
       certificationExpiry = parsed.certificationExpiry || null;
+      // For cookie-only sessions the email wasn't in the JWT — pick it up from cache
+      if (!email && parsed.email) email = parsed.email;
     } else {
       const dbUser = await c.env.DB
-        .prepare('SELECT roles, department_id, certification_expiry FROM users WHERE id = ?')
+        .prepare('SELECT email, roles, department_id, certification_expiry FROM users WHERE id = ?')
         .bind(userId)
-        .first<{ roles: string; department_id: string | null; certification_expiry: string | null }>();
+        .first<{ email: string; roles: string; department_id: string | null; certification_expiry: string | null }>();
 
       if (dbUser) {
+        if (!email) email = dbUser.email;
         if (dbUser.roles) roles = JSON.parse(dbUser.roles);
         departmentId = dbUser.department_id ?? null;
         certificationExpiry = dbUser.certification_expiry ?? null;
         
-        // Write through to KV
+        // Write through to KV (include email so cookie-only sessions can use it)
         await c.env.SETTINGS.put(
           `ucache:${userId}`,
-          JSON.stringify({ roles, departmentId, certificationExpiry }),
+          JSON.stringify({ email, roles, departmentId, certificationExpiry }),
           { expirationTtl: USER_CACHE_TTL },
         );
       } else {

@@ -166,6 +166,33 @@ export const useAppData = () => {
 
   const initSession = useCallback(async () => {
     try {
+      // Handle Google OAuth callback: ?google_callback=<exchange_token>
+      const params = new URLSearchParams(window.location.search);
+      const exchangeToken = params.get('google_callback');
+      if (exchangeToken) {
+        // Strip the param from the URL immediately to prevent reuse on refresh
+        const cleanUrl = window.location.pathname + window.location.hash;
+        window.history.replaceState(null, '', cleanUrl);
+        try {
+          const user = await authService.exchangeGoogleToken(exchangeToken);
+          setCurrentUser(user);
+          setViewState('app');
+          await loadAllData();
+          return;
+        } catch (err) {
+          console.error('[Auth] Google exchange failed:', err);
+          // Fall through to normal session check
+        }
+      }
+
+      // Handle Google OAuth error redirect: ?auth_error=<reason>
+      const authError = params.get('auth_error');
+      if (authError) {
+        window.history.replaceState(null, '', window.location.pathname);
+        console.warn('[Auth] Google OAuth error:', authError);
+        // Landing page will render; error is logged but not surfaced here
+      }
+
       await awaitSessionRegistered();
       const user = await authService.getCurrentUser();
       if (user) {

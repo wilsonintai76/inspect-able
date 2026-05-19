@@ -74,6 +74,9 @@ export const AuditTableRow: React.FC<AuditTableRowProps> = ({
   const isDateValid = isDateInValidPhase(audit.date, audit.phaseId);
   const locationLevel = loc?.level;
   const isLocked = isAuditLocked(audit);
+  const canLock = isAdmin || isSupervisor;
+  const allFieldsSet = !!(audit.date && audit.supervisorId && audit.auditor1Id && audit.auditor2Id);
+  const canToggleLock = isLocked || allFieldsSet;
 
   return (
     <tr className={`hover:bg-slate-50/50 transition-colors ${isLocked ? 'bg-slate-50/30 opacity-90' : ''}`}>
@@ -130,15 +133,29 @@ export const AuditTableRow: React.FC<AuditTableRowProps> = ({
               </button>
             )}
 
-            {canEditDates && (
+            {canLock && (
               <button
-                onClick={() => onToggleLock(audit.id)}
+                disabled={!canToggleLock}
+                onClick={() => {
+                  if (!isLocked) {
+                    if (!window.confirm(`Lock inspection for "${loc?.name || audit.locationId}"?\n\nThis will freeze the date and all assignments. Only an Admin or Supervisor can unlock it.`)) return;
+                  }
+                  onToggleLock(audit.id);
+                }}
                 className={`shrink-0 w-10 h-10 flex items-center justify-center rounded-xl transition-all border ${
                   isLocked
                     ? 'bg-slate-800 border-slate-700 text-amber-400 shadow-lg'
+                    : !canToggleLock
+                    ? 'bg-slate-50 border-slate-100 text-slate-200 cursor-not-allowed'
                     : 'bg-white border-slate-200 text-slate-400 hover:border-slate-300 hover:bg-slate-50'
                 }`}
-                title={isLocked ? 'Unlock Phase Assignment' : 'Manually Lock Phase Assignment'}
+                title={
+                  isLocked
+                    ? 'Unlock Inspection'
+                    : !canToggleLock
+                    ? 'Fill all fields (date, supervisor, 2 officers) before locking'
+                    : 'Lock Inspection — Freezes date & assignments'
+                }
               >
                 {isLocked ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
               </button>
@@ -269,8 +286,9 @@ export const AuditTableRow: React.FC<AuditTableRowProps> = ({
               users={users}
               currentUser={currentUser ?? null}
               allDepartments={allDepartments}
-              canManageAssignments={(canEditDates || canSelfAssignPerm || canAssignOthers) && !isLocked}
+              canManageAssignments={(canEditDates || canSelfAssignPerm || canAssignOthers || canSelfAssignSelf) && !isLocked}
               canAssignOthers={canAssignOthers && !isLocked}
+              isAdmin={isAdmin}
               canSelfAssignSelf={canSelfAssignSelf && !isLocked}
               userCanAudit={userCanAudit}
               isCurrentUserAssigned={isCurrentUserAssigned}

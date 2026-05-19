@@ -9,6 +9,13 @@ export type Bindings = {
   JWT_SECRET: string;
   ALLOWED_DOMAIN: string;
   ASSETS: Fetcher;
+  // Google OAuth (set via `wrangler secret put`)
+  GOOGLE_CLIENT_ID: string;
+  GOOGLE_CLIENT_SECRET: string;
+  // Canonical origin used in OAuth redirect_uri and post-login redirects
+  APP_URL: string;
+  // Centralised auth subdomain — used as the OAuth redirect_uri host
+  AUTH_URL: string;
 };
 
 export type Variables = {

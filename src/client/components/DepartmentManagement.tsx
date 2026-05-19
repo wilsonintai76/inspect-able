@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { Department, Location, User, AuditGroup, UserRole } from '@shared/types';
-import { Plus, Layers, UserRound, Boxes, Pencil, Trash2, Building2, ShieldOff, ShieldCheck, UserPlus, Printer } from 'lucide-react';
+import { Plus, Layers, UserRound, Boxes, Pencil, Archive, ArchiveRestore, Building2, ShieldOff, ShieldCheck, UserPlus, Printer, Flame } from 'lucide-react';
 import { PageHeader } from './PageHeader';
 import { AuditPhase } from '@shared/types';
 import { useRBAC } from '../contexts/RBACContext';
 import { DepartmentModal } from './DepartmentModal';
+import { PurgeConfirmModal } from './PurgeConfirmModal';
 
 interface DepartmentManagementProps {
   departments: Department[];
@@ -13,6 +14,7 @@ interface DepartmentManagementProps {
   onAdd: (dept: Omit<Department, 'id'>) => void;
   onUpdate: (id: string, dept: Partial<Department>) => void;
   onDelete: (id: string) => void;
+  onPurge: (id: string) => void;
   isAdmin?: boolean;
   phases?: AuditPhase[];
   auditGroups?: AuditGroup[];
@@ -31,6 +33,7 @@ export const DepartmentManagement: React.FC<DepartmentManagementProps> = ({
   onAdd,
   onUpdate,
   onDelete,
+  onPurge,
   users,
   isAdmin = true,
   phases = [],
@@ -43,6 +46,8 @@ export const DepartmentManagement: React.FC<DepartmentManagementProps> = ({
   const { rbacMatrix } = useRBAC();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingDept, setEditingDept] = useState<Department | null>(null);
+  const [showArchived, setShowArchived] = useState(false);
+  const [purgeTarget, setPurgeTarget] = useState<Department | null>(null);
 
   const deptLocationCounts = React.useMemo(() => {
     const counts: Record<string, number> = {};
@@ -53,6 +58,12 @@ export const DepartmentManagement: React.FC<DepartmentManagementProps> = ({
     });
     return counts;
   }, [locations]);
+
+  const visibleDepts = React.useMemo(() => {
+    return showArchived ? departments : departments.filter(d => !d.isArchived);
+  }, [departments, showArchived]);
+
+  const archivedCount = React.useMemo(() => departments.filter(d => d.isArchived).length, [departments]);
 
   const canManage = (() => {
     if (!rbacMatrix) return isAdmin;
@@ -235,7 +246,7 @@ export const DepartmentManagement: React.FC<DepartmentManagementProps> = ({
 
       <div className="bg-white rounded-[32px] border border-slate-200 shadow-sm overflow-hidden">
         <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-200">
-          <table className="w-full text-left min-w-[900px]">
+          <table className="w-full text-left min-w-225">
             <thead className="bg-slate-50/50 border-b border-slate-100">
               <tr>
                 <th className="px-6 py-5 text-[10px] font-black uppercase text-slate-400 tracking-widest">Department</th>
@@ -249,12 +260,13 @@ export const DepartmentManagement: React.FC<DepartmentManagementProps> = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
-              {departments.map(dept => {
+              {visibleDepts.map(dept => {
                 const colorClass = AVATAR_COLORS[getColorIndex(dept.name) % AVATAR_COLORS.length];
                 const headUser = users.find(u => u.id === dept.headOfDeptId);
+                const isArchived = dept.isArchived === true;
 
                 return (
-                  <tr key={dept.id} className="hover:bg-slate-50/50 transition-colors align-top">
+                  <tr key={dept.id} className={`transition-colors align-top ${isArchived ? 'opacity-50 bg-slate-50/80' : 'hover:bg-slate-50/50'}`}>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-4">
                         <div className={`w-10 h-10 rounded-full flex items-center justify-center text-xs font-black shadow-sm border ${colorClass} shrink-0`}>
@@ -265,8 +277,15 @@ export const DepartmentManagement: React.FC<DepartmentManagementProps> = ({
                             {dept.name}
                             {dept.isExempted && <span className="px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 text-[9px] font-black border border-amber-100 uppercase tracking-widest" title="This unit performs its own internal audits and is excluded from institutional cross-audit grouping.">Internal Audit Mode</span>}
                             {dept.isSystemExempted && <span className="px-1.5 py-0.5 rounded bg-slate-50 text-slate-400 text-[9px] font-black border border-slate-100 uppercase tracking-widest" title="Automatically exempted: Unit has 0 Assets and 0 Auditors">System Exempted (Empty)</span>}
+                            {isArchived && <span className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-400 text-[9px] font-black border border-slate-200 uppercase tracking-widest">Archived</span>}
                           </div>
-                          <div className="text-[11px] text-slate-500 font-medium leading-relaxed max-w-[280px] break-words mt-0.5">{dept.description || 'No description provided'}</div>
+                          {isArchived && (dept.archivedBy || dept.archivedAt) && (
+                            <div className="text-[10px] text-slate-400 mt-0.5">
+                              {dept.archivedBy && <span>by {dept.archivedBy}</span>}
+                              {dept.archivedAt && <span className="ml-1">&middot; {new Date(dept.archivedAt).toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' })}</span>}
+                            </div>
+                          )}
+                          <div className="text-[11px] text-slate-500 font-medium leading-relaxed max-w-70 wrap-break-word mt-0.5">{dept.description || 'No description provided'}</div>
                         </div>
                       </div>
                     </td>
@@ -339,15 +358,24 @@ export const DepartmentManagement: React.FC<DepartmentManagementProps> = ({
                           >
                             {dept.isExempted ? <ShieldOff className="w-4 h-4" /> : <ShieldCheck className="w-4 h-4" />}
                           </button>
-                          <button onClick={() => startEdit(dept)} className="w-9 h-9 flex items-center justify-center bg-white border border-slate-200 text-slate-400 hover:text-blue-600 hover:border-blue-200 rounded-xl transition-colors"><Pencil className="w-4 h-4" /></button>
-                          <button onClick={() => onDelete(dept.id)} className="w-9 h-9 flex items-center justify-center bg-white border border-slate-200 text-slate-400 hover:text-red-600 hover:border-red-200 rounded-xl transition-colors"><Trash2 className="w-4 h-4" /></button>
+                          <button title="Edit department" onClick={() => startEdit(dept)} className="w-9 h-9 flex items-center justify-center bg-white border border-slate-200 text-slate-400 hover:text-blue-600 hover:border-blue-200 rounded-xl transition-colors"><Pencil className="w-4 h-4" /></button>
+                          {isArchived ? (
+                            <>
+                              <button title="Restore department" onClick={() => onUpdate(dept.id, { isArchived: false })} className="w-9 h-9 flex items-center justify-center bg-amber-50 border border-amber-200 text-amber-500 hover:text-amber-700 hover:border-amber-300 rounded-xl transition-colors"><ArchiveRestore className="w-4 h-4" /></button>
+                              {isAdmin && (
+                                <button title="Purge permanently" onClick={() => setPurgeTarget(dept)} className="w-9 h-9 flex items-center justify-center bg-red-50 border border-red-200 text-red-400 hover:text-red-600 hover:border-red-300 rounded-xl transition-colors"><Flame className="w-4 h-4" /></button>
+                              )}
+                            </>
+                          ) : (
+                            <button title="Archive department" onClick={() => onDelete(dept.id)} className="w-9 h-9 flex items-center justify-center bg-white border border-slate-200 text-slate-400 hover:text-amber-600 hover:border-amber-200 rounded-xl transition-colors"><Archive className="w-4 h-4" /></button>
+                          )}
                         </div>
                       )}
                     </td>
                   </tr>
                 );
               })}
-              {(!departments || departments.length === 0) && (
+              {(!visibleDepts || visibleDepts.length === 0) && (
                 <tr><td colSpan={8} className="px-6 py-12 text-center text-slate-400"><div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto mb-3"><Layers className="w-6 h-6" /></div>No departments defined.</td></tr>
               )}
             </tbody>
@@ -363,6 +391,16 @@ export const DepartmentManagement: React.FC<DepartmentManagementProps> = ({
         users={users}
         isAdmin={isAdmin}
         auditGroups={auditGroups}
+      />
+
+      <PurgeConfirmModal
+        isOpen={purgeTarget !== null}
+        onClose={() => setPurgeTarget(null)}
+        onConfirm={() => { if (purgeTarget) onPurge(purgeTarget.id); }}
+        itemType="department"
+        itemName={purgeTarget?.name ?? ''}
+        archivedBy={purgeTarget?.archivedBy}
+        archivedAt={purgeTarget?.archivedAt}
       />
     </div>
   );

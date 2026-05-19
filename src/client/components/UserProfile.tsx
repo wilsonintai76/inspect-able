@@ -1,7 +1,7 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { User, Department, UserRole } from '@shared/types';
-import { Mail, CheckCircle2, User as UserIcon, Phone, Info, Loader2, Award, AlertCircle, RotateCw, Shield, KeyRound } from 'lucide-react';
+import { Mail, CheckCircle2, User as UserIcon, Phone, Info, Loader2, Award, AlertCircle, RotateCw, Shield, KeyRound, Link2, ExternalLink, Unlink } from 'lucide-react';
 
 interface UserProfileProps {
   user: User;
@@ -27,6 +27,20 @@ export const UserProfile: React.FC<UserProfileProps> = ({ user, departments, onU
   const [isSaving, setIsSaving] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const isAdmin = user.roles.includes('Admin');
+
+  // ── Connected OAuth accounts ───────────────────────────────────────────────
+  type LinkedAccount = { provider: string; provider_email: string; created_at: string };
+  const [linkedAccounts, setLinkedAccounts] = useState<LinkedAccount[] | null>(null);
+
+  useEffect(() => {
+    const token = localStorage.getItem('asset_audit_pro_token');
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    fetch('/api/auth/accounts', { credentials: 'include', headers })
+      .then(r => r.json())
+      .then((d: any) => setLinkedAccounts(d.success ? d.accounts : []))
+      .catch(() => setLinkedAccounts([]));
+  }, [user.id]);
 
   // If department and contact and designation are filled, the user has completed their profile
   const isProfileComplete = Boolean(user.departmentId && user.contactNumber && user.designation);
@@ -102,7 +116,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ user, departments, onU
   return (
     <div className="max-w-3xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20">
       <div className="bg-white rounded-[32px] border border-slate-200 shadow-sm overflow-hidden">
-        <div className="h-32 bg-gradient-to-r from-blue-600 to-indigo-700 relative">
+        <div className="h-32 bg-linear-to-r from-blue-600 to-indigo-700 relative">
           <div className="absolute -bottom-12 left-8 p-1 bg-white rounded-3xl shadow-xl">
             {user.picture ? (
               <img src={user.picture} className="w-24 h-24 rounded-2xl object-cover" alt="Profile" />
@@ -186,6 +200,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ user, departments, onU
                       <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest block">Designation</label>
                       <div className="relative group">
                         <select 
+                          title="Designation"
                           required
                           className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-semibold focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all appearance-none"
                           value={formData.designation}
@@ -204,6 +219,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ user, departments, onU
                       <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest block">Department</label>
                       <div className="relative group">
                         <select 
+                          title="Department"
                           required
                           className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-semibold focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all appearance-none"
                           value={formData.departmentId}
@@ -410,7 +426,81 @@ export const UserProfile: React.FC<UserProfileProps> = ({ user, departments, onU
         </div>
       </div>
 
-      <div className="mt-8 bg-slate-900 rounded-[32px] p-8 text-white relative overflow-hidden shadow-2xl">
+      {/* ── Connected Accounts ──────────────────────────────────────────────── */}
+      <div className="mt-6 bg-white rounded-[32px] border border-slate-200 shadow-sm overflow-hidden">
+        <div className="px-8 py-6">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600">
+              <Link2 className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-slate-900">Connected Accounts</h3>
+              <p className="text-xs text-slate-500 font-medium">Link your institutional Google Workspace account for single sign-on.</p>
+            </div>
+          </div>
+
+          {linkedAccounts === null ? (
+            <div className="flex items-center gap-2 text-slate-400 text-sm py-2">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              Loading...
+            </div>
+          ) : (() => {
+            const google = linkedAccounts.find(a => a.provider === 'google');
+            return google ? (
+              <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-200">
+                <div className="flex items-center gap-4">
+                  {/* Google G logo */}
+                  <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center shadow-sm shrink-0">
+                    <svg className="w-5 h-5" viewBox="0 0 48 48" aria-hidden="true">
+                      <path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v8.5h12.7c-.6 3-2.3 5.5-4.9 7.2v6h7.9c4.6-4.3 7.8-10.6 7.8-17.2z"/>
+                      <path fill="#34A853" d="M24 48c6.5 0 12-2.2 16-5.8l-7.9-6c-2.2 1.5-5 2.3-8.1 2.3-6.2 0-11.5-4.2-13.4-9.9H2.4v6.2C6.4 42.5 14.6 48 24 48z"/>
+                      <path fill="#FBBC04" d="M10.6 28.6c-.5-1.5-.8-3-.8-4.6s.3-3.1.8-4.6v-6.2H2.4C.9 16.5 0 20.1 0 24s.9 7.5 2.4 10.8l8.2-6.2z"/>
+                      <path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.5l6.8-6.8C35.9 2.5 30.4 0 24 0 14.6 0 6.4 5.5 2.4 13.2l8.2 6.2c1.9-5.7 7.2-9.9 13.4-9.9z"/>
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-slate-900">Google Workspace</p>
+                    <p className="text-xs text-slate-500 font-medium">{google.provider_email}</p>
+                    <p className="text-[10px] text-slate-400 font-medium mt-0.5">
+                      Linked on {new Date(google.created_at).toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' })}
+                    </p>
+                  </div>
+                </div>
+                <a
+                  href="https://myaccount.google.com/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 px-4 py-2 bg-white border border-slate-200 rounded-xl text-[11px] font-bold text-slate-600 hover:text-blue-600 hover:border-blue-200 transition-colors"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  Manage
+                </a>
+              </div>
+            ) : (
+              <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-200 border-dashed">
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center shrink-0">
+                    <Unlink className="w-4 h-4 text-slate-400" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-slate-700">Google Workspace</p>
+                    <p className="text-xs text-slate-400 font-medium">Not connected &mdash; @poliku.edu.my accounts only</p>
+                  </div>
+                </div>
+                <a
+                  href={`/api/auth/google?returnTo=${encodeURIComponent(window.location.origin)}`}
+                  className="flex items-center gap-1.5 px-4 py-2.5 bg-slate-900 text-white rounded-xl text-[11px] font-bold hover:bg-slate-700 transition-colors"
+                >
+                  <Link2 className="w-3.5 h-3.5" />
+                  Connect
+                </a>
+              </div>
+            );
+          })()}
+        </div>
+      </div>
+
+      <div className="mt-6 bg-slate-900 rounded-[32px] p-8 text-white relative overflow-hidden shadow-2xl">
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="max-w-md">
             <h3 className="text-xl font-bold mb-2">Institutional Security</h3>

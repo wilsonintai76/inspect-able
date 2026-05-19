@@ -65,7 +65,8 @@ export const serverLogout = async (): Promise<void> => {
   try {
     await fetch(`${getBaseUrl()}/auth/session`, {
       method: 'DELETE',
-      headers: { Authorization: `Bearer ${token}` },
+      credentials: 'include',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
     });
   } catch {
     // Non-fatal
@@ -84,5 +85,8 @@ export const api = hc<AppType>(getBaseUrl(), {
   headers: () => {
     const token = getAuthToken();
     return token ? { Authorization: `Bearer ${token}` } : {};
-  }
+  },
+  // Always include the SSO session cookie so cookie-based auth works across subdomains
+  fetch: (req: RequestInfo | URL, init?: RequestInit) =>
+    fetch(req, { ...init, credentials: 'include' }),
 });

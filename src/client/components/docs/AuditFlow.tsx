@@ -71,7 +71,7 @@ export const AuditFlow: React.FC = () => {
                 <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-2xl text-white shadow-xl z-10 transition-transform group-hover:scale-110 duration-300 ${colorStyles.iconBg}`}>
                   <step.icon className="w-8 h-8" />
                 </div>
-                {!isLast && <div className="flex-grow w-0.5 bg-slate-200 my-2"></div>}
+                {!isLast && <div className="grow w-0.5 bg-slate-200 my-2"></div>}
               </div>
 
               {/* Mobile Icon (Visible only on small screens) */}
@@ -85,7 +85,7 @@ export const AuditFlow: React.FC = () => {
               </div>
 
               {/* Content Card */}
-              <div className="flex-grow md:pl-24">
+              <div className="grow md:pl-24">
                 <div className="bg-white rounded-[32px] border border-slate-200 p-8 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden">
                   
                   {/* Decorative Background Number */}
@@ -135,7 +135,7 @@ export const AuditFlow: React.FC = () => {
          <div className="hidden md:flex flex-col items-center absolute left-0 w-16 h-16 pointer-events-none">
             <div className="w-4 h-4 rounded-full bg-slate-200 mt-6 group-hover:bg-emerald-400 transition-colors"></div>
          </div>
-         <div className="flex-grow md:pl-24 text-center md:text-left">
+         <div className="grow md:pl-24 text-center md:text-left">
             <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">Workflow Complete</p>
          </div>
       </div>

@@ -69,6 +69,7 @@ export const KioskSidebar: React.FC<Props> = ({
         {/* Department select */}
         <div className="relative">
           <select
+            title="Filter by department"
             value={departmentFilter}
             onChange={e => {
               onDepartmentChange(e.target.value);
@@ -87,6 +88,7 @@ export const KioskSidebar: React.FC<Props> = ({
         {/* Location select */}
         <div className="relative">
           <select
+            title="Filter by location"
             value={locationFilter}
             onChange={e => onLocationChange(e.target.value)}
             className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium outline-none appearance-none focus:border-indigo-400 transition-colors"
@@ -103,6 +105,7 @@ export const KioskSidebar: React.FC<Props> = ({
         <div className="relative">
           <select
             id="kiosk-phase-filter"
+            title="Filter by phase"
             value={phaseFilter}
             onChange={e => onPhaseChange(e.target.value)}
             className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium outline-none appearance-none focus:border-indigo-400 transition-colors"
@@ -121,6 +124,7 @@ export const KioskSidebar: React.FC<Props> = ({
         <div className="relative">
           <select
             id="kiosk-status-filter"
+            title="Filter by status"
             value={statusFilter}
             onChange={e => onStatusChange(e.target.value)}
             className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium outline-none appearance-none focus:border-indigo-400 transition-colors"
@@ -167,9 +171,10 @@ export const KioskSidebar: React.FC<Props> = ({
                       </span>
                     </div>
                     <div className="h-1 bg-slate-100 rounded-full overflow-hidden">
+                      {/* biome-ignore lint/style/noInlineStyle: Dynamic progress bar width */}
                       <div
-                        className="h-full bg-gradient-to-r from-indigo-400 to-purple-500 rounded-full transition-all duration-500"
-                        style={{ width: `${pct}%` }}
+                        className="h-full bg-linear-to-r from-indigo-400 to-purple-500 rounded-full transition-all duration-500 [width:var(--pct)]"
+                        style={{ '--pct': `${pct}%` } as React.CSSProperties}
                       />
                     </div>
                   </div>

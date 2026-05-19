@@ -89,7 +89,7 @@ export const UserSearchBox: React.FC<Props> = ({
               onClick={() => { onSelect(u); setQuery(''); setOpen(false); }}
               className="w-full flex items-center gap-3 px-4 py-3 hover:bg-indigo-50 transition-colors text-left group"
             >
-              <div className="w-7 h-7 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center text-white text-[10px] font-black shrink-0">
+              <div className="w-7 h-7 rounded-full bg-linear-to-br from-indigo-400 to-purple-500 flex items-center justify-center text-white text-[10px] font-black shrink-0">
                 {u.name.charAt(0).toUpperCase()}
               </div>
               <div className="flex-1 min-w-0">

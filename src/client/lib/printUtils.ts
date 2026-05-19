@@ -318,7 +318,7 @@ export function printKPIPhasePlan(
     </div>
     <div style="text-align:right;">
       <div style="font-size:12pt;font-weight:900;color:#2563eb;">Inspect-able</div>
-      <div style="font-size:8pt;color:#94a3b8;margin-top:2pt;">Asset Audit Platform</div>
+      <div style="font-size:8pt;color:#94a3b8;margin-top:2pt;">Asset Inspection Scheduling &amp; Management System</div>
     </div>
   </div>
 </div>
@@ -1413,11 +1413,11 @@ export function printTeamList(
   <div style="display:flex;justify-content:space-between;align-items:flex-start;">
     <div>
       <h1>Institutional Team Report</h1>
-      <p class="subtitle">Platform: Inspect-able Asset Audit System</p>
+      <p class="subtitle">Platform: Inspect-able — Asset Inspection Scheduling &amp; Management System</p>
     </div>
     <div style="text-align:right;">
       <div style="font-size:12pt;font-weight:900;color:#2563eb;">POLITEKNIK KUCHING SARAWAK</div>
-      <div style="font-size:8pt;color:#94a3b8;margin-top:2pt;">Asset Audit Platform</div>
+      <div style="font-size:8pt;color:#94a3b8;margin-top:2pt;">Asset Inspection Scheduling &amp; Management System</div>
     </div>
   </div>
 </div>

@@ -34,7 +34,7 @@ export const AuditReportModal: React.FC<AuditReportModalProps> = ({ audit, onClo
   };
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-200 flex items-center justify-center p-4">
       <div 
         className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200" 
         onClick={onClose}
@@ -50,12 +50,12 @@ export const AuditReportModal: React.FC<AuditReportModalProps> = ({ audit, onClo
                 <p className="text-slate-400 text-xs">AI-Drafted 1PP Compliance Record</p>
             </div>
           </div>
-          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full bg-white/10 text-slate-300 hover:bg-white/20 hover:text-white transition-colors">
+          <button title="Close" onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full bg-white/10 text-slate-300 hover:bg-white/20 hover:text-white transition-colors">
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        <div className="p-8 overflow-y-auto bg-slate-50 flex-grow">
+        <div className="p-8 overflow-y-auto bg-slate-50 grow">
           {loading ? (
             <div className="flex flex-col items-center justify-center py-12 space-y-4">
                <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>

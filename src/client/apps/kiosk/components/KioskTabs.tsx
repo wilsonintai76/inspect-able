@@ -17,7 +17,7 @@ export const KioskTabs: React.FC<Props> = ({ activeTab, onTabChange, badgeCount 
   ];
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-[100] bg-white/80 backdrop-blur-lg border-t border-slate-200 pb-safe-area-inset-bottom lg:hidden">
+    <div className="fixed bottom-0 left-0 right-0 z-100 bg-white/80 backdrop-blur-lg border-t border-slate-200 pb-safe-area-inset-bottom lg:hidden">
       <div className="flex items-center justify-around h-16 max-w-md mx-auto">
         {tabs.map(({ id, label, icon: Icon, badge }) => {
           const isActive = activeTab === id;
@@ -35,7 +35,7 @@ export const KioskTabs: React.FC<Props> = ({ activeTab, onTabChange, badgeCount 
               <span className="text-[10px] font-bold uppercase tracking-tighter">{label}</span>
               
               {badge !== undefined && badge > 0 && (
-                <span className="absolute top-2 right-1/2 translate-x-4 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-indigo-600 px-1 text-[9px] font-black text-white ring-2 ring-white">
+                <span className="absolute top-2 right-1/2 translate-x-4 flex h-4 min-w-4 items-center justify-center rounded-full bg-indigo-600 px-1 text-[9px] font-black text-white ring-2 ring-white">
                   {badge}
                 </span>
               )}

@@ -102,7 +102,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
             <div>
               <h1 className="text-xl font-black tracking-tight text-slate-900 leading-tight">Inspect-<span className="text-blue-600">able</span></h1>
-              <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">v{import.meta.env.VITE_APP_VERSION || '1.0.0'}</p>
+              <p className="text-[9px] text-slate-400 font-black uppercase tracking-widest leading-tight">Asset Inspection &amp; Management</p>
+              <p className="text-[8px] text-slate-300 font-bold uppercase tracking-widest mt-0.5">v{import.meta.env.VITE_APP_VERSION || '1.0.0'}</p>
             </div>
             <button 
               onClick={onClose}

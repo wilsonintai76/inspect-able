@@ -85,7 +85,7 @@ export const AuditTable: React.FC<AuditTableProps> = ({
 
   const canEditDates = hasPerm('edit:audit:date');
   const canSelfAssignPerm = hasPerm('edit:audit:assign');
-  const canAssignOthers = hasPerm('edit:audit:assign:others');
+  const canAssignOthers = isAdmin && hasPerm('edit:audit:assign:others');
   const canAutoAssign = hasPerm('edit:audit:auto_assign');
   const canViewAllSchedule = hasPerm('view:schedule:all');
   const canViewOwnSchedule = hasPerm('view:schedule:own');
@@ -415,8 +415,7 @@ export const AuditTable: React.FC<AuditTableProps> = ({
   }, [schedules, selectedBlock, selectedLevel, allLocations, canViewAllSchedule, canViewOwnSchedule, canViewMatrixSchedule, currentUser, canAuditDepartment]);
 
   const isAuditLocked = (audit: AuditSchedule) => {
-    if (audit.isLocked === false) return false;
-    return !!(audit.isLocked || (audit.date && audit.auditor1Id && audit.auditor2Id));
+    return audit.isLocked === true;
   };
 
   const activePhase = useMemo(() => {
