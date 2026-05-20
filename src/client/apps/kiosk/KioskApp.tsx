@@ -586,7 +586,7 @@ export const KioskApp: React.FC = () => {
         map.set(id, { name, assets: prev.assets + s.totalAssets, slots: prev.slots + 1 });
       });
     });
-    return Array.from(map.values()).sort((a, b) => b.assets - a.assets).slice(0, 10);
+    return Array.from(map.values()).sort((a, b) => b.assets - a.assets);
   }, [schedules]);
 
   const stats = useMemo(() => {
