@@ -188,8 +188,18 @@ export const useAppActions = (props: AppActionsProps) => {
       const currentlyLocked = isAuditLocked(audit);
       const newLocked = !currentlyLocked;
       await gateway.updateAudit(id, { isLocked: newLocked });
-      setSchedules(prev => prev.map(s => s.id === id ? { ...s, isLocked: newLocked } : s));
-      showToast(newLocked ? 'Locked' : 'Unlocked');
+      // Optimistically mirror server-side lock/unlock status transition
+      setSchedules(prev => prev.map(s => {
+        if (s.id !== id) return s;
+        const updated = { ...s, isLocked: newLocked };
+        if (newLocked && s.status === 'Awaiting Approval') {
+          updated.status = 'In Progress';
+        } else if (!newLocked && s.status === 'In Progress') {
+          updated.status = 'Awaiting Approval';
+        }
+        return updated;
+      }));
+      showToast(newLocked ? 'Approved & In Progress' : 'Approval Revoked');
     } catch (e) { showError(e); }
   };
 
@@ -213,8 +223,8 @@ export const useAppActions = (props: AppActionsProps) => {
         const updated = { ...s, ...slotUpdate };
         // Mirror server-side auto-transition logic
         if (updated.status === 'Pending' && updated.date && updated.supervisorId && updated.auditor1Id && updated.auditor2Id) {
-          updated.status = 'In Progress';
-        } else if (updated.status === 'In Progress' && (!updated.date || !updated.supervisorId || !updated.auditor1Id || !updated.auditor2Id)) {
+          updated.status = 'Awaiting Approval';
+        } else if ((updated.status === 'In Progress' || updated.status === 'Awaiting Approval') && (!updated.date || !updated.supervisorId || !updated.auditor1Id || !updated.auditor2Id)) {
           updated.status = 'Pending';
         }
         return updated;
@@ -223,7 +233,7 @@ export const useAppActions = (props: AppActionsProps) => {
       // Toast approximation — based on the state known before this render cycle
       const projected = { ...audit, ...slotUpdate };
       const willStart = projected.date && projected.supervisorId && projected.auditor1Id && projected.auditor2Id;
-      showToast(willStart ? 'Assigned & Started Inspection!' : 'Assigned');
+      showToast(willStart ? 'Assigned! Awaiting supervisor approval.' : 'Assigned');
     } catch (e) { showError(e); }
   };
 
@@ -236,7 +246,7 @@ export const useAppActions = (props: AppActionsProps) => {
       setSchedules(prev => prev.map(s => {
         if (s.id !== id) return s;
         const updated = { ...s, ...slotUpdate };
-        if (updated.status === 'In Progress' && (!updated.date || !updated.supervisorId || !updated.auditor1Id || !updated.auditor2Id)) {
+        if ((updated.status === 'In Progress' || updated.status === 'Awaiting Approval') && (!updated.date || !updated.supervisorId || !updated.auditor1Id || !updated.auditor2Id)) {
           updated.status = 'Pending';
         }
         return updated;
@@ -273,9 +283,9 @@ export const useAppActions = (props: AppActionsProps) => {
 
         if (currentStatus === 'Pending') {
           if (finalDate && finalSupervisor && finalAuditor1 && finalAuditor2) {
-            updates.status = 'In Progress';
+            updates.status = 'Awaiting Approval';
           }
-        } else if (currentStatus === 'In Progress') {
+        } else if (currentStatus === 'In Progress' || currentStatus === 'Awaiting Approval') {
           if (!finalDate || !finalSupervisor || !finalAuditor1 || !finalAuditor2) {
             updates.status = 'Pending';
           }
@@ -304,9 +314,9 @@ export const useAppActions = (props: AppActionsProps) => {
 
         if (currentStatus === 'Pending') {
           if (finalDate && finalSupervisor && finalAuditor1 && finalAuditor2) {
-            updates.status = 'In Progress';
+            updates.status = 'Awaiting Approval';
           }
-        } else if (currentStatus === 'In Progress') {
+        } else if (currentStatus === 'In Progress' || currentStatus === 'Awaiting Approval') {
           if (!finalDate || !finalSupervisor || !finalAuditor1 || !finalAuditor2) {
             updates.status = 'Pending';
           }

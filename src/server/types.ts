@@ -16,6 +16,8 @@ export type Bindings = {
   APP_URL: string;
   // Centralised auth subdomain — used as the OAuth redirect_uri host
   AUTH_URL: string;
+  // Resend API key for transactional emails (set via `wrangler secret put RESEND_API_KEY`)
+  RESEND_API_KEY?: string;
 };
 
 export type Variables = {

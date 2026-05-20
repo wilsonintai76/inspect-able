@@ -101,6 +101,7 @@ export const AuditFiltersBar: React.FC<AuditFiltersBarProps> = ({
             >
               <option value="All">All Statuses</option>
               <option value="Pending">Pending</option>
+              <option value="Awaiting Approval">Awaiting Approval</option>
               <option value="In Progress">In Progress</option>
               <option value="Completed">Completed</option>
             </select>

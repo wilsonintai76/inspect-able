@@ -9,6 +9,7 @@ import { auditAssignmentGuard } from '../middleware/conflictOfInterest';
 import { verifyNativeJwt } from '../middleware/auth';
 import { hashPassword } from '../services/authService';
 import { backupD1ToR2 } from '../services/backupService';
+import { sendSupervisorApprovalEmail } from '../services/emailService';
 
 const DEFAULT_USER_PASSWORD = 'Poliku@2024';
 
@@ -109,12 +110,13 @@ const zeroAssetGuard = async (c: Context<{ Bindings: Bindings; Variables: Variab
 
 // ─── Status Transition Guard ─────────────────────────────────────────────────
 // Enforces the valid audit state machine:
-//   Pending → In Progress → Completed (no skipping, no going backwards)
+//   Pending → Awaiting Approval → In Progress → Completed
 // Applies to PATCH /audits/:id when status is being changed.
 const VALID_TRANSITIONS: Record<string, string[]> = {
-  'Pending':     ['In Progress'],
-  'In Progress': ['Pending', 'Completed'],
-  'Completed':   [],
+  'Pending':            ['Awaiting Approval', 'In Progress'],
+  'Awaiting Approval':  ['Pending', 'In Progress'],
+  'In Progress':        ['Awaiting Approval', 'Pending', 'Completed'],
+  'Completed':          [],
 };
 
 const statusTransitionGuard = async (c: Context<{ Bindings: Bindings; Variables: Variables }>, next: Next) => {
@@ -319,9 +321,10 @@ const patchUserSchema = z.object({
 
 db.get('/audits', async (c) => {
   try {
-    // Sweep: auto-fix any Pending records that already have all required fields set
+    // Sweep: auto-fix any Pending records that already have all required fields set.
+    // These transition to 'Awaiting Approval' (supervisor must lock to start).
     await c.env.DB.prepare(
-      `UPDATE audit_schedules SET status = 'In Progress'
+      `UPDATE audit_schedules SET status = 'Awaiting Approval'
        WHERE status = 'Pending' AND date IS NOT NULL AND supervisor_id IS NOT NULL
        AND auditor1_id IS NOT NULL AND auditor2_id IS NOT NULL`
     ).run();
@@ -421,9 +424,9 @@ db.patch('/audits/:id', zValidator('json', patchAuditSchema), patchAuditPermissi
 
     if (currentStatus === 'Pending') {
       if (finalDate && finalSupervisor && finalAuditor1 && finalAuditor2) {
-        updates.status = 'In Progress';
+        updates.status = 'Awaiting Approval';
       }
-    } else if (currentStatus === 'In Progress') {
+    } else if (currentStatus === 'In Progress' || currentStatus === 'Awaiting Approval') {
       if (!finalDate || !finalSupervisor || !finalAuditor1 || !finalAuditor2) {
         updates.status = 'Pending';
       }
@@ -444,11 +447,29 @@ db.patch('/audits/:id', zValidator('json', patchAuditSchema), patchAuditPermissi
   if (updates.reportPath !== undefined) { fields.push('report_path = ?'); values.push(updates.reportPath); }
   if (updates.isLocked !== undefined) {
     const callerRoles = (c.get('user') as any)?.roles || [];
-    if (!callerRoles.includes('Supervisor')) {
+    if (!callerRoles.includes('Supervisor') && !callerRoles.includes('Admin') && !callerRoles.includes('Coordinator')) {
       return c.json({ error: 'Only Supervisors can lock or unlock schedules.' }, 403);
     }
     fields.push('is_locked = ?');
     values.push(updates.isLocked === null ? null : (updates.isLocked ? 1 : 0));
+
+    // Lock approval: Awaiting Approval → In Progress
+    if (updates.isLocked === true && existingForActivation?.status === 'Awaiting Approval') {
+      fields.push('status = ?');
+      values.push('In Progress');
+      updates.status = 'In Progress'; // used below for email guard
+    }
+    // Revoke approval: In Progress → Awaiting Approval (if all fields still present)
+    if (updates.isLocked === false && existingForActivation?.status === 'In Progress') {
+      const d  = existingForActivation.date;
+      const s  = existingForActivation.supervisor_id;
+      const a1 = existingForActivation.auditor1_id;
+      const a2 = existingForActivation.auditor2_id;
+      if (d && s && a1 && a2) {
+        fields.push('status = ?');
+        values.push('Awaiting Approval');
+      }
+    }
   }
 
   if (fields.length === 0) return c.json({ success: true });
@@ -457,6 +478,60 @@ db.patch('/audits/:id', zValidator('json', patchAuditSchema), patchAuditPermissi
     await c.env.DB.prepare(
       `UPDATE audit_schedules SET ${fields.join(', ')} WHERE id = ?`
     ).bind(...values, id).run();
+
+    // Fire-and-forget email when status just became 'Awaiting Approval'
+    const previousStatus = existingForActivation?.status;
+    const newStatus = updates.status;
+    if (
+      newStatus === 'Awaiting Approval' &&
+      previousStatus !== 'Awaiting Approval' &&
+      c.env.RESEND_API_KEY
+    ) {
+      const supervisorId = updates.supervisorId ?? existingForActivation?.supervisor_id ?? null;
+      if (supervisorId) {
+        (async () => {
+          try {
+            const supervisor = await c.env.DB.prepare(
+              'SELECT name, email FROM users WHERE id = ?'
+            ).bind(supervisorId).first<{ name: string; email: string }>();
+
+            if (!supervisor?.email) return;
+
+            // Get location and department names
+            const schedule = await c.env.DB.prepare(
+              'SELECT location_id, department_id, date FROM audit_schedules WHERE id = ?'
+            ).bind(id).first<{ location_id: string | null; department_id: string | null; date: string | null }>();
+
+            const locationName = schedule?.location_id
+              ? (await c.env.DB.prepare('SELECT name FROM locations WHERE id = ?')
+                  .bind(schedule.location_id)
+                  .first<{ name: string }>())?.name ?? 'Unknown Location'
+              : 'Unknown Location';
+
+            const departmentName = schedule?.department_id
+              ? (await c.env.DB.prepare('SELECT name FROM departments WHERE id = ?')
+                  .bind(schedule.department_id)
+                  .first<{ name: string }>())?.name ?? 'Unknown Department'
+              : 'Unknown Department';
+
+            const auditDate = schedule?.date ?? 'TBD';
+
+            await sendSupervisorApprovalEmail(
+              c.env.RESEND_API_KEY!,
+              supervisor.email,
+              supervisor.name,
+              locationName,
+              departmentName,
+              auditDate,
+              c.env.APP_URL,
+            );
+          } catch (emailErr) {
+            console.error('[Email] Supervisor approval email failed:', emailErr);
+          }
+        })();
+      }
+    }
+
     return c.json({ success: true });
   } catch (err: any) {
     return c.json({ error: err.message }, 500);

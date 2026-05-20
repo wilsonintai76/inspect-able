@@ -31,6 +31,7 @@ AUTH_URL = "https://auth.inspect-able.com"
 #   JWT_SECRET           — Internal HS256 signing key
 #   GOOGLE_CLIENT_ID     — Google OAuth 2.0 client ID
 #   GOOGLE_CLIENT_SECRET — Google OAuth 2.0 client secret
+#   RESEND_API_KEY       — Resend API key for supervisor approval emails (https://resend.com)
 
 [assets]
 directory = "./dist/client"

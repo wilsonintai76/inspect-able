@@ -394,7 +394,7 @@ pub.patch('/kiosk/schedules/:id', async (c) => {
         `UPDATE audit_schedules SET ${updates.join(', ')} WHERE id = ?`
       ).bind(...values, scheduleId).run();
 
-      // Auto-activation check (Pending -> In Progress once assignments are complete)
+      // Auto-activation check (Pending -> Awaiting Approval once assignments are complete)
       const updatedSchedule = await c.env.DB.prepare(
         'SELECT status, date, supervisor_id, auditor1_id, auditor2_id FROM audit_schedules WHERE id = ?'
       ).bind(scheduleId).first<{ status: string; date: string | null; supervisor_id: string | null; auditor1_id: string | null; auditor2_id: string | null }>();
@@ -403,10 +403,10 @@ pub.patch('/kiosk/schedules/:id', async (c) => {
         if (updatedSchedule.status === 'Pending') {
           if (updatedSchedule.date && updatedSchedule.supervisor_id && updatedSchedule.auditor1_id && updatedSchedule.auditor2_id) {
             await c.env.DB.prepare(
-              "UPDATE audit_schedules SET status = 'In Progress' WHERE id = ?"
+              "UPDATE audit_schedules SET status = 'Awaiting Approval' WHERE id = ?"
             ).bind(scheduleId).run();
           }
-        } else if (updatedSchedule.status === 'In Progress') {
+        } else if (updatedSchedule.status === 'In Progress' || updatedSchedule.status === 'Awaiting Approval') {
           if (!updatedSchedule.date || !updatedSchedule.supervisor_id || !updatedSchedule.auditor1_id || !updatedSchedule.auditor2_id) {
             await c.env.DB.prepare(
               "UPDATE audit_schedules SET status = 'Pending' WHERE id = ?"
@@ -435,11 +435,11 @@ pub.patch('/kiosk/schedules/:id', async (c) => {
         `UPDATE audit_schedules SET ${col} = NULL WHERE id = ?`
       ).bind(scheduleId).run();
 
-      // Revert In Progress -> Pending if any assignment is missing
+      // Revert Awaiting Approval / In Progress -> Pending if any assignment is missing
       const remaining = await c.env.DB.prepare(
         `SELECT status, date, supervisor_id, auditor1_id, auditor2_id FROM audit_schedules WHERE id = ?`
       ).bind(scheduleId).first<{ status: string; date: string | null; supervisor_id: string | null; auditor1_id: string | null; auditor2_id: string | null }>();
-      if (remaining && remaining.status === 'In Progress') {
+      if (remaining && (remaining.status === 'In Progress' || remaining.status === 'Awaiting Approval')) {
         if (!remaining.date || !remaining.supervisor_id || !remaining.auditor1_id || !remaining.auditor2_id) {
           await c.env.DB.prepare(
             `UPDATE audit_schedules SET status = 'Pending' WHERE id = ?`
@@ -503,7 +503,7 @@ pub.patch('/kiosk/schedules/:id/date', async (c) => {
       ).bind(date ?? null, scheduleId).run();
     }
 
-    // Auto-activation check (Pending -> In Progress once assignments are complete)
+    // Auto-activation check (Pending -> Awaiting Approval once assignments are complete)
     const updatedSchedule = await c.env.DB.prepare(
       'SELECT status, date, supervisor_id, auditor1_id, auditor2_id FROM audit_schedules WHERE id = ?'
     ).bind(scheduleId).first<{ status: string; date: string | null; supervisor_id: string | null; auditor1_id: string | null; auditor2_id: string | null }>();
@@ -512,10 +512,10 @@ pub.patch('/kiosk/schedules/:id/date', async (c) => {
       if (updatedSchedule.status === 'Pending') {
         if (updatedSchedule.date && updatedSchedule.supervisor_id && updatedSchedule.auditor1_id && updatedSchedule.auditor2_id) {
           await c.env.DB.prepare(
-            "UPDATE audit_schedules SET status = 'In Progress' WHERE id = ?"
+            "UPDATE audit_schedules SET status = 'Awaiting Approval' WHERE id = ?"
           ).bind(scheduleId).run();
         }
-      } else if (updatedSchedule.status === 'In Progress') {
+      } else if (updatedSchedule.status === 'In Progress' || updatedSchedule.status === 'Awaiting Approval') {
         if (!updatedSchedule.date || !updatedSchedule.supervisor_id || !updatedSchedule.auditor1_id || !updatedSchedule.auditor2_id) {
           await c.env.DB.prepare(
             "UPDATE audit_schedules SET status = 'Pending' WHERE id = ?"
