@@ -5,7 +5,7 @@ import { StatsCards } from './StatsCards';
 import { CustomizeDashboardModal } from './CustomizeDashboardModal';
 import { KPIStatsWidget } from './KPIStatsWidget';
 import { TierDistributionTable } from './TierDistributionTable';
-import { Sliders, GraduationCap, Filter, ChevronDown, LayoutDashboard, Trophy } from 'lucide-react';
+import { Sliders, GraduationCap, Filter, ChevronDown, LayoutDashboard, Package, Calendar, Users, Clock, CheckCircle2 } from 'lucide-react';
 import { ActiveEntitiesList } from './ActiveEntitiesList';
 import { PageHeader } from './PageHeader';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -271,6 +271,24 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
     };
   }, [inspectionStats]);
 
+  const slotStats = useMemo(() => {
+    const today = new Date().toISOString().split('T')[0];
+    const certifiedAuditors = users.filter(u => u.certificationExpiry && u.certificationExpiry >= today);
+    const assignedAuditorsSet = new Set<string>();
+    schedules.forEach(s => {
+      if (s.auditor1Id) assignedAuditorsSet.add(s.auditor1Id);
+      if (s.auditor2Id) assignedAuditorsSet.add(s.auditor2Id);
+    });
+    return {
+      totalAssets: overallStats.total,
+      totalSlots: schedules.length,
+      assigned: assignedAuditorsSet.size,
+      totalAuditors: certifiedAuditors.length,
+      inProgress: schedules.filter(s => s.status === 'In Progress').length,
+      completed: schedules.filter(s => s.status === 'Completed').length,
+    };
+  }, [schedules, users, overallStats.total]);
+
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500 pb-20">
       <PageHeader
@@ -303,40 +321,25 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
         </div>
       </PageHeader>
 
-      {/* Institutional Progress Summary */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <Card className="rounded-[32px] border-slate-200 shadow-sm p-6 bg-linear-to-br from-indigo-600 to-indigo-700 text-white md:col-span-2">
-              <div className="flex justify-between items-start mb-6">
-                  <div>
-                      <p className="text-indigo-100 text-[10px] font-black uppercase tracking-widest mb-1">Overall Inspection Progress</p>
-                      <h3 className="text-3xl font-black">{overallStats.progress.toFixed(1)}%</h3>
-                  </div>
-                  <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center">
-                      <Trophy className="w-6 h-6 text-white" />
-                  </div>
-              </div>
-              <div className="space-y-3">
-                  <div className="h-2 w-full bg-white/20 rounded-full overflow-hidden">
-                      <BarFill pct={overallStats.progress} className="h-full bg-white rounded-full" />
-                  </div>
-                  <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest text-indigo-100">
-                      <span>{overallStats.inspected.toLocaleString()} Assets Inspected</span>
-                      <span>Target: {overallStats.total.toLocaleString()}</span>
-                  </div>
-              </div>
-          </Card>
-          
-          <Card className="rounded-[32px] border-slate-200 shadow-sm p-6 flex flex-col justify-center">
-              <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1">Confirmed Inspected</p>
-              <h3 className="text-2xl font-black text-slate-900">{overallStats.inspected.toLocaleString()}</h3>
-              <p className="text-xs text-slate-500 font-medium mt-1">Total movable assets verified</p>
-          </Card>
-
-          <Card className="rounded-[32px] border-slate-200 shadow-sm p-6 flex flex-col justify-center">
-              <p className="text-rose-500 text-[10px] font-black uppercase tracking-widest mb-1">Pending Inspection</p>
-              <h3 className="text-2xl font-black text-slate-900">{overallStats.uninspected.toLocaleString()}</h3>
-              <p className="text-xs text-slate-500 font-medium mt-1">Assets yet to be audited</p>
-          </Card>
+      {/* Schedule Stats Bar */}
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+        {([
+          { label: 'Total Assets',  value: slotStats.totalAssets.toLocaleString(),                        color: 'text-indigo-600',  icon: Package      },
+          { label: 'Total Slots',   value: slotStats.totalSlots.toLocaleString(),                          color: 'text-slate-800',   icon: Calendar     },
+          { label: 'Assigned',      value: `${slotStats.assigned} / ${slotStats.totalAuditors}`,           color: 'text-blue-600',    icon: Users        },
+          { label: 'In Progress',   value: slotStats.inProgress.toLocaleString(),                          color: 'text-amber-600',   icon: Clock        },
+          { label: 'Completed',     value: slotStats.completed.toLocaleString(),                           color: 'text-emerald-600', icon: CheckCircle2 },
+        ] as const).map(({ label, value, color, icon: Icon }) => (
+          <div key={label} className="bg-white border border-slate-200 rounded-[32px] p-5 flex items-center gap-4 shadow-sm">
+            <div className={`p-2.5 rounded-2xl bg-slate-50 ${color} shrink-0`}>
+              <Icon className="w-5 h-5" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-2xl font-black text-slate-900 truncate tracking-tight">{value}</p>
+              <p className="text-[10px] font-bold uppercase text-slate-400 tracking-widest truncate">{label}</p>
+            </div>
+          </div>
+        ))}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
