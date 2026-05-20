@@ -74,7 +74,7 @@ export const AuditTableRow: React.FC<AuditTableRowProps> = ({
   const isDateValid = isDateInValidPhase(audit.date, audit.phaseId);
   const locationLevel = loc?.level;
   const isLocked = isAuditLocked(audit);
-  const canLock = isAdmin || isSupervisor;
+  const canLock = isSupervisor;
   const allFieldsSet = !!(audit.date && audit.supervisorId && audit.auditor1Id && audit.auditor2Id);
   const canToggleLock = isLocked || allFieldsSet;
 

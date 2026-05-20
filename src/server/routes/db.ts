@@ -436,6 +436,10 @@ db.patch('/audits/:id', zValidator('json', patchAuditSchema), patchAuditPermissi
   if (updates.phaseId !== undefined) { fields.push('phase_id = ?'); values.push(updates.phaseId); }
   if (updates.reportPath !== undefined) { fields.push('report_path = ?'); values.push(updates.reportPath); }
   if (updates.isLocked !== undefined) {
+    const callerRoles = (c.get('user') as any)?.roles || [];
+    if (!callerRoles.includes('Supervisor')) {
+      return c.json({ error: 'Only Supervisors can lock or unlock schedules.' }, 403);
+    }
     fields.push('is_locked = ?');
     values.push(updates.isLocked === null ? null : (updates.isLocked ? 1 : 0));
   }
