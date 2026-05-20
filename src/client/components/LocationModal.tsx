@@ -131,7 +131,7 @@ export const LocationModal: React.FC<LocationModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-100 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300" onClick={onClose}></div>
       <div className="relative bg-white w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200 flex flex-col max-h-[90vh]">
         {/* Header */}
@@ -147,7 +147,7 @@ export const LocationModal: React.FC<LocationModalProps> = ({
               </p>
             </div>
           </div>
-          <button onClick={onClose} className="w-10 h-10 flex items-center justify-center rounded-2xl bg-white/10 hover:bg-white/20 transition-all active:scale-95">
+          <button onClick={onClose} title="Close" className="w-10 h-10 flex items-center justify-center rounded-2xl bg-white/10 hover:bg-white/20 transition-all active:scale-95">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -198,6 +198,7 @@ export const LocationModal: React.FC<LocationModalProps> = ({
                   <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 w-4 h-4" />
                   <select
                     disabled={!isAdmin}
+                    title="Department"
                     className="w-full pl-11 pr-10 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all appearance-none cursor-pointer disabled:opacity-60"
                     value={formData.departmentId}
                     onChange={e => setFormData({ ...formData, departmentId: e.target.value, supervisorId: '' })}
@@ -213,6 +214,7 @@ export const LocationModal: React.FC<LocationModalProps> = ({
                 <div className="relative">
                   <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 w-4 h-4" />
                   <select
+                    title="Building / Block"
                     className="w-full pl-11 pr-10 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all appearance-none cursor-pointer"
                     value={formData.buildingId}
                     onChange={e => {
@@ -237,6 +239,7 @@ export const LocationModal: React.FC<LocationModalProps> = ({
                 <div className="relative">
                   <Layers className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 w-4 h-4" />
                   <select
+                    title="Level"
                     className="w-full pl-11 pr-10 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all appearance-none cursor-pointer"
                     value={formData.level}
                     onChange={e => setFormData({ ...formData, level: e.target.value })}
@@ -252,6 +255,8 @@ export const LocationModal: React.FC<LocationModalProps> = ({
                 <input
                   type="number"
                   min="0"
+                  title="Total Assets"
+                  placeholder="0"
                   className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
                   value={formData.totalAssets}
                   onChange={e => setFormData({ ...formData, totalAssets: parseInt(e.target.value) || 0 })}
@@ -311,7 +316,7 @@ export const LocationModal: React.FC<LocationModalProps> = ({
                     onClick={() => formData.departmentId && setIsSupervisorDropdownOpen(!isSupervisorDropdownOpen)}
                   >
                     <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 w-4 h-4" />
-                    <div className={`w-full pl-11 pr-10 py-3 bg-slate-50 border rounded-2xl text-sm font-bold transition-all cursor-pointer flex items-center min-h-[48px] ${isSupervisorDropdownOpen ? 'border-blue-500 ring-2 ring-blue-500/20' : 'border-slate-200'}`}>
+                    <div className={`w-full pl-11 pr-10 py-3 bg-slate-50 border rounded-2xl text-sm font-bold transition-all cursor-pointer flex items-center min-h-12 ${isSupervisorDropdownOpen ? 'border-blue-500 ring-2 ring-blue-500/20' : 'border-slate-200'}`}>
                       {selectedSupervisors.length > 0 ? (
                         <div className="flex flex-wrap gap-1.5" onClick={e => e.stopPropagation()}>
                           {selectedSupervisors.map(s => (
@@ -337,7 +342,7 @@ export const LocationModal: React.FC<LocationModalProps> = ({
                   </div>
 
                   {isSupervisorDropdownOpen && (
-                    <div className="absolute z-[110] left-0 right-0 mt-2 bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+                    <div className="absolute z-110 left-0 right-0 mt-2 bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
                       <div className="p-3 border-b border-slate-100 bg-slate-50/50">
                         <div className="relative">
                           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-3.5 h-3.5" />
@@ -422,7 +427,7 @@ export const LocationModal: React.FC<LocationModalProps> = ({
                   <textarea
                     readOnly
                     placeholder="Auto-populated by Smart Sync & Merge..."
-                    className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-[11px] font-medium min-h-[64px] focus:ring-0 outline-none transition-all resize-none cursor-not-allowed text-slate-500"
+                    className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-[11px] font-medium min-h-16 focus:ring-0 outline-none transition-all resize-none cursor-not-allowed text-slate-500"
                     value={formData.description}
                   />
                 </div>
@@ -443,7 +448,7 @@ export const LocationModal: React.FC<LocationModalProps> = ({
           <button
             type="submit"
             form="location-form"
-            className="flex-[2] py-4 bg-blue-600 text-white font-black uppercase tracking-widest text-xs rounded-2xl hover:bg-blue-700 transition-all active:scale-95 shadow-xl shadow-blue-500/20"
+            className="flex-2 py-4 bg-blue-600 text-white font-black uppercase tracking-widest text-xs rounded-2xl hover:bg-blue-700 transition-all active:scale-95 shadow-xl shadow-blue-500/20"
           >
             {initialData ? 'Save Modifications' : 'Initialize Location'}
           </button>
