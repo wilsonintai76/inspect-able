@@ -200,45 +200,47 @@ export const useAppActions = (props: AppActionsProps) => {
 
       const u = users.find(user => user.id === userId);
       if (!(u?.certificationExpiry && new Date(u.certificationExpiry) > new Date())) throw new Error("Cert required.");
-      
-      let updates: Partial<AuditSchedule> = slot === 1 ? { auditor1Id: userId } : { auditor2Id: userId };
-      
-      // Auto-activation check (requires BOTH auditor1 and auditor2)
-      if ((updates.status || audit.status) === 'Pending') {
-        const finalDate = updates.date !== undefined ? updates.date : audit.date;
-        const finalSupervisor = updates.supervisorId !== undefined ? updates.supervisorId : audit.supervisorId;
-        const finalAuditor1 = updates.auditor1Id !== undefined ? updates.auditor1Id : (slot === 1 ? userId : audit.auditor1Id);
-        const finalAuditor2 = updates.auditor2Id !== undefined ? updates.auditor2Id : (slot === 2 ? userId : audit.auditor2Id);
 
-        if (finalDate && finalSupervisor && finalAuditor1 && finalAuditor2) {
-          updates.status = 'In Progress';
+      const slotUpdate: Partial<AuditSchedule> = slot === 1 ? { auditor1Id: userId } : { auditor2Id: userId };
+
+      await gateway.updateAudit(id, slotUpdate);
+
+      // Use functional setSchedules to access the LATEST state (not the stale closure).
+      // This correctly handles sequential assignments (e.g., auto-assign slots 1 & 2 in one pass)
+      // where the second call would otherwise read a stale auditor1Id from the closure.
+      setSchedules(prev => prev.map(s => {
+        if (s.id !== id) return s;
+        const updated = { ...s, ...slotUpdate };
+        // Mirror server-side auto-transition logic
+        if (updated.status === 'Pending' && updated.date && updated.supervisorId && updated.auditor1Id && updated.auditor2Id) {
+          updated.status = 'In Progress';
+        } else if (updated.status === 'In Progress' && (!updated.date || !updated.supervisorId || !updated.auditor1Id || !updated.auditor2Id)) {
+          updated.status = 'Pending';
         }
-      }
+        return updated;
+      }));
 
-      await gateway.updateAudit(id, updates);
-      setSchedules(prev => prev.map(s => s.id === id ? { ...s, ...updates } : s));
-      showToast(updates.status === 'In Progress' ? 'Assigned & Started Inspection!' : 'Assigned');
+      // Toast approximation — based on the state known before this render cycle
+      const projected = { ...audit, ...slotUpdate };
+      const willStart = projected.date && projected.supervisorId && projected.auditor1Id && projected.auditor2Id;
+      showToast(willStart ? 'Assigned & Started Inspection!' : 'Assigned');
     } catch (e) { showError(e); }
   };
 
   const handleUnassign = async (id: string, slot: 1 | 2) => {
     try {
-      const audit = schedules.find(s => s.id === id);
-      const updates: Partial<AuditSchedule> = slot === 1 ? { auditor1Id: null } : { auditor2Id: null };
-      
-      if (audit && (updates.status || audit.status) === 'In Progress') {
-        const finalDate = updates.date !== undefined ? updates.date : audit.date;
-        const finalSupervisor = updates.supervisorId !== undefined ? updates.supervisorId : audit.supervisorId;
-        const finalAuditor1 = updates.auditor1Id !== undefined ? updates.auditor1Id : audit.auditor1Id;
-        const finalAuditor2 = updates.auditor2Id !== undefined ? updates.auditor2Id : audit.auditor2Id;
+      const slotUpdate: Partial<AuditSchedule> = slot === 1 ? { auditor1Id: null } : { auditor2Id: null };
 
-        if (!finalDate || !finalSupervisor || !finalAuditor1 || !finalAuditor2) {
-          updates.status = 'Pending';
+      await gateway.updateAudit(id, slotUpdate);
+
+      setSchedules(prev => prev.map(s => {
+        if (s.id !== id) return s;
+        const updated = { ...s, ...slotUpdate };
+        if (updated.status === 'In Progress' && (!updated.date || !updated.supervisorId || !updated.auditor1Id || !updated.auditor2Id)) {
+          updated.status = 'Pending';
         }
-      }
-
-      await gateway.updateAudit(id, updates);
-      setSchedules(prev => prev.map(s => s.id === id ? { ...s, ...updates } : s));
+        return updated;
+      }));
     } catch (e) { showError(e); }
   };
 
