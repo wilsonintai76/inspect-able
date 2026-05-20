@@ -114,7 +114,7 @@ export const LocationModal: React.FC<LocationModalProps> = ({
       const updated = ids.filter(id => id !== userId);
       setFormData({ ...formData, supervisorId: updated.join(',') });
     } else {
-      if (ids.length >= 2) return;
+      if (ids.length >= 3) return;
       const updated = [...ids, userId];
       setFormData({ ...formData, supervisorId: updated.join(',') });
     }
@@ -285,10 +285,10 @@ export const LocationModal: React.FC<LocationModalProps> = ({
                     ) : (
                       <button
                         type="button"
-                        disabled={formData.supervisorId?.split(',').filter(Boolean).length >= 2}
+                        disabled={formData.supervisorId?.split(',').filter(Boolean).length >= 3}
                         onClick={() => {
                           const ids = formData.supervisorId ? formData.supervisorId.split(',').filter(Boolean) : [];
-                          if (ids.length >= 2) return;
+                          if (ids.length >= 3) return;
                           ids.push(currentUser?.id || '');
                           setFormData({ ...formData, supervisorId: ids.join(','), contact: currentUser?.contactNumber || '' });
                         }}
@@ -330,7 +330,7 @@ export const LocationModal: React.FC<LocationModalProps> = ({
                           ))}
                         </div>
                       ) : (
-                        <span className="text-slate-400 font-medium">Select Supervisors (Max 2)...</span>
+                        <span className="text-slate-400 font-medium">Select Supervisors (Max 3)...</span>
                       )}
                     </div>
                     <ChevronDown className={`absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4 transition-transform duration-200 ${isSupervisorDropdownOpen ? 'rotate-180' : ''}`} />
@@ -356,7 +356,7 @@ export const LocationModal: React.FC<LocationModalProps> = ({
                           filteredSupervisors.map(u => {
                             const isSelected = formData.supervisorId?.split(',').includes(u.id);
                             const count = formData.supervisorId ? formData.supervisorId.split(',').filter(Boolean).length : 0;
-                            const isMaxReached = count >= 2 && !isSelected;
+                            const isMaxReached = count >= 3 && !isSelected;
                             
                             return (
                               <button
