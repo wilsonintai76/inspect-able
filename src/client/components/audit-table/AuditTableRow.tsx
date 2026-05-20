@@ -75,7 +75,7 @@ export const AuditTableRow: React.FC<AuditTableRowProps> = ({
   const locationLevel = loc?.level;
   const isLocked = isAuditLocked(audit);
   const canLock = isSupervisor;
-  const allFieldsSet = !!(audit.date && audit.supervisorId && audit.auditor1Id);
+  const allFieldsSet = !!(audit.date && audit.supervisorId && audit.auditor1Id && audit.auditor2Id);
   const canToggleLock = isLocked || allFieldsSet;
 
   return (
@@ -153,7 +153,7 @@ export const AuditTableRow: React.FC<AuditTableRowProps> = ({
                   isLocked
                     ? 'Unlock Inspection'
                     : !canToggleLock
-                    ? 'Fill in date, supervisor and at least 1 officer before locking'
+                    ? 'Fill all fields (date, supervisor, 2 officers) before locking'
                     : 'Lock Inspection — Freezes date & assignments'
                 }
               >
