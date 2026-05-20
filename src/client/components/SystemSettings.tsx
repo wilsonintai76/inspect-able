@@ -8,7 +8,6 @@ import { suggestThresholds } from '../services/aiService';
 import { DataManagementWorkflow } from './DataManagementWorkflow';
 import { Zap, Sliders, AlertCircle, Eye, Calendar, UserCheck, Users, UserPlus, Edit, ShieldAlert, ShieldCheck, Network, Lock, Unlock, RotateCcw, Building2, Trash2, Database, RefreshCcw } from 'lucide-react';
 import { BackupManager } from './BackupManager';
-import { PageHeader } from './PageHeader';
 import { AuditConstraints } from './AuditConstraints';
 import { BrandingSettings } from './BrandingSettings';
 
@@ -297,13 +296,7 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
   }, [phases]);
 
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500 pb-20">
-      <PageHeader
-        title="System Configuration"
-        icon={Sliders}
-        activePhase={activePhase}
-        description="Customize institutional audit rules and scheduling windows."
-      />
+    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500 pb-20 pt-6">
 
       {isAdmin && (
         <DataManagementWorkflow

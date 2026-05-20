@@ -178,10 +178,6 @@ export const AuditTable: React.FC<AuditTableProps> = ({
     return loc?.contact || '';
   };
 
-  const checkDateConflict = (date: string, auditId: string) => {
-    return schedules.some(s => s.id !== auditId && s.date === date && (s.auditor1 === currentUserName || s.auditor2 === currentUserName));
-  };
-
   const isDateInValidPhase = (dateStr: string, phaseId: string): boolean => {
     if (!dateStr) return true; 
     const phase = auditPhases.find(p => p.id === phaseId);
@@ -287,11 +283,6 @@ export const AuditTable: React.FC<AuditTableProps> = ({
     if (!isDateInValidPhase(date, phaseId)) {
         alert("The current date set for this audit is not within its valid phase. Please update the date first.");
         return;
-    }
-    const hasConflict = schedules.some(s => s.id !== auditId && s.date === date && (s.auditor1Id === assignUserId || s.auditor2Id === assignUserId));
-    if (hasConflict) {
-      alert(`Schedule Conflict: ${isSelf ? 'You are' : 'The selected officer is'} already assigned to another audit on this date.`);
-      return;
     }
     onAssign(auditId, slot, assignUserId);
   };
