@@ -45,6 +45,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({
 
   const [selectedStatusFilter, setSelectedStatusFilter] = useState('All');
   const [selectedRoleFilter, setSelectedRoleFilter] = useState('All');
+  const [searchName, setSearchName] = useState('');
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [certifyingUser, setCertifyingUser] = useState<User | null>(null);
@@ -97,14 +98,20 @@ export const UserManagement: React.FC<UserManagementProps> = ({
             if (!u.roles.includes(selectedRoleFilter as UserRole)) return false;
           }
           
-          // 5. Superadmin Privacy (Safety check in UI)
+          // 5. Name Search
+          if (searchName.trim()) {
+            const q = searchName.trim().toLowerCase();
+            if (!u.name?.toLowerCase().includes(q) && !u.email?.toLowerCase().includes(q)) return false;
+          }
+
+          // 6. Superadmin Privacy (Safety check in UI)
           if (u.email?.toLowerCase() === 'admin@poliku.edu.my' && currentUserId !== u.id && !users.find(curr => curr.id === currentUserId)?.email?.toLowerCase().includes('admin@poliku.edu.my')) {
               return false;
           }
           
           return true;
       });
-  }, [users, selectedDeptFilter, selectedStatusFilter, selectedRoleFilter, canViewAll, canViewOwn, currentUserData]);
+  }, [users, selectedDeptFilter, selectedStatusFilter, selectedRoleFilter, searchName, canViewAll, canViewOwn, currentUserData]);
 
   const handleVerify = async (user: User) => {
       try {
@@ -310,6 +317,13 @@ export const UserManagement: React.FC<UserManagementProps> = ({
           </div>
           
           <div className="flex items-center gap-3 flex-wrap">
+            <input
+              type="text"
+              placeholder="Search by name or email…"
+              value={searchName}
+              onChange={(e) => setSearchName(e.target.value)}
+              className="pl-4 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold shadow-sm outline-none hover:border-blue-300 focus:border-blue-400 transition-colors min-w-52"
+            />
             <div className="relative min-w-40">
               <select
                 title="Status Filter"
