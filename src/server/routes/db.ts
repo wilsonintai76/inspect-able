@@ -319,6 +319,13 @@ const patchUserSchema = z.object({
 
 db.get('/audits', async (c) => {
   try {
+    // Sweep: auto-fix any Pending records that already have all required fields set
+    await c.env.DB.prepare(
+      `UPDATE audit_schedules SET status = 'In Progress'
+       WHERE status = 'Pending' AND date IS NOT NULL AND supervisor_id IS NOT NULL
+       AND auditor1_id IS NOT NULL AND auditor2_id IS NOT NULL`
+    ).run();
+
     const { results } = await c.env.DB.prepare(
       'SELECT id, department_id, location_id, supervisor_id, auditor1_id, auditor2_id, date, status, phase_id, report_path, is_locked FROM audit_schedules'
     ).all();

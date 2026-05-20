@@ -357,7 +357,7 @@ export const AuditTable: React.FC<AuditTableProps> = ({
           });
           
           const chosen = sorted[0];
-          onAssign(audit.id, slot, chosen.id);
+          await onAssign(audit.id, slot, chosen.id);
           assignmentCount++;
         }
       }
