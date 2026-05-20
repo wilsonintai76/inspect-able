@@ -389,7 +389,7 @@ export const LocationManagement: React.FC<LocationManagementProps> = ({
                           )}
                           {canManage && (
                             (() => {
-                              const isAssigned = schedules.some(s => s.locationId === loc.id && (s.date || s.auditor1Id || s.auditor2Id));
+                              const isAssigned = schedules.some(s => s.locationId === loc.id && s.status !== 'Completed' && (s.date || s.auditor1Id || s.auditor2Id));
                               const isArchived = loc.status === 'Archived';
                               
                               if (isArchived) {
