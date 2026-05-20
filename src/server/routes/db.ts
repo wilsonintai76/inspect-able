@@ -1010,6 +1010,14 @@ db.get('/locations', async (c) => {
 db.post('/locations', rbacGuard('manage:locations'), async (c) => {
   const loc = await c.req.json();
   const id = loc.id || crypto.randomUUID();
+  const caller = c.get('user');
+  const callerRoles: string[] = caller?.roles || [];
+  const isAdmin = callerRoles.includes('Admin') || caller?.email?.toLowerCase() === 'admin@poliku.edu.my';
+  const isCoordinator = callerRoles.includes('Coordinator');
+  // Coordinators may only add locations to their own department
+  if (!isAdmin && isCoordinator && loc.departmentId && loc.departmentId !== caller?.departmentId) {
+    return c.json({ error: 'Coordinators can only add locations to their own department' }, 403);
+  }
   // Validate department_id exists before inserting to give a clear error
   if (loc.departmentId) {
     const deptExists = await c.env.DB.prepare('SELECT id FROM departments WHERE id = ? LIMIT 1').bind(loc.departmentId).first();
@@ -1046,6 +1054,22 @@ db.post('/locations', rbacGuard('manage:locations'), async (c) => {
 db.patch('/locations/:id', rbacGuard('manage:locations'), async (c) => {
   const id = c.req.param('id');
   const updates = await c.req.json();
+  const caller = c.get('user');
+  const callerRoles: string[] = caller?.roles || [];
+  const isAdmin = callerRoles.includes('Admin') || caller?.email?.toLowerCase() === 'admin@poliku.edu.my';
+  const isCoordinator = callerRoles.includes('Coordinator');
+  // Coordinators may only edit locations in their own department
+  if (!isAdmin && isCoordinator) {
+    const existing = await c.env.DB.prepare('SELECT department_id FROM locations WHERE id = ? LIMIT 1').bind(id).first<{ department_id: string }>();
+    if (!existing) return c.json({ error: 'Location not found' }, 404);
+    if (existing.department_id !== caller?.departmentId) {
+      return c.json({ error: 'Coordinators can only edit locations in their own department' }, 403);
+    }
+    // Prevent re-assigning location to another department
+    if (updates.departmentId && updates.departmentId !== caller?.departmentId) {
+      return c.json({ error: 'Coordinators cannot re-assign a location to a different department' }, 403);
+    }
+  }
   const fields: string[] = [];
   const values: any[] = [];
 
@@ -1088,6 +1112,17 @@ db.patch('/locations/:id', rbacGuard('manage:locations'), async (c) => {
 db.delete('/locations/:id', rbacGuard('manage:locations'), async (c) => {
   const id = c.req.param('id');
   const caller = c.get('user');
+  const callerRoles: string[] = caller?.roles || [];
+  const isAdmin = callerRoles.includes('Admin') || caller?.email?.toLowerCase() === 'admin@poliku.edu.my';
+  const isCoordinator = callerRoles.includes('Coordinator');
+  // Coordinators may only archive locations in their own department
+  if (!isAdmin && isCoordinator) {
+    const existing = await c.env.DB.prepare('SELECT department_id FROM locations WHERE id = ? LIMIT 1').bind(id).first<{ department_id: string }>();
+    if (!existing) return c.json({ error: 'Location not found' }, 404);
+    if (existing.department_id !== caller?.departmentId) {
+      return c.json({ error: 'Coordinators can only archive locations in their own department' }, 403);
+    }
+  }
   try {
     await c.env.DB.prepare(
       "UPDATE locations SET status = 'Archived', is_active = 0, archived_by = ?, archived_at = ? WHERE id = ?"
