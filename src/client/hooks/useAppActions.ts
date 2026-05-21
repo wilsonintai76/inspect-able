@@ -107,7 +107,7 @@ export const useAppActions = (props: AppActionsProps) => {
     setIsGroupSimulatorActive, setSimulatedGroups,
     isProcessing, setIsProcessing,
     certRenewalModalUser, setCertRenewalModalUser, setShowForcePasswordModal, setShowProfileCompleteModal,
-    loadAllData, loadPublicStats, setConnectionErrorMessage, rbacMatrix, departmentsWithAssets, auditPhases, kpiTiers, kpiTierTargets, maxAssetsPerDay,
+    loadAllData, loadPublicStats, setConnectionErrorMessage, rbacMatrix, departmentsWithAssets, auditPhases, kpiTiers, kpiTierTargets, institutionKPIs, maxAssetsPerDay,
     setAssignmentMode, setOpenAuditThreshold,
     locationMappings, buildings
   } = props;
@@ -392,7 +392,7 @@ export const useAppActions = (props: AppActionsProps) => {
   };
 
   const handleRejectArchive = async (locationId: string) => {
-    try { const updated = await gateway.updateLocation(locationId, { status: 'Active' }); setLocations(prev => prev.map(l => l.id === locationId ? updated : l)); }
+    try { const updated = await gateway.updateLocation(locationId, { status: 'Active' }); setLocations(prev => prev.map(l => l.id === locationId ? (updated as unknown as Location) : l)); }
     catch (e) { showError(e); }
   };
 
@@ -445,8 +445,8 @@ export const useAppActions = (props: AppActionsProps) => {
     catch (e) { showError(e); }
   };
 
-  const handleBulkAddPermissions = async (perms: Omit<CrossAuditPermission, 'id'>[]) => {
-    try { await gateway.bulkAddPermissions(perms); setCrossAuditPermissions(await gateway.getPermissions()); }
+  const handleBulkAddPermissions = async (auditorDept: string, targetDept: string, isMutual: boolean) => {
+    try { await gateway.bulkAddPermissions([{ auditorDeptId: auditorDept, targetDeptId: targetDept, isMutual, isActive: true }]); setCrossAuditPermissions(await gateway.getPermissions()); }
     catch (e) { showError(e); }
   };
 
@@ -630,8 +630,8 @@ export const useAppActions = (props: AppActionsProps) => {
     catch (e) { showError(e); }
   };
 
-  const handleApproveCert = async (userId: string) => {
-    try { await gateway.updateUser(userId, { status: 'Active' }); showToast('Certification approved'); setUsers(await gateway.getUsers()); }
+  const handleApproveCert = async (user: User) => {
+    try { await gateway.updateUser(user.id, { status: 'Active' }); showToast('Certification approved'); setUsers(await gateway.getUsers()); }
     catch (e) { showError(e); }
   };
 
@@ -658,7 +658,7 @@ export const useAppActions = (props: AppActionsProps) => {
     catch (e) { showError(e); }
   };
 
-  const handleUpdateUserRoles = async (id: string, roles: UserRole[]) => {
+  const handleUpdateUserRoles = async (id: string, roles: string[]) => {
     try { await gateway.updateUser(id, { roles }); setUsers(await gateway.getUsers()); }
     catch (e) { showError(e); }
   };
@@ -671,8 +671,8 @@ export const useAppActions = (props: AppActionsProps) => {
     });
   };
 
-  const handleBulkActivateStaff = async (userIds: string[]) => {
-    try { await Promise.all(userIds.map(id => gateway.updateUser(id, { status: 'Active' }))); setUsers(await gateway.getUsers()); showToast('Staff activated'); }
+  const handleBulkActivateStaff = async (entries: { name: string; email: string; department?: string; designation?: string; role?: string }[]) => {
+    try { const userIds = users.filter(u => entries.some(e => e.email === u.email)).map(u => u.id); await Promise.all(userIds.map(id => gateway.updateUser(id, { status: 'Active' }))); setUsers(await gateway.getUsers()); showToast('Staff activated'); }
     catch (e) { showError(e); }
   };
 
@@ -691,18 +691,18 @@ export const useAppActions = (props: AppActionsProps) => {
     catch (e) { showError(e); }
   };
 
-  const handleUpdateKPITierTarget = async (id: string, updates: Partial<KPITierTarget>) => {
-    try { await gateway.updateKPITierTarget(id, updates); setKpiTierTargets(await gateway.getKPITierTargets()); }
+  const handleUpdateKPITierTarget = async (tierId: string, phaseId: string, percentage: number) => {
+    try { const record = kpiTierTargets.find(k => k.tierId === tierId && k.phaseId === phaseId); if (record) await gateway.updateKPITierTarget(record.id, { targetPercentage: percentage }); setKpiTierTargets(await gateway.getKPITierTargets()); }
     catch (e) { showError(e); }
   };
 
-  const handleUpdateInstitutionKPI = async (id: string, updates: Partial<InstitutionKPITarget>) => {
-    try { await gateway.updateInstitutionKPITarget(id, updates); setInstitutionKPIs(await gateway.getInstitutionKPIs()); }
+  const handleUpdateInstitutionKPI = async (phaseId: string, percentage: number) => {
+    try { const record = institutionKPIs.find(k => k.phaseId === phaseId); if (record) await gateway.updateInstitutionKPITarget(record.id, { targetPercentage: percentage }); setInstitutionKPIs(await gateway.getInstitutionKPIs()); }
     catch (e) { showError(e); }
   };
 
-  const handleAutoCalculateTierTargets = async (tierId: string) => {
-    try { await gateway.autoCalculateTierTargets(tierId); setKpiTierTargets(await gateway.getKPITierTargets()); }
+  const handleAutoCalculateTierTargets = async () => {
+    try { await gateway.autoCalculateTierTargets(); setKpiTierTargets(await gateway.getKPITierTargets()); }
     catch (e) { showError(e); }
   };
 

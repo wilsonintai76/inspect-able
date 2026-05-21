@@ -19,7 +19,7 @@ interface SystemSettingsProps {
   kpiTiers: KPITier[];
   kpiTierTargets: KPITierTarget[];
   institutionKPIs: InstitutionKPITarget[];
-  userRoles: UserRole[];
+  userRoles: string[];
   onAddPermission: (auditorDept: string, targetDept: string, isMutual: boolean) => Promise<void>;
   onRemovePermission: (id: string) => Promise<void>;
   onTogglePermission: (id: string, isActive: boolean) => void;
@@ -44,14 +44,14 @@ interface SystemSettingsProps {
   onBulkAddLocs: (locs: Omit<Location, 'id'>[]) => void;
   onBulkAddDepts: (depts: Omit<Department, 'id'>[]) => void;
   onBulkActivateStaff: (entries: { name: string; email: string; department?: string; designation?: string; role?: string }[]) => void;
-  maxAssetsPerDay: number;
-  onUpdateMaxAssetsPerDay: (val: number) => void;
-  maxLocationsPerDay: number;
-  onUpdateMaxLocationsPerDay: (val: number) => void;
-  minAuditorsPerLocation: number;
-  onUpdateMinAuditorsPerLocation: (val: number) => void;
-  dailyInspectionCapacity: number;
-  onUpdateDailyInspectionCapacity: (val: number) => void;
+  maxAssetsPerDay?: number;
+  onUpdateMaxAssetsPerDay?: (val: number) => void;
+  maxLocationsPerDay?: number;
+  onUpdateMaxLocationsPerDay?: (val: number) => void;
+  minAuditorsPerLocation?: number;
+  onUpdateMinAuditorsPerLocation?: (val: number) => void;
+  dailyInspectionCapacity?: number;
+  onUpdateDailyInspectionCapacity?: (val: number) => void;
   standaloneThresholdAssets: number;
   onUpdateStandaloneThresholdAssets: (val: number) => void;
   groupingMargin: number;
@@ -101,6 +101,7 @@ interface SystemSettingsProps {
   onUpdateOpenAuditThreshold: (val: number) => void;
   onUpsertLocations?: (locs: Location[]) => Promise<void>;
   onMergeLocations?: (sourceIds: string[], targetId: string) => Promise<void>;
+  onResetOnlyPermissions?: () => void;
 }
 
 export const SystemSettings: React.FC<SystemSettingsProps> = ({
@@ -226,12 +227,7 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
   }, [users]);
 
   const totalInstitutionalAssets = React.useMemo(() => {
-    return departments.reduce((sum, d) => {
-      const val = typeof d.totalAssets === 'string' 
-        ? parseInt(d.totalAssets.replace(/[^0-9]/g, ''), 10) 
-        : (d.totalAssets || 0);
-      return sum + (isNaN(val) ? 0 : val);
-    }, 0);
+    return departments.reduce((sum, d) => sum + (d.totalAssets || 0), 0);
   }, [departments]);
 
   const handleUpdateDraftConstraints = (updates: Partial<typeof draftConstraints>) => {
@@ -241,7 +237,7 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
       if (updates.minAuditorsPerLocation !== undefined) onUpdateMinAuditorsPerLocation(updates.minAuditorsPerLocation);
       if (updates.dailyInspectionCapacity !== undefined) onUpdateDailyInspectionCapacity(updates.dailyInspectionCapacity);
       if (updates.standaloneThresholdAssets !== undefined) onUpdateStandaloneThresholdAssets(updates.standaloneThresholdAssets);
-      if (updates.groupingAuditorMargin !== undefined) (onUpdateGroupingAuditorMargin as any)(updates.groupingAuditorMargin);
+      if (updates.pairingAuditorMargin !== undefined) (onUpdateGroupingAuditorMargin as any)(updates.pairingAuditorMargin);
     } else {
       setDraftConstraints(prev => {
         const base = prev || { maxAssetsPerDay, maxLocationsPerDay, minAuditorsPerLocation, dailyInspectionCapacity, standaloneThresholdAssets, pairingAssetMargin: 500, pairingAuditorMargin: 3 };
@@ -437,8 +433,6 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
             phases={phases}
             schedules={schedules}
             locations={locations}
-            maxAssetsPerDay={maxAssetsPerDay}
-            maxLocationsPerDay={maxLocationsPerDay}
             openAuditThreshold={openAuditThreshold}
             users={users}
             buildings={buildings}

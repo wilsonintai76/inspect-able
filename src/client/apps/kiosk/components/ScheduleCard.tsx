@@ -186,8 +186,9 @@ export const ScheduleCard: React.FC<Props> = ({
                   </div>
                   <button
                     onClick={() => onUnassign(schedule.id, role)}
-                    title="Remove my assignment"
-                    className="ml-2 p-1.5 text-indigo-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all shrink-0"
+                    disabled={isSaving}
+                    title={isSaving ? 'Please wait…' : 'Remove my assignment'}
+                    className={`ml-2 p-1.5 rounded-lg transition-all shrink-0 ${isSaving ? 'text-slate-300 cursor-not-allowed' : 'text-indigo-400 hover:text-red-600 hover:bg-red-50'}`}
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
@@ -208,7 +209,7 @@ export const ScheduleCard: React.FC<Props> = ({
                         }
                         if (canAssign) onAssign(schedule.id, currentUserId, role);
                       }}
-                      disabled={eligible.length === 0 || auditIsPast}
+                      disabled={isSaving || eligible.length === 0 || auditIsPast}
                       className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all ${
                         noDate
                           ? 'bg-amber-50 border-2 border-amber-200 text-amber-600 hover:border-amber-300 hover:bg-amber-100 shadow-sm'

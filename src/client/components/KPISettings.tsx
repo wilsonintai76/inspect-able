@@ -43,6 +43,8 @@ export const KPISettings: React.FC<KPISettingsProps> = ({
   const [tierToDelete, setTierToDelete] = useState<string | null>(null);
   const [isAutoCalcRunning, setIsAutoCalcRunning] = useState(false);
   const [formData, setFormData] = useState<{ name: string; minAssets: number; targets: Record<string, number> }>({
+    name: '',
+    minAssets: 0,
     targets: {}
   });
 
@@ -50,7 +52,7 @@ export const KPISettings: React.FC<KPISettingsProps> = ({
   const sortedPhases = [...phases].sort((a,b) => a.startDate.localeCompare(b.startDate));
   const sortedTiers = [...tiers].sort((a, b) => {
     if (a.minAssets !== b.minAssets) return a.minAssets - b.minAssets;
-    return a.maxAssets - b.maxAssets;
+    return 0;
   });
 
   const targetsByTier = useMemo(() => {

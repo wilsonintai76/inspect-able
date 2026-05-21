@@ -28,9 +28,11 @@ interface SidebarProps {
   activeView: AppView;
   onViewChange: (view: AppView) => void;
   onLogout: () => void;
-  userRoles: UserRole[];
+  userRoles: string[];
   isCertified?: boolean;
   isProfileComplete?: boolean;
+  userStatus?: string;
+  rbacMatrix?: unknown;
 }
 
 interface NavItemProps {

@@ -10,9 +10,11 @@ import { PurgeConfirmModal } from './PurgeConfirmModal';
 interface DepartmentManagementProps {
   departments: Department[];
   locations: Location[];
+  departmentMappings?: unknown[];
   users: User[];
   onAdd: (dept: Omit<Department, 'id'>) => void;
   onUpdate: (id: string, dept: Partial<Department>) => void;
+  onBulkUpdate?: (updates: { id: string; data: Partial<Department> }[]) => void;
   onDelete: (id: string) => void;
   onPurge: (id: string) => void;
   isAdmin?: boolean;
@@ -22,7 +24,7 @@ interface DepartmentManagementProps {
   onUpdateGroup?: (id: string, group: Partial<AuditGroup>) => void;
   onDeleteGroup?: (id: string) => void;
   onAddAuditor: (deptId: string) => void;
-  currentUserRoles?: UserRole[];
+  currentUserRoles?: string[];
   openAuditThreshold?: number;
   buildings?: any[];
 }

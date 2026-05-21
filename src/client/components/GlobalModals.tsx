@@ -117,7 +117,7 @@ export const GlobalModals: React.FC<GlobalModalsProps> = ({
                 setIsUpdatingPassword(true);
                 await gateway.updateUser(currentUser!.id, { pin: newPassword, mustChangePIN: false });
                 setShowForcePasswordModal(false);
-                setCurrentUser(prev => prev ? { ...prev, mustChangePIN: false } : null);
+                setCurrentUser(currentUser ? { ...currentUser, mustChangePIN: false } : null);
                 showToast('Password updated successfully');
                 
                 if (!currentUser?.departmentId || !currentUser?.contactNumber) {

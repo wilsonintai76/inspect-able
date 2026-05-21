@@ -13,7 +13,7 @@ export const DEFAULT_RBAC_MATRIX: RBACMatrix = {
   'view:schedule:matrix':     ['Admin', 'Coordinator', 'Supervisor', 'Auditor'], // Cross-Audit schedules + Audit Matrix
   'edit:audit:date':          ['Admin', 'Coordinator', 'Supervisor'],
   'edit:audit:assign':        ['Admin', 'Supervisor', 'Auditor'],                 // Self-Assign — Coordinator ✗
-  'edit:audit:assign:others': ['Admin'],                                          // Assign Others — Admin only
+  'edit:audit:assign:others': ['Admin', 'Coordinator'],                           // Assign Others — Admin + Coordinator (dept-scoped)
   'edit:audit:auto_assign':   ['Admin'],                                          // Auto-Assign — Admin only
   // Officer Hub
   'view:audit:assigned':      ['Admin', 'Supervisor', 'Auditor'],                 // Officer Hub — Coordinator & Staff ✗
@@ -32,7 +32,7 @@ export const DEFAULT_RBAC_MATRIX: RBACMatrix = {
 interface RBACContextType {
   rbacMatrix: RBACMatrix;
   isLoading: boolean;
-  hasPermission: (permission: string, userRoles: UserRole[]) => boolean;
+  hasPermission: (permission: string, userRoles: string[]) => boolean;
   updateRBAC: (newMatrix: RBACMatrix) => Promise<void>;
   refreshRBAC: () => Promise<void>;
 }
@@ -94,9 +94,9 @@ export const RBACProvider: React.FC<{ children: React.ReactNode }> = ({ children
     refreshRBAC();
   }, [refreshRBAC]);
 
-  const hasPermission = useCallback((permission: string, userRoles: UserRole[]) => {
+  const hasPermission = useCallback((permission: string, userRoles: string[]) => {
     const allowedRoles = rbacMatrix[permission] || [];
-    return (userRoles || []).some(role => allowedRoles.includes(role));
+    return (userRoles || []).some(role => (allowedRoles as string[]).includes(role));
   }, [rbacMatrix]);
 
   const updateRBAC = async (newMatrix: RBACMatrix) => {

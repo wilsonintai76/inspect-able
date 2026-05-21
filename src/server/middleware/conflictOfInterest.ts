@@ -38,6 +38,9 @@ export const auditAssignmentGuard = async (
   }
 
   const caller = c.get('user')!;
+  const callerRoles = caller.roles || [];
+  const isAdminCaller = callerRoles.includes('Admin') || caller.role === 'Admin';
+  const isCoordinatorCaller = callerRoles.includes('Coordinator') || caller.role === 'Coordinator';
 
   // ── Rule 1: Self-assignment enforcement ──────────────────────────────────
   const canAssignOthers = await hasPermissionInContext(c, 'edit:audit:assign:others');
@@ -87,6 +90,17 @@ export const auditAssignmentGuard = async (
     return next();
   }
 
+  // Coordinators with assign-others permission are still department-scoped.
+  // They can only assign officers to audits under their own department.
+  if (canAssignOthers && isCoordinatorCaller && !isAdminCaller) {
+    if (!caller.departmentId || caller.departmentId !== targetDeptId) {
+      return c.json(
+        { error: 'Forbidden: coordinators can only assign officers for audits in their own department' },
+        403,
+      );
+    }
+  }
+
   // ── Resolve the site supervisor ID ───────────────────────────────────────
   let supervisorId: string | null = (updates as any).supervisorId ?? null;
   if (!supervisorId) {
@@ -108,6 +122,16 @@ export const auditAssignmentGuard = async (
     )
       .bind(auditorId)
       .first<{ department_id: string | null; certification_expiry: string | null }>();
+
+    // Coordinator assign-others is restricted to officers in coordinator's own department.
+    if (canAssignOthers && isCoordinatorCaller && !isAdminCaller) {
+      if (!caller.departmentId || auditor?.department_id !== caller.departmentId) {
+        return c.json(
+          { error: 'Forbidden: coordinators may only assign certified officers from their own department' },
+          403,
+        );
+      }
+    }
 
     // ── Rule 2c: Certification expiry ─────────────────────────────────────
     // Mirrors the client-side check in App.tsx handleAssign — now enforced server-side.
@@ -132,7 +156,7 @@ export const auditAssignmentGuard = async (
     const isInternalAuditMode = targetDept?.is_exempted === 1;
 
     // Rule 2a: Own-department block (Bypass allowed for ADMINS or departments in Internal Audit Mode)
-    const isAdmin = caller.roles?.includes('Admin') || caller.role === 'Admin';
+    const isAdmin = isAdminCaller;
     if (auditorDeptId === targetDeptId && !isAdmin && !isInternalAuditMode) {
       return c.json(
         {

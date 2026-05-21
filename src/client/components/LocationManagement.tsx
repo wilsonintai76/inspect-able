@@ -10,10 +10,11 @@ interface LocationManagementProps {
   locations: Location[];
   departments: Department[];
   users: User[];
-  userRoles: UserRole[];
+  userRoles: string[];
   userDeptId?: string;
   currentUser?: User;
   onAdd: (loc: Omit<Location, 'id'>) => void;
+  onBulkAdd?: (locs: Omit<Location, 'id'>[]) => void;
   onUpdate: (id: string, loc: Partial<Location>) => void;
   onDelete: (id: string) => void;
   onPurge: (id: string) => void;

@@ -25,7 +25,7 @@ export interface User {
   name: string;
   email: string;
   pin?: string;
-  roles: UserRole[]; 
+  roles: string[];
   designation?: Designation;
   picture?: string;
   departmentId?: string;

@@ -76,6 +76,13 @@ pub.get('/kiosk', async (c) => {
   const certError = await assertCertifiedOfficer(c.env.DB, sessionUserId);
   if (certError) return c.json({ error: certError, code: 'NOT_CERTIFIED' }, 403);
 
+  // KV read-through cache — skips the 6-query D1 batch on every 30 s poll
+  const cachedKiosk = await c.env.SETTINGS.get('kiosk_cache');
+  if (cachedKiosk) {
+    c.header('Cache-Control', 'no-store');
+    return c.json(JSON.parse(cachedKiosk));
+  }
+
   try {
     const db = c.env.DB;
     const [schedulesResult, usersResult, deptsResult, locsResult, phasesResult, buildingsResult] = await db.batch([
@@ -195,8 +202,11 @@ pub.get('/kiosk', async (c) => {
     const strategy = strategyStr ? JSON.parse(strategyStr) : {};
     const maxAssets = strategy.openAuditThreshold || 500;
 
+    const kioskPayload = { schedules, users, phases, maxAssets, buildings };
+    // Write to KV with 60 s TTL — any schedule PATCH immediately busts this entry
+    await c.env.SETTINGS.put('kiosk_cache', JSON.stringify(kioskPayload), { expirationTtl: 60 });
     c.header('Cache-Control', 'no-store');
-    return c.json({ schedules, users, phases, maxAssets, buildings });
+    return c.json(kioskPayload);
   } catch (err: any) {
     console.error('[Public Kiosk] Error:', err);
     return c.json({ schedules: [], users: [], phases: [], maxAssets: 500, buildings: [] });
@@ -353,16 +363,6 @@ pub.patch('/kiosk/schedules/:id', async (c) => {
       const colMap: Record<string, string> = { auditor1: 'auditor1_id', auditor2: 'auditor2_id', supervisor: 'supervisor_id' };
       const col = colMap[role];
 
-      // ATOMIC CONCURRENCY CHECK (Race Condition Guard)
-      // Prevent users from overwriting a slot that was just taken by someone else
-      const currentSlot = await c.env.DB.prepare(
-        `SELECT ${col} AS assigned_id FROM audit_schedules WHERE id = ?`
-      ).bind(scheduleId).first<{ assigned_id: string | null }>();
-      
-      if (currentSlot && currentSlot.assigned_id && currentSlot.assigned_id !== userId) {
-        return c.json({ error: 'RACE CONDITION DETECTED: This slot was just taken by another user. Please refresh your view to see the latest assignments.' }, 409);
-      }
-
       const updates: string[] = [`${col} = ?`];
       const values: any[] = [userId];
 
@@ -390,9 +390,16 @@ pub.patch('/kiosk/schedules/:id', async (c) => {
         }
       }
 
-      await c.env.DB.prepare(
-        `UPDATE audit_schedules SET ${updates.join(', ')} WHERE id = ?`
-      ).bind(...values, scheduleId).run();
+      // Atomic self-assign: the WHERE guard on the slot column ensures that two
+      // concurrent requests cannot both succeed — only the first writer wins.
+      // meta.changes === 0 means the slot was taken between validation and write.
+      const assignResult = await c.env.DB.prepare(
+        `UPDATE audit_schedules SET ${updates.join(', ')} WHERE id = ? AND (${col} IS NULL OR ${col} = ?)`
+      ).bind(...values, scheduleId, userId).run();
+
+      if (assignResult.meta.changes === 0) {
+        return c.json({ error: 'RACE CONDITION DETECTED: This slot was just taken by another user. Please refresh your view to see the latest assignments.' }, 409);
+      }
 
       // Auto-activation check (Pending -> Awaiting Approval once assignments are complete)
       const updatedSchedule = await c.env.DB.prepare(
@@ -415,6 +422,8 @@ pub.patch('/kiosk/schedules/:id', async (c) => {
         }
       }
 
+      // Bust the kiosk cache so the next poll reflects the new assignment
+      await c.env.SETTINGS.delete('kiosk_cache');
       return c.json({ success: true, name: user.name });
     } else {
       // Unassign – kiosk users can only remove their own assignment (supervisor slot blocked)
@@ -434,6 +443,8 @@ pub.patch('/kiosk/schedules/:id', async (c) => {
       await c.env.DB.prepare(
         `UPDATE audit_schedules SET ${col} = NULL WHERE id = ?`
       ).bind(scheduleId).run();
+      // Bust the kiosk cache so the next poll reflects the removed assignment
+      await c.env.SETTINGS.delete('kiosk_cache');
 
       // Revert Awaiting Approval / In Progress -> Pending if any assignment is missing
       const remaining = await c.env.DB.prepare(
@@ -524,6 +535,8 @@ pub.patch('/kiosk/schedules/:id/date', async (c) => {
       }
     }
 
+    // Bust the kiosk cache so the next poll reflects the updated date
+    await c.env.SETTINGS.delete('kiosk_cache');
     return c.json({ success: true });
   } catch (err: any) {
     return c.json({ error: err.message }, 500);

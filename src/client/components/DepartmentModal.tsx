@@ -170,16 +170,14 @@ export const DepartmentModal: React.FC<DepartmentModalProps> = ({
             <div className="space-y-1.5 relative">
               <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Head Of Department</Label>
               <Popover open={isHeadDropdownOpen} onOpenChange={setIsHeadDropdownOpen}>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    role="combobox"
-                    disabled={!isAdmin}
-                    className={cn(
-                      "w-full h-12 pl-11 pr-4 bg-slate-50 border-slate-200 rounded-2xl text-sm font-bold justify-between hover:bg-slate-50",
-                      (!isAdmin || !formData.headOfDeptId) && "text-slate-400 font-medium"
-                    )}
-                  >
+                <PopoverTrigger
+                  role="combobox"
+                  disabled={!isAdmin}
+                  className={cn(
+                    "w-full h-12 pl-11 pr-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold flex items-center justify-between hover:bg-slate-50",
+                    (!isAdmin || !formData.headOfDeptId) && "text-slate-400 font-medium"
+                  )}
+                >
                     <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 w-4 h-4" />
                     {selectedHead ? (
                       <span className="text-slate-900">{selectedHead.name} <span className="text-slate-400 font-medium ml-1">({selectedHead.id})</span></span>
@@ -187,7 +185,6 @@ export const DepartmentModal: React.FC<DepartmentModalProps> = ({
                       <span>Select Head Of Department...</span>
                     )}
                     <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                  </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-[--radix-popover-trigger-width] p-0 rounded-2xl overflow-hidden shadow-2xl bg-white border-slate-200">
                   <Command className="bg-white">

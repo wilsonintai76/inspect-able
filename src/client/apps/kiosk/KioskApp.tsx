@@ -43,6 +43,9 @@ export const KioskApp: React.FC = () => {
   const [profilePhone, setProfilePhone] = useState('');
   const [profileSaving, setProfileSaving] = useState(false);
 
+  // ── Server access error (e.g. NOT_CERTIFIED returned by API) ──────────────
+  const [serverAccessError, setServerAccessError] = useState<string | null>(null);
+
   // ── UI state ────────────────────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState<KioskTab>('schedule');
   const [search, setSearch] = useState('');
@@ -73,6 +76,17 @@ export const KioskApp: React.FC = () => {
       const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
       const res = await fetch('/api/public/kiosk', { credentials: 'include', headers });
       if (res.status === 401) { if (!silent) setLoading(false); return; }
+      if (!res.ok) {
+        // Non-401 error — parse the body and surface it to the user
+        const err = await res.json().catch(() => ({})) as { error?: string; code?: string };
+        if (res.status === 403) {
+          setServerAccessError(err.error || 'Access restricted. Please contact your administrator.');
+        }
+        if (!silent) setLoading(false);
+        return;
+      }
+      // Clear any previous server-side access error on success
+      setServerAccessError(null);
       const data = await res.json() as { schedules: KioskSchedule[]; users: KioskUser[]; phases: KioskPhase[]; maxAssets: number; buildings: any[] };
       setSchedules(data.schedules ?? []);
       setUsers(data.users ?? []);
@@ -183,7 +197,7 @@ export const KioskApp: React.FC = () => {
 
     const startPolling = () => {
       stopPolling();
-      pollInterval = setInterval(performSync, 10000);
+      pollInterval = setInterval(performSync, 30000);
     };
 
     const stopPolling = () => {
@@ -238,6 +252,7 @@ export const KioskApp: React.FC = () => {
     setBuildingFilter('');
     setLocationFilter('');
     setActiveTab('schedule');
+    setServerAccessError(null);
     await authService.logout();
     setCurrentUser(null);
   };
@@ -328,6 +343,26 @@ export const KioskApp: React.FC = () => {
       if (!confirmed) return;
     }
 
+    // Snapshot current state for rollback on 409 or network error
+    const snapshot = schedules.find(s => s.id === scheduleId);
+    const user = users.find(u => u.id === userId);
+
+    // Optimistic update — reflect the assignment immediately so the UI feels instant
+    setSchedules(prev => prev.map(s => {
+      if (s.id !== scheduleId) return s;
+      const updated = {
+        ...s,
+        [`${role}Id`]: userId,
+        [`${role}Name`]: user?.name ?? '',
+        [`${role}Contact`]: role === 'supervisor'
+          ? (user?.contactNumber || s.supervisorContact || '')
+          : (user?.contactNumber ?? ''),
+      };
+      const hasAll = updated.date && updated.supervisorId && updated.auditor1Id && updated.auditor2Id;
+      if (hasAll && updated.status === 'Pending') updated.status = 'In Progress';
+      return updated;
+    }));
+
     setSaving(scheduleId);
     try {
       const token = getAuthToken();
@@ -342,6 +377,8 @@ export const KioskApp: React.FC = () => {
         body: JSON.stringify({ userId, role, action: 'assign' }),
       });
       if (!res.ok) {
+        // Roll back the optimistic update — the server rejected the change
+        if (snapshot) setSchedules(prev => prev.map(s => s.id === scheduleId ? snapshot : s));
         const err = await res.json() as { error?: string };
         if (res.status === 403) {
           alert("ACCESS DENIED: This audit is locked on the public kiosk. Only the assigned Supervisor for this location or the Department Coordinator is allowed to modify or unlock it from the main site.");
@@ -350,26 +387,11 @@ export const KioskApp: React.FC = () => {
         }
         return;
       }
-      const user = users.find(u => u.id === userId);
       showToast(`Assigned ${user?.name || 'Officer'} as ${roleLabels[role]} successfully!`, 'success');
-
-      setSchedules(prev => prev.map(s => {
-        if (s.id !== scheduleId) return s;
-        const updated = { 
-          ...s, 
-          [`${role}Id`]: userId, 
-          [`${role}Name`]: user?.name ?? '',
-          [`${role}Contact`]: role === 'supervisor' 
-            ? (user?.contactNumber || s.supervisorContact || '')
-            : (user?.contactNumber ?? '')
-        };
-        const hasAll = updated.date && updated.supervisorId && updated.auditor1Id && updated.auditor2Id;
-        if (hasAll && updated.status === 'Pending') {
-          updated.status = 'In Progress';
-        }
-        return updated;
-      }));
+      // Optimistic state already applied — no further setSchedules needed
     } catch (err) {
+      // Roll back the optimistic update on network error
+      if (snapshot) setSchedules(prev => prev.map(s => s.id === scheduleId ? snapshot : s));
       showToast('A connection error occurred. Please try again.', 'error');
     } finally { setSaving(null); }
   };
@@ -380,6 +402,25 @@ export const KioskApp: React.FC = () => {
       auditor1: 'Auditor 1',
       auditor2: 'Auditor 2',
     };
+
+    // Snapshot for rollback on error
+    const snapshot = schedules.find(s => s.id === scheduleId);
+
+    // Optimistic update — clear the slot immediately
+    setSchedules(prev => prev.map(s => {
+      if (s.id !== scheduleId) return s;
+      const updated = {
+        ...s,
+        [`${role}Id`]: null,
+        [`${role}Name`]: null,
+        [`${role}Contact`]: role === 'supervisor' ? s.supervisorContact : null,
+      };
+      if (updated.status === 'In Progress' && (!updated.date || !updated.supervisorId || !updated.auditor1Id || !updated.auditor2Id)) {
+        updated.status = 'Pending';
+      }
+      return updated;
+    }));
+
     setSaving(scheduleId);
     try {
       const token2 = getAuthToken();
@@ -394,6 +435,8 @@ export const KioskApp: React.FC = () => {
         body: JSON.stringify({ role, action: 'unassign' }),
       });
       if (!res.ok) {
+        // Roll back the optimistic update
+        if (snapshot) setSchedules(prev => prev.map(s => s.id === scheduleId ? snapshot : s));
         const err = await res.json() as { error?: string };
         if (res.status === 403) {
           alert("ACCESS DENIED: This audit is locked on the public kiosk. Only the assigned Supervisor for this location or the Department Coordinator is allowed to modify or unlock it from the main site.");
@@ -404,24 +447,13 @@ export const KioskApp: React.FC = () => {
       }
       const unassignData = await res.json() as { success?: boolean; revertedToPending?: boolean };
       showToast(`Removed assignment for ${roleLabels[role]}.`, 'info');
-
-      setSchedules(prev => prev.map(s => {
-        if (s.id !== scheduleId) return s;
-        const updated = { 
-          ...s, 
-          [`${role}Id`]: null, 
-          [`${role}Name`]: null,
-          [`${role}Contact`]: role === 'supervisor' ? s.supervisorContact : null
-        };
-        // If server reverted status, reflect it optimistically
-        if (unassignData.revertedToPending) updated.status = 'Pending';
-        // Also check client-side: if any required field is missing, revert
-        else if (updated.status === 'In Progress' && (!updated.date || !updated.supervisorId || !updated.auditor1Id || !updated.auditor2Id)) {
-          updated.status = 'Pending';
-        }
-        return updated;
-      }));
+      // Correct status if server confirmed a revert that optimistic calc may have missed
+      if (unassignData.revertedToPending) {
+        setSchedules(prev => prev.map(s => s.id === scheduleId ? { ...s, status: 'Pending' } : s));
+      }
     } catch (err) {
+      // Roll back the optimistic update on network error
+      if (snapshot) setSchedules(prev => prev.map(s => s.id === scheduleId ? snapshot : s));
       showToast('A connection error occurred. Please try again.', 'error');
     } finally { setSaving(null); }
   };
@@ -705,6 +737,51 @@ export const KioskApp: React.FC = () => {
     );
   }
 
+  // ── Server-side access denied gate ────────────────────────────────────────
+  // Handles cases where the client-side cert check passes but the server
+  // returns 403 (e.g. cert expired between page loads, or DB mismatch).
+  if (serverAccessError) {
+    return (
+      <div className="min-h-dvh bg-slate-50 flex flex-col items-center justify-center p-4">
+        <div className="w-full max-w-xs bg-white rounded-3xl border border-slate-200 shadow-xl overflow-hidden">
+          <div className="px-8 pt-8 pb-6 text-center bg-amber-500">
+            <div className="w-14 h-14 bg-white/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <ShieldCheck className="w-7 h-7 text-white" />
+            </div>
+            <h1 className="text-xl font-black text-white mb-1">Access Restricted</h1>
+            <p className="text-white/80 text-xs font-medium">Audit Kiosk · Certified Officers Only</p>
+          </div>
+          <div className="p-6 space-y-4">
+            <div className="flex flex-col items-center gap-1">
+              {currentUser.picture ? (
+                <img src={currentUser.picture} className="w-12 h-12 rounded-full object-cover" alt="" />
+              ) : (
+                <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center">
+                  <UserCircle className="w-6 h-6 text-slate-400" />
+                </div>
+              )}
+              <p className="font-black text-sm text-slate-800">{currentUser.name}</p>
+              <p className="text-[11px] text-slate-400">{currentUser.email}</p>
+            </div>
+            <div className="rounded-2xl px-4 py-3 text-xs text-center font-medium leading-relaxed bg-amber-50 text-amber-700 border border-amber-200">
+              {serverAccessError}
+            </div>
+            <button
+              onClick={handleSignOut}
+              className="w-full flex items-center justify-center gap-2 py-2.5 bg-slate-100 hover:bg-slate-200 rounded-2xl text-xs font-black text-slate-700 transition-colors active:scale-95"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              Sign Out
+            </button>
+          </div>
+        </div>
+        <p className="mt-6 text-[10px] text-slate-400 font-medium text-center">
+          Politeknik Kuching Sarawak · Asset Audit System
+        </p>
+      </div>
+    );
+  }
+
   const primaryRole = currentUser.roles[0] || 'Staff';
   const roleBadgeClass: Record<string, string> = {
     Admin: 'bg-rose-100 text-rose-700',
@@ -772,7 +849,7 @@ export const KioskApp: React.FC = () => {
             )}
 
             <button
-              onClick={load}
+              onClick={() => load()}
               disabled={loading}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 rounded-xl text-[10px] font-black text-indigo-700 transition-colors disabled:opacity-50"
             >

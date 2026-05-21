@@ -20,7 +20,7 @@ export const BuildingModal: React.FC<BuildingModalProps> = ({
     name: '',
     abbr: '',
     description: '',
-    type: 'Administrative' as 'Administrative' | 'Academic' | 'Residential' | 'Other',
+    type: 'Administrative' as 'Administrative' | 'Academic' | 'Residential' | 'Workshop/Laboratory' | 'Other',
   });
 
   const [isSaving, setIsSaving] = useState(false);

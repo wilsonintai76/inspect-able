@@ -325,14 +325,14 @@ export const AuditorDashboard: React.FC<AuditorDashboardProps> = ({
                 <div className="flex items-center justify-between mb-4">
                   <h4 className="text-lg font-bold">Certification Status</h4>
                   <div className="w-10 h-10 rounded-full border-4 border-white/20 flex items-center justify-center text-[10px] font-black">
-                     {certInfo.status === 'expired' ? 'EXP' : certInfo.days}d
+                     {(certInfo.status as string) === 'expired' ? 'EXP' : certInfo.days}d
                   </div>
                 </div>
                 
                 <p className="text-white/90 text-sm mb-4 leading-relaxed">
                   {certInfo.status === 'safe' && `Your institutional inspecting officer certificate expires in ${certInfo.days} days.`}
                   {certInfo.status === 'warning' && `Urgent: Certification expiring in ${certInfo.days} days. Renew immediately.`}
-                  {certInfo.status === 'expired' && `Critical: Your certificate has expired. Inspection operations suspended.`}
+                  {(certInfo.status as string) === 'expired' && `Critical: Your certificate has expired. Inspection operations suspended.`}
                 </p>
 
                 {currentUser.renewalRequested

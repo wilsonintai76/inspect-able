@@ -587,7 +587,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                       <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                       <input 
                         type="password" 
-                        required={authMode !== 'forgot-password'}
+                        required={true}
                         value={password}
                         onChange={e => setPassword(e.target.value)}
                         placeholder="••••••••"

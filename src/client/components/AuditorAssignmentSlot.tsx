@@ -23,7 +23,7 @@ interface AuditorAssignmentSlotProps {
   isSupervisor: boolean;
   isCoordinator: boolean;
   isAuditor: boolean;
-  onAssign: (id: string, slot: 1 | 2, date: string, phaseId: string) => void;
+  onAssign: (id: string, slot: 1 | 2, date: string, phaseId: string, userId?: string) => void;
   onUnassign: (id: string, slot: 1 | 2) => void;
   getUserContact: (userId: string) => string | null;
   getEntityName: (deptId: string) => string;
@@ -58,6 +58,9 @@ export const AuditorAssignmentSlot: React.FC<AuditorAssignmentSlotProps> = ({
   maxAssetsPerDay,
   assignmentMode = 'cross-audit'
 }) => {
+  const [officerQuery, setOfficerQuery] = React.useState('');
+  const [isDropdownOpen, setIsDropdownOpen] = React.useState(false);
+
   const slotKey = slotNum === 1 ? 'auditor1Id' : 'auditor2Id';
   const auditorId = audit[slotKey as keyof AuditSchedule] as string | null;
   const isAssigned = !!auditorId;
@@ -115,6 +118,11 @@ export const AuditorAssignmentSlot: React.FC<AuditorAssignmentSlotProps> = ({
     return users.filter(officer => {
       // 1. Basic cert/past check (Role is decoupled, Admin decides via RBAC)
       if (!officer.certificationExpiry || new Date(officer.certificationExpiry) <= new Date() || isPast) return false;
+
+      // Coordinators can only assign officers from their own department.
+      if (isCoordinator && !isAdmin && currentUser?.departmentId && officer.departmentId !== currentUser.departmentId) {
+        return false;
+      }
       
       const myEntityId = getEntityName(officer.departmentId || '');
       const targetEntityId = getEntityName(audit.departmentId);
@@ -146,7 +154,15 @@ export const AuditorAssignmentSlot: React.FC<AuditorAssignmentSlotProps> = ({
 
       return true;
     });
-  }, [users, canAssignOthers, audit, getEntityName, isPast, allDepartments]);
+  }, [users, canAssignOthers, audit, getEntityName, isPast, allDepartments, isCoordinator, isAdmin, currentUser?.departmentId]);
+
+  const filteredEligibleOfficers = React.useMemo(() => {
+    const query = officerQuery.trim().toLowerCase();
+    if (!query) return eligibleOfficers;
+    return eligibleOfficers.filter(u => (u.name || '').toLowerCase().includes(query));
+  }, [eligibleOfficers, officerQuery]);
+
+  const canUseAssignOthers = canAssignOthers && !isPast && !!audit.date;
 
   return (
     <div className="min-h-11">
@@ -178,22 +194,70 @@ export const AuditorAssignmentSlot: React.FC<AuditorAssignmentSlotProps> = ({
       ) : (
         <div className="flex flex-col gap-2">
           {canAssignOthers && (
-            <select
-              title="Assign Officer"
-              className={`w-full px-3 py-1.5 rounded-lg text-[10px] font-bold border-2 transition-all outline-none ${
-                isPast || !audit.date
-                  ? 'bg-slate-50 border-slate-200 text-slate-400 cursor-not-allowed'
-                  : 'bg-white border-indigo-100 text-indigo-600 focus:border-indigo-300'
-              }`}
-              value=""
-              disabled={isPast || !audit.date}
-              onChange={(e) => e.target.value && onAssign(audit.id, slotNum, audit.date, audit.phaseId, e.target.value)}
-            >
-              <option value="">Select Officer...</option>
-              {eligibleOfficers.map(u => (
-                <option key={u.id} value={u.id}>{u.name}</option>
-              ))}
-            </select>
+            <div className="relative">
+              <input
+                title="Search Certified Officer"
+                placeholder="Type officer name..."
+                value={officerQuery}
+                disabled={!canUseAssignOthers}
+                onFocus={() => {
+                  if (canUseAssignOthers) setIsDropdownOpen(true);
+                }}
+                onBlur={() => {
+                  window.setTimeout(() => setIsDropdownOpen(false), 120);
+                }}
+                onChange={(e) => {
+                  setOfficerQuery(e.target.value);
+                  if (!isDropdownOpen && canUseAssignOthers) {
+                    setIsDropdownOpen(true);
+                  }
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Escape') {
+                    setIsDropdownOpen(false);
+                  }
+                  if (e.key === 'Enter' && filteredEligibleOfficers.length > 0 && canUseAssignOthers) {
+                    e.preventDefault();
+                    const selected = filteredEligibleOfficers[0];
+                    onAssign(audit.id, slotNum, audit.date, audit.phaseId, selected.id);
+                    setOfficerQuery('');
+                    setIsDropdownOpen(false);
+                  }
+                }}
+                className={`w-full px-3 py-1.5 rounded-lg text-[10px] font-bold border-2 transition-all outline-none ${
+                  !canUseAssignOthers
+                    ? 'bg-slate-50 border-slate-200 text-slate-400 cursor-not-allowed'
+                    : 'bg-white border-indigo-100 text-indigo-600 focus:border-indigo-300'
+                }`}
+              />
+
+              {canUseAssignOthers && isDropdownOpen && (
+                <div className="absolute z-30 mt-1 w-full max-h-44 overflow-auto rounded-lg border border-indigo-100 bg-white shadow-lg">
+                  {filteredEligibleOfficers.length > 0 ? (
+                    filteredEligibleOfficers.map(u => (
+                      <button
+                        key={u.id}
+                        type="button"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => {
+                          onAssign(audit.id, slotNum, audit.date, audit.phaseId, u.id);
+                          setOfficerQuery('');
+                          setIsDropdownOpen(false);
+                        }}
+                        className="w-full text-left px-3 py-1.5 text-[10px] font-bold text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 transition-colors"
+                        title={u.name}
+                      >
+                        {u.name}
+                      </button>
+                    ))
+                  ) : (
+                    <div className="px-3 py-2 text-[10px] text-slate-400 font-medium">
+                      No matching certified officer
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           )}
           <button 
             onClick={() => onAssign(audit.id, slotNum, audit.date, audit.phaseId)}

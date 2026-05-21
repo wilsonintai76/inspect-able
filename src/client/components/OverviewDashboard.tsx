@@ -30,6 +30,10 @@ interface OverviewDashboardProps {
   buildings?: Building[];
   openAuditThreshold?: number;
   users?: User[];
+  kpiTierTargets?: KPITierTarget[];
+  strictAuditorRule?: boolean;
+  activities?: SystemActivity[];
+  rbacMatrix?: Record<string, string[]>;
   onRebalance?: () => void;
 }
 

@@ -187,7 +187,7 @@ export const useAppData = () => {
 
     const startPolling = () => {
       stopPolling();
-      pollInterval = setInterval(performSync, 10000);
+      pollInterval = setInterval(performSync, 30000);
     };
 
     const stopPolling = () => {

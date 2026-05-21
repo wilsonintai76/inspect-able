@@ -5,7 +5,7 @@ import {
 import { AuditorAssignmentSlot } from '../AuditorAssignmentSlot';
 import {
   Calendar, Lock, Unlock, Building, Layers, Package,
-  AlertTriangle, Phone, UserCheck, RotateCcw, FileText, ExternalLink,
+  AlertTriangle, Phone, UserCheck, RotateCcw, FileText, ExternalLink, Upload,
 } from 'lucide-react';
 
 export interface AuditTableRowProps {
@@ -74,12 +74,15 @@ export const AuditTableRow: React.FC<AuditTableRowProps> = ({
   const isDateValid = isDateInValidPhase(audit.date, audit.phaseId);
   const locationLevel = loc?.level;
   const isLocked = isAuditLocked(audit);
+  // Treat "In Progress" and "Completed" as visually locked even for legacy rows
+  // where isLocked may still be false (data predates the lock mechanism).
+  const isEffectivelyLocked = isLocked || audit.status === 'In Progress' || audit.status === 'Completed';
   const canLock = isSupervisor;
   const allFieldsSet = !!(audit.date && audit.supervisorId && audit.auditor1Id && audit.auditor2Id);
   const canToggleLock = isLocked || allFieldsSet;
 
   return (
-    <tr className={`hover:bg-slate-50/50 transition-colors ${isLocked ? 'bg-slate-50/30 opacity-90' : ''}`}>
+    <tr className={`hover:bg-slate-50/50 transition-colors ${isEffectivelyLocked ? 'bg-slate-50/30 opacity-90' : ''}`}>
 
       {/* ── Date Cell ── */}
       <td className="px-5 py-4 align-top sticky left-0 bg-white z-10 border-r border-slate-100 w-64">
@@ -143,21 +146,21 @@ export const AuditTableRow: React.FC<AuditTableRowProps> = ({
                   onToggleLock(audit.id);
                 }}
                 className={`shrink-0 w-8 h-8 flex items-center justify-center rounded-lg transition-all border ${
-                  isLocked
-                    ? 'bg-slate-800 border-slate-700 text-amber-400 shadow-md'
-                    : !canToggleLock
-                    ? 'bg-slate-50 border-slate-100 text-slate-200 cursor-not-allowed'
-                    : 'bg-white border-slate-200 text-slate-400 hover:border-slate-300 hover:bg-slate-50'
+                  isEffectivelyLocked
+                    ? 'bg-rose-500 border-rose-400 text-white shadow-md shadow-rose-500/30'
+                    : allFieldsSet
+                    ? 'bg-emerald-500 border-emerald-400 text-white shadow-md shadow-emerald-500/30 hover:bg-emerald-600 active:scale-95'
+                    : 'bg-slate-50 border-slate-100 text-slate-200 cursor-not-allowed'
                 }`}
                 title={
-                  isLocked
-                    ? 'Unlock Inspection'
+                  isEffectivelyLocked
+                    ? isLocked ? 'Unlock Inspection (currently locked)' : 'Lock Inspection (legacy slot — click to formally lock)'
                     : !canToggleLock
                     ? 'Fill all fields (date, supervisor, 2 officers) before locking'
-                    : 'Lock Inspection — Freezes date & assignments'
+                    : 'Lock & Approve — Freezes date & assignments, sets to In Progress'
                 }
               >
-                {isLocked ? <Lock className="w-3.5 h-3.5" /> : <Unlock className="w-3.5 h-3.5" />}
+                {isEffectivelyLocked ? <Lock className="w-3.5 h-3.5" /> : <Unlock className="w-3.5 h-3.5" />}
               </button>
             )}
           </div>
@@ -313,22 +316,70 @@ export const AuditTableRow: React.FC<AuditTableRowProps> = ({
       </td>
 
       {/* ── Status Cell ── */}
-      <td className="px-5 py-4 align-top text-center">
+      <td className="px-5 py-4 align-top text-center w-44">
         {(() => {
           const canComplete = isAdmin || isCoordinator || (isCurrentUserAssigned && isCertified && isAuditor);
+          const canApprove = isSupervisor || isAdmin;
           return (
-            <button
-              onClick={() => {
-                if (audit.status === 'In Progress' || audit.status === 'Completed') {
-                  onSetUploadAudit(audit);
-                }
-              }}
-              disabled={!canComplete || audit.status === 'Pending'}
-              className={`inline-flex items-center px-4 py-2 rounded-xl text-[10px] font-black uppercase border tracking-widest transition-all active:scale-95 ${getStatusBadgeStyles(audit.status)} ${!canComplete ? 'opacity-50 pointer-events-none' : ''}`}
-            >
-              {audit.status}
-              {canComplete && audit.status !== 'Pending' && <RotateCcw className="w-2 h-2 ml-2 opacity-40" />}
-            </button>
+            <div className="flex flex-col items-center gap-2">
+              {/* Status badge */}
+              <span className={`inline-flex items-center px-3 py-1.5 rounded-xl text-[10px] font-black uppercase border tracking-widest whitespace-nowrap ${getStatusBadgeStyles(audit.status)}`}>
+                {audit.status}
+              </span>
+
+              {/* Awaiting Approval: lock action */}
+              {audit.status === 'Awaiting Approval' && (
+                canApprove ? (
+                  <button
+                    onClick={() => {
+                      if (!window.confirm(`Lock & approve inspection for "${loc?.name || audit.locationId}"?\n\nStatus will change to "In Progress".`)) return;
+                      onToggleLock(audit.id);
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500 text-white rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-emerald-600 transition-all shadow-md shadow-emerald-500/25 active:scale-95 whitespace-nowrap"
+                    title="Lock this inspection to approve it — sets status to In Progress"
+                  >
+                    <Lock className="w-3 h-3" />
+                    Lock to Approve
+                  </button>
+                ) : (
+                  <div className="flex items-center gap-1 px-2 py-1 bg-amber-50 text-amber-600 border border-amber-100 rounded-lg text-[9px] font-bold whitespace-nowrap">
+                    <Lock className="w-2.5 h-2.5 shrink-0" />
+                    <span>Awaiting supervisor lock</span>
+                  </div>
+                )
+              )}
+
+              {/* In Progress: upload action */}
+              {audit.status === 'In Progress' && (
+                <div className="flex flex-col items-center gap-1">
+                  {canComplete && (
+                    <button
+                      onClick={() => onSetUploadAudit(audit)}
+                      className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 text-white rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-md shadow-blue-500/25 active:scale-95 whitespace-nowrap"
+                      title="Upload KEW-PA 11 PDF to mark as Completed"
+                    >
+                      <Upload className="w-3.5 h-3.5" />
+                      Upload KEW-PA 11
+                    </button>
+                  )}
+                  <p className="text-[8px] text-slate-400 font-medium leading-tight text-center">
+                    Upload report to complete
+                  </p>
+                </div>
+              )}
+
+              {/* Completed: re-upload option */}
+              {audit.status === 'Completed' && canComplete && (
+                <button
+                  onClick={() => onSetUploadAudit(audit)}
+                  className="flex items-center gap-1 text-[9px] text-emerald-600 font-bold hover:underline"
+                  title="Replace uploaded KEW-PA 11"
+                >
+                  <RotateCcw className="w-2.5 h-2.5" />
+                  Re-upload
+                </button>
+              )}
+            </div>
           );
         })()}
       </td>

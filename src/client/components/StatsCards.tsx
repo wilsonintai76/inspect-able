@@ -12,7 +12,7 @@ export const StatsCards: React.FC<StatsCardsProps> = ({ schedules }) => {
   const { t } = useLanguage();
   const total = schedules?.length || 0;
   const pending = schedules?.filter(s => s.status === 'Pending').length || 0;
-  const needsOfficers = schedules?.filter(s => !s.auditor1 || !s.auditor2).length || 0;
+  const needsOfficers = schedules?.filter(s => !s.auditor1Id || !s.auditor2Id).length || 0;
   const completed = schedules?.filter(s => s.status === 'Completed').length || 0;
 
   return (

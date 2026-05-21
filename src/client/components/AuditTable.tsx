@@ -17,7 +17,7 @@ interface AuditTableProps {
   schedules: AuditSchedule[];
   users: User[];
   currentUserName: string;
-  userRoles: UserRole[];
+  userRoles: string[];
   departments: string[];
   selectedDept: string;
   onDeptChange: (dept: string) => void;
@@ -462,7 +462,7 @@ export const AuditTable: React.FC<AuditTableProps> = ({
         {/* Action Buttons */}
         <div className="flex flex-wrap items-center gap-2">
           <PrintButton
-            onPrint={() => printInspectionSchedule(displaySchedules, allDepartments, allLocations, users, auditPhases, selectedDept, buildings)}
+            onClick={() => printInspectionSchedule(displaySchedules, allDepartments, allLocations, users, auditPhases, selectedDept, buildings)}
             title="Print Inspection Schedule"
           />
           <button
@@ -494,7 +494,7 @@ export const AuditTable: React.FC<AuditTableProps> = ({
                 <th className="px-5 py-4 text-[10px] font-black uppercase text-slate-400 tracking-widest w-72 sticky left-64 bg-slate-50 z-30 border-r border-slate-100">Asset Location</th>
                 <th className="px-5 py-4 text-[10px] font-black uppercase text-slate-400 tracking-widest w-64">Site Supervisor</th>
                 <th className="px-5 py-4 text-[10px] font-black uppercase text-slate-400 tracking-widest w-80">Inspecting Officers</th>
-                <th className="px-5 py-4 text-[10px] font-black uppercase text-slate-400 tracking-widest w-32 text-center">Status</th>
+                <th className="px-5 py-4 text-[10px] font-black uppercase text-slate-400 tracking-widest w-44 text-center">Status</th>
                 <th className="px-5 py-4 text-[10px] font-black uppercase text-slate-400 tracking-widest w-16 text-center"></th>
               </tr>
             </thead>

@@ -15,10 +15,10 @@ interface UserManagementProps {
   onBulkAddMembers: (users: User[]) => void;
   onUpdateMember: (id: string, user: Partial<User>) => void;
   onDeleteMember: (id: string) => void;
-  onUpdateRoles: (userId: string, newRoles: UserRole[]) => void;
+  onUpdateRoles: (userId: string, newRoles: string[]) => void;
   onUpdateStatus: (userId: string, status: 'Active' | 'Inactive' | 'Suspended' | 'Pending') => void;
   onResetPassword: (userId: string) => void;
-  currentUserRoles: UserRole[];
+  currentUserRoles: string[];
   departments: Department[];
   customConfirm: (title: string, message: string, onConfirm: () => void, isDestructive?: boolean) => void;
   customAlert: (message: string) => void;
@@ -55,7 +55,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({
     name: '',
     email: '',
     departmentId: '',
-    roles: ['Staff'] as UserRole[],
+    roles: ['Staff'] as string[],
     designation: '' as string,
     contactNumber: '',
   });
@@ -210,7 +210,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({
       // Editing existing user
       // Pass the current state to ensure email is included for the gateway fallback logic
       const currentUserState = users.find(u => u.id === editingId);
-      onUpdateMember(editingId, { ...formData, email: formData.email || currentUserState?.email });
+      onUpdateMember(editingId, { ...formData, email: formData.email || currentUserState?.email } as Partial<User>);
       setEditingId(null);
     } else {
       onAddMember({ 
@@ -232,14 +232,14 @@ export const UserManagement: React.FC<UserManagementProps> = ({
   const resetForm = () => {
     const isAdmin = currentUserRoles.includes('Admin');
     const deptId = (!isAdmin && currentUserData?.departmentId) ? currentUserData.departmentId : '';
-    setFormData({ name: '', email: '', departmentId: deptId, roles: ['Staff'], designation: '', contactNumber: '' });
+    setFormData({ name: '', email: '', departmentId: deptId, roles: ['Staff'] as string[], designation: '', contactNumber: '' });
     setIsFormOpen(false);
     setEditingId(null);
   };
 
 
 
-  const getRoleBadgeStyle = (role: UserRole) => {
+  const getRoleBadgeStyle = (role: string) => {
     switch(role) {
       case 'Admin': return 'bg-purple-50 text-purple-600 border-purple-100';
       case 'Coordinator': return 'bg-amber-50 text-amber-600 border-amber-100';

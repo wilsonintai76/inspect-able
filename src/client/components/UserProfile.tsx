@@ -10,7 +10,7 @@ interface UserProfileProps {
 }
 
 export const UserProfile: React.FC<UserProfileProps> = ({ user, departments, onUpdate }) => {
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{ name: string; contactNumber: string; departmentId: string; designation: string }>({
     name: user.name || '',
     contactNumber: user.contactNumber || '',
     departmentId: user.departmentId || '',
@@ -54,7 +54,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ user, departments, onU
     try {
       const updates: Partial<User> = { 
         ...formData
-      };
+      } as Partial<User>;
       
       if (user.status === 'Pending') {
         updates.status = 'Active';
