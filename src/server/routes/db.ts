@@ -30,6 +30,29 @@ const getRolesForDesignation = (designation?: string | null): string[] | null =>
   }
 };
 
+const logApprovalReminderActivity = async (
+  c: Context<{ Bindings: Bindings; Variables: Variables }>,
+  auditId: string,
+  userId: string,
+  supervisorName: string,
+  mode: 'automatic' | 'manual',
+) => {
+  const activityId = crypto.randomUUID();
+  const message = mode === 'automatic'
+    ? `Initial approval email sent to ${supervisorName}`
+    : `Manual approval reminder email sent to ${supervisorName}`;
+
+  await c.env.DB.prepare(
+    'INSERT INTO system_activities (id, type, user_id, message, metadata) VALUES (?, ?, ?, ?, ?)'
+  ).bind(
+    activityId,
+    'schedule_update',
+    userId,
+    message,
+    JSON.stringify({ auditId, category: 'approval_email', mode })
+  ).run();
+};
+
 const db = new Hono<{ Bindings: Bindings, Variables: Variables }>();
 
 db.get('/test-auth', async (c) => {
@@ -491,6 +514,42 @@ db.patch('/audits/:id', zValidator('json', patchAuditSchema), patchAuditPermissi
       if (supervisorId) {
         (async () => {
           try {
+
+        // --- Begin: Department move audit repair logic ---
+        if (updates.departmentId !== undefined) {
+          // 1. Update all audits for this location to new department
+          await c.env.DB.prepare('UPDATE audit_schedules SET department_id = ? WHERE location_id = ?').bind(updates.departmentId, id).run();
+
+          // 2. For each audit, clear any auditor who now matches the new department
+          const audits = await c.env.DB.prepare('SELECT id, auditor1_id, auditor2_id, is_locked, status FROM audit_schedules WHERE location_id = ?').bind(id).all<any>();
+          for (const audit of audits.results || []) {
+            let clear1 = false, clear2 = false;
+            if (audit.auditor1_id) {
+              const u1 = await c.env.DB.prepare('SELECT department_id FROM users WHERE id = ?').bind(audit.auditor1_id).first<{department_id:string}>();
+              if (u1 && u1.department_id === updates.departmentId) clear1 = true;
+            }
+            if (audit.auditor2_id) {
+              const u2 = await c.env.DB.prepare('SELECT department_id FROM users WHERE id = ?').bind(audit.auditor2_id).first<{department_id:string}>();
+              if (u2 && u2.department_id === updates.departmentId) clear2 = true;
+            }
+            if (clear1 || clear2) {
+              let newStatus = audit.status;
+              let newLocked = audit.is_locked;
+              if (audit.status === 'Awaiting Approval' || audit.status === 'In Progress') newStatus = 'Pending';
+              if (audit.is_locked) newLocked = null;
+              await c.env.DB.prepare(
+                'UPDATE audit_schedules SET auditor1_id = ?, auditor2_id = ?, status = ?, is_locked = ? WHERE id = ?'
+              ).bind(
+                clear1 ? null : audit.auditor1_id,
+                clear2 ? null : audit.auditor2_id,
+                newStatus,
+                newLocked,
+                audit.id
+              ).run();
+            }
+          }
+        }
+        // --- End: Department move audit repair logic ---
             const supervisor = await c.env.DB.prepare(
               'SELECT name, email FROM users WHERE id = ?'
             ).bind(supervisorId).first<{ name: string; email: string }>();
@@ -525,6 +584,13 @@ db.patch('/audits/:id', zValidator('json', patchAuditSchema), patchAuditPermissi
               auditDate,
               c.env.APP_URL,
             );
+            await logApprovalReminderActivity(
+              c,
+              id,
+              'system',
+              supervisor.name,
+              'automatic',
+            );
           } catch (emailErr) {
             console.error('[Email] Supervisor approval email failed:', emailErr);
           }
@@ -544,6 +610,49 @@ db.delete('/audits/:id', rbacGuard('assign:others'), async (c) => {
     await c.env.DB.prepare('DELETE FROM audit_schedules WHERE id = ?').bind(id).run();
     return c.json({ success: true });
   } catch (err: any) {
+    return c.json({ error: err.message }, 500);
+  }
+});
+
+db.post('/audits/:id/send-approval-email', rbacGuard('admin:hub'), async (c) => {
+  const id = c.req.param('id');
+  const caller = c.get('user');
+  
+  try {
+    const audit = await c.env.DB.prepare('SELECT * FROM audit_schedules WHERE id = ?').bind(id).first<any>();
+    if (!audit) return c.json({ error: 'Audit not found' }, 404);
+    if (audit.status !== 'Awaiting Approval') return c.json({ error: 'Audit is not awaiting approval' }, 400);
+
+    const supervisor = await c.env.DB.prepare('SELECT name, email FROM users WHERE id = ?').bind(audit.supervisor_id).first<{name: string, email: string}>();
+    if (!supervisor || !supervisor.email) return c.json({ error: 'Supervisor has no valid email address' }, 400);
+
+    const loc = await c.env.DB.prepare('SELECT name FROM locations WHERE id = ?').bind(audit.location_id).first<{name: string}>();
+    const dept = await c.env.DB.prepare('SELECT name FROM departments WHERE id = ?').bind(audit.department_id).first<{name: string}>();
+
+    const apiKey = c.env.RESEND_API_KEY || await c.env.SETTINGS.get('RESEND_API_KEY');
+    if (!apiKey) return c.json({ error: 'Email service not configured' }, 500);
+
+    await sendSupervisorApprovalEmail(
+      apiKey,
+      supervisor.email,
+      supervisor.name,
+      loc?.name || audit.location_id,
+      dept?.name || audit.department_id,
+      audit.date,
+      c.env.APP_URL || 'https://www.inspect-able.com'
+    );
+      
+    await logApprovalReminderActivity(
+      c,
+      id,
+      caller?.id || 'system',
+      supervisor.name,
+      'manual',
+    );
+
+    return c.json({ success: true });
+  } catch (err: any) {
+    console.error('[Email] Manual approval reminder failed:', err);
     return c.json({ error: err.message }, 500);
   }
 });
@@ -627,11 +736,6 @@ db.get('/users', async (c) => {
       binds.push('admin@poliku.edu.my');
     }
 
-    // Role-based filtering for Coordinators
-    if (!isSuperAdmin && !isAdmin && caller?.roles?.includes('Coordinator')) {
-      filters.push('department_id = ?');
-      binds.push(caller.departmentId);
-    }
 
     if (filters.length > 0) {
       sql += ' WHERE ' + filters.join(' AND ');
