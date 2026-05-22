@@ -251,11 +251,17 @@ export const UserManagement: React.FC<UserManagementProps> = ({
 
   const startEdit = (user: User) => {
     setEditingId(user.id);
+    // Cleanup: Staff is mutually exclusive with higher roles
+    let cleanRoles = user.roles || ['Staff'];
+    if (cleanRoles.length > 1) {
+      cleanRoles = cleanRoles.filter(r => r !== 'Staff');
+      if (cleanRoles.length === 0) cleanRoles = ['Staff'];
+    }
     setFormData({
       name: user.name || '',
       email: user.email || '',
       departmentId: user.departmentId || '',
-      roles: user.roles || ['Staff'],
+      roles: cleanRoles,
       designation: user.designation || '',
       contactNumber: user.contactNumber || '',
     });
@@ -457,7 +463,32 @@ export const UserManagement: React.FC<UserManagementProps> = ({
                   </div>
                   <div className="space-y-1">
                     <label className="text-[10px] font-black uppercase text-slate-400">Email</label>
-                    <input required type="email" title="Email" placeholder="Enter institutional email" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} />
+                    {(() => {
+                      const editingUser = editingId ? users.find(u => u.id === editingId) : null;
+                      const isGoogleBound = editingUser && editingUser.hasPassword === false;
+                      return (
+                        <input 
+                          required 
+                          type="email" 
+                          title={isGoogleBound ? "Email is managed by Google — cannot be changed here" : "Email"}
+                          placeholder="Enter institutional email" 
+                          className={`w-full px-4 py-3 border rounded-xl text-sm ${isGoogleBound ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : 'bg-slate-50 border-slate-200'}`}
+                          value={formData.email} 
+                          disabled={isGoogleBound}
+                          onChange={e => setFormData({ ...formData, email: e.target.value })} 
+                        />
+                      );
+                    })()}
+                    {(() => {
+                      const editingUser = editingId ? users.find(u => u.id === editingId) : null;
+                      if (editingUser && editingUser.hasPassword === false) return (
+                        <p className="text-[9px] text-amber-600 font-medium flex items-center gap-1 mt-1">
+                          <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                          Email managed by Google — cannot be changed here
+                        </p>
+                      );
+                      return null;
+                    })()}
                   </div>
                   <div className="space-y-1">
                     <label className="text-[10px] font-black uppercase text-slate-400">Department</label>

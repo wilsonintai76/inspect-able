@@ -74,7 +74,8 @@ export const AuditorAssignmentSlot: React.FC<AuditorAssignmentSlotProps> = ({
   const isUserSupervisor = supervisorIds.includes(currentUser?.id || '');
 
   // Check eligibility: Has field role + Valid Cert + No Conflict
-  const isDisabled = isAssigned || !canSelfAssignSelf || !userCanAudit || isCurrentUserAssigned || isPast || !isDateValid || !hasPhases || isUserOverLimit || isUserSupervisor;
+  // Note: isDateValid and isPast are used for display only — phase is a projection guideline, not a hard block
+  const isDisabled = isAssigned || !canSelfAssignSelf || !userCanAudit || isCurrentUserAssigned || isPast || !hasPhases || isUserOverLimit || isUserSupervisor;
   
   let disableReason = "";
   if (isAssigned) {
@@ -126,14 +127,9 @@ export const AuditorAssignmentSlot: React.FC<AuditorAssignmentSlotProps> = ({
       
       const myEntityId = getEntityName(officer.departmentId || '');
       const targetEntityId = getEntityName(audit.departmentId);
-      const isInternal = myEntityId === targetEntityId;
-      
-      // Fetch target department's exemption status (Internal Audit Mode)
-      const targetDept = allDepartments?.find(d => d.id === audit.departmentId);
-      const isInternalAuditMode = targetDept?.isExempted === true;
 
-      // 2. Conflict Check (Entity level) - Permitted ONLY during internal audits (exemption)
-      if (isInternal && !isInternalAuditMode) return false;
+      // 2. COI Rule (ABSOLUTE): Cannot audit own department — no exemptions
+      if (myEntityId === targetEntityId) return false;
 
       // 2b. Matrix Check (only if in cross-audit mode)
       if (assignmentMode === 'cross-audit') {
@@ -154,7 +150,7 @@ export const AuditorAssignmentSlot: React.FC<AuditorAssignmentSlotProps> = ({
 
       return true;
     });
-  }, [users, canAssignOthers, audit, getEntityName, isPast, allDepartments, isCoordinator, isAdmin, currentUser?.departmentId]);
+  }, [users, canAssignOthers, audit, getEntityName, isPast, isCoordinator, isAdmin, currentUser?.departmentId]);
 
   const filteredEligibleOfficers = React.useMemo(() => {
     const query = officerQuery.trim().toLowerCase();

@@ -5,7 +5,7 @@ import {
 import { AuditorAssignmentSlot } from '../AuditorAssignmentSlot';
 import {
   Calendar, Lock, Unlock, Building, Layers, Package,
-  AlertTriangle, Phone, UserCheck, RotateCcw, FileText, ExternalLink, Upload,
+  AlertTriangle, Phone, UserCheck, RotateCcw, FileText, ExternalLink, Upload, Mail,
 } from 'lucide-react';
 
 export interface AuditTableRowProps {
@@ -31,6 +31,8 @@ export interface AuditTableRowProps {
   hasFieldRole: boolean;
   isCertified: boolean;
   assignmentMode: 'cross-audit' | 'open-audit';
+  canSendApprovalReminder: boolean;
+  hasSentApprovalReminder: boolean;
   // Helper functions
   isAuditLocked: (audit: AuditSchedule) => boolean;
   isDateInValidPhase: (dateStr: string, phaseId: string) => boolean;
@@ -41,6 +43,7 @@ export interface AuditTableRowProps {
   getStatusBadgeStyles: (status: string) => string;
   // Event handlers
   onDateChange: (id: string, newDate: string, phaseId: string) => void;
+  onSendEmail: (id: string) => void;
   onToggleLock: (id: string) => void;
   onAssign: (auditId: string, slot: 1 | 2, date: string, phaseId: string, manualUserId?: string) => void;
   onUnassign: (id: string, slot: 1 | 2) => void;
@@ -52,13 +55,19 @@ export const AuditTableRow: React.FC<AuditTableRowProps> = ({
   audit, users, currentUser, allDepartments, allLocations, buildings, schedules,
   todayStr, canEditDates, canSelfAssignPerm, canAssignOthers, hasPhases, auditPhases,
   maxAssetsPerDay, canSelfAssignSelf, isAdmin, isCoordinator, isSupervisor, isAuditor,
-  hasFieldRole, isCertified, assignmentMode,
+  hasFieldRole, isCertified, assignmentMode, canSendApprovalReminder, hasSentApprovalReminder,
   isAuditLocked, isDateInValidPhase, getBuildingAbbr, getEntityName, getUserContact,
   canAuditDepartment, getStatusBadgeStyles,
-  onDateChange, onToggleLock, onAssign, onUnassign, onSetReportAudit, onSetUploadAudit,
+  onDateChange, onSendEmail, onToggleLock, onAssign, onUnassign, onSetReportAudit, onSetUploadAudit,
 }) => {
   const loc = allLocations.find(l => l.id === audit.locationId);
   const isCurrentUserAssigned = audit.auditor1Id === currentUser?.id || audit.auditor2Id === currentUser?.id;
+  const isDesignatedSupervisor = audit.supervisorId ? audit.supervisorId.split(',').map(id => id.trim()).includes(currentUser?.id || '') : false;
+
+  // Per-row date permission: user can edit date if they are Admin/Coordinator, designated supervisor, or assigned auditor
+  const canEditThisDate = canEditDates && (
+    isAdmin || isCoordinator || isDesignatedSupervisor || isCurrentUserAssigned
+  );
 
   const auditsOnDate = schedules.filter(
     s => s.date === audit.date && (s.auditor1Id === currentUser?.id || s.auditor2Id === currentUser?.id)
@@ -71,15 +80,24 @@ export const AuditTableRow: React.FC<AuditTableRowProps> = ({
 
   const isPast = !!(audit.date && audit.date < todayStr);
   const userCanAudit = canAuditDepartment(audit.departmentId);
-  const isDateValid = isDateInValidPhase(audit.date, audit.phaseId);
+  const isDateValid = !audit.date || auditPhases.some(p => {
+    const start = new Date(p.startDate);
+    const end = new Date(p.endDate);
+    start.setHours(0, 0, 0, 0);
+    end.setHours(23, 59, 59, 999);
+    const d = new Date(audit.date);
+    return d >= start && d <= end;
+  });
   const locationLevel = loc?.level;
   const isLocked = isAuditLocked(audit);
   // Treat "In Progress" and "Completed" as visually locked even for legacy rows
   // where isLocked may still be false (data predates the lock mechanism).
   const isEffectivelyLocked = isLocked || audit.status === 'In Progress' || audit.status === 'Completed';
-  const canLock = isSupervisor;
+  const canLock = isAdmin || isCoordinator || isSupervisor; // Admin, Coordinator & Supervisor can lock/unlock (main site only)
   const allFieldsSet = !!(audit.date && audit.supervisorId && audit.auditor1Id && audit.auditor2Id);
-  const canToggleLock = isLocked || allFieldsSet;
+  // Allow toggling if: already effectively locked (any privileged role can unlock),
+  // OR all fields are set and it's not yet locked (ready to lock).
+  const canToggleLock = isEffectivelyLocked || allFieldsSet;
 
   return (
     <tr className={`hover:bg-slate-50/50 transition-colors ${isEffectivelyLocked ? 'bg-slate-50/30 opacity-90' : ''}`}>
@@ -95,17 +113,15 @@ export const AuditTableRow: React.FC<AuditTableRowProps> = ({
                 title="Audit Date"
                 placeholder="YYYY-MM-DD"
                 value={audit.date || ''}
-                disabled={!hasPhases || !canEditDates}
+                disabled={!hasPhases || !canEditThisDate}
                 onChange={(e) => onDateChange(audit.id, e.target.value, audit.phaseId)}
                 className={`w-full pl-8 pr-2 py-1.5 rounded-lg text-xs font-bold border outline-none transition-all ${
-                  !canEditDates
+                  !canEditThisDate
                     ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed'
                     : !hasPhases
                     ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed'
                     : !audit.date
                     ? 'bg-amber-50 border-amber-100 text-amber-600 focus:ring-amber-500/20'
-                    : !isDateValid
-                    ? 'bg-rose-50 border-rose-200 text-rose-600'
                     : 'bg-slate-50 border-slate-200 text-slate-900 focus:ring-blue-500/20 group-hover:bg-white'
                 }`}
               />
@@ -118,7 +134,7 @@ export const AuditTableRow: React.FC<AuditTableRowProps> = ({
               )}
             </div>
 
-            {!isLocked && canEditDates && hasPhases && !audit.date && (
+            {!isLocked && canEditThisDate && hasPhases && !audit.date && (
               <button
                 onClick={() => {
                   const today = new Date().toISOString().split('T')[0];
@@ -140,8 +156,9 @@ export const AuditTableRow: React.FC<AuditTableRowProps> = ({
               <button
                 disabled={!canToggleLock}
                 onClick={() => {
-                  if (!isLocked) {
-                    if (!window.confirm(`Lock inspection for "${loc?.name || audit.locationId}"?\n\nThis will freeze the date and all assignments. Only a Supervisor can unlock it.`)) return;
+                  // If effectively locked (locked flag or In Progress/Completed), this is an UNLOCK action
+                  if (!isEffectivelyLocked) {
+                    if (!window.confirm(`Lock inspection for "${loc?.name || audit.locationId}"?\n\nThis will freeze the date and all assignments. Only Admin, Coordinator, or Supervisor can unlock it (main site only).`)) return;
                   }
                   onToggleLock(audit.id);
                 }}
@@ -166,8 +183,8 @@ export const AuditTableRow: React.FC<AuditTableRowProps> = ({
           </div>
 
           {isDateValid === false && audit.date && (
-            <div className="text-[9px] font-bold text-red-500 whitespace-nowrap bg-red-50 px-2 py-1 rounded-lg border border-red-100 w-fit">
-              Outside phase window
+            <div className="text-[9px] font-bold text-amber-600 whitespace-nowrap bg-amber-50 px-2 py-1 rounded-lg border border-amber-100 w-fit">
+              Outside all phases
             </div>
           )}
         </div>
@@ -318,8 +335,8 @@ export const AuditTableRow: React.FC<AuditTableRowProps> = ({
       {/* ── Status Cell ── */}
       <td className="px-5 py-4 align-top text-center w-44">
         {(() => {
-          const canComplete = isAdmin || isCoordinator || (isCurrentUserAssigned && isCertified && isAuditor);
-          const canApprove = isSupervisor || isAdmin;
+          const canComplete = isCertified && (isAdmin || isCoordinator || (isCurrentUserAssigned && isAuditor));
+          const canApprove = isAdmin || isCoordinator || isSupervisor; // Admin, Coordinator & Supervisor can lock/approve (main site only)
           return (
             <div className="flex flex-col items-center gap-2">
               {/* Status badge */}
@@ -329,24 +346,41 @@ export const AuditTableRow: React.FC<AuditTableRowProps> = ({
 
               {/* Awaiting Approval: lock action */}
               {audit.status === 'Awaiting Approval' && (
-                canApprove ? (
-                  <button
-                    onClick={() => {
-                      if (!window.confirm(`Lock & approve inspection for "${loc?.name || audit.locationId}"?\n\nStatus will change to "In Progress".`)) return;
-                      onToggleLock(audit.id);
-                    }}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500 text-white rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-emerald-600 transition-all shadow-md shadow-emerald-500/25 active:scale-95 whitespace-nowrap"
-                    title="Lock this inspection to approve it — sets status to In Progress"
-                  >
-                    <Lock className="w-3 h-3" />
-                    Lock to Approve
-                  </button>
-                ) : (
-                  <div className="flex items-center gap-1 px-2 py-1 bg-amber-50 text-amber-600 border border-amber-100 rounded-lg text-[9px] font-bold whitespace-nowrap">
-                    <Lock className="w-2.5 h-2.5 shrink-0" />
-                    <span>Awaiting supervisor lock</span>
-                  </div>
-                )
+                <>
+                  {canApprove ? (
+                    <button
+                      onClick={() => {
+                        if (!window.confirm(`Lock & approve inspection for "${loc?.name || audit.locationId}"?\n\nStatus will change to "In Progress".`)) return;
+                        onToggleLock(audit.id);
+                      }}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500 text-white rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-emerald-600 transition-all shadow-md shadow-emerald-500/25 active:scale-95 whitespace-nowrap"
+                      title="Lock this inspection to approve it — sets status to In Progress"
+                    >
+                      <Lock className="w-3 h-3" />
+                      Lock to Approve
+                    </button>
+                  ) : (
+                    <div className="flex items-center gap-1 px-2 py-1 bg-amber-50 text-amber-600 border border-amber-100 rounded-lg text-[9px] font-bold whitespace-nowrap">
+                      <Lock className="w-2.5 h-2.5 shrink-0" />
+                      <span>Awaiting supervisor/coordinator lock</span>
+                    </div>
+                  )}
+
+                  {canSendApprovalReminder && (
+                    <button
+                      onClick={() => {
+                        const actionLabel = hasSentApprovalReminder ? 'resend' : 'send';
+                        if (!window.confirm(`${actionLabel.charAt(0).toUpperCase()}${actionLabel.slice(1)} an approval reminder email to the supervisor for "${loc?.name || audit.locationId}"?`)) return;
+                        onSendEmail(audit.id);
+                      }}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 text-slate-600 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200 transition-all active:scale-95 whitespace-nowrap"
+                      title="Send approval reminder email to supervisor"
+                    >
+                      <Mail className="w-3 h-3" />
+                      {hasSentApprovalReminder ? 'Resend Reminder' : 'Send Reminder'}
+                    </button>
+                  )}
+                </>
               )}
 
               {/* In Progress: upload action */}

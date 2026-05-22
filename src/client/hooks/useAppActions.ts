@@ -328,6 +328,21 @@ export const useAppActions = (props: AppActionsProps) => {
     } catch (e) { showError(e); }
   };
 
+  const handleSendApprovalEmail = async (id: string) => {
+    setIsProcessing(true);
+    try {
+      await gateway.sendApprovalEmail(id);
+      showToast('Approval reminder email sent successfully!', 'success');
+      // Refresh activities to show the newly logged event
+      const acts = await gateway.getSystemActivity();
+      setActivities(acts);
+    } catch (e) {
+      showError(e);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   const handleToggleStatus = async (id: string) => {
     try {
       const s = schedules.find(x => x.id === id); if (!s) return;
@@ -364,7 +379,7 @@ export const useAppActions = (props: AppActionsProps) => {
   };
 
   const handleUpdateLoc = async (id: string, updates: Partial<Location>) => {
-    try { await gateway.updateLocation(id, updates); setLocations(await gateway.getLocations()); await refreshDepartmentTotals(); }
+    try { await gateway.updateLocation(id, updates); setLocations(await gateway.getLocations()); await refreshDepartmentTotals(); setSchedules(await gateway.getAudits()); }
     catch (e) { showError(e); }
   };
 
@@ -382,6 +397,7 @@ export const useAppActions = (props: AppActionsProps) => {
         await gateway.updateLocation(id, { status: 'Archived' });
         setLocations(await gateway.getLocations());
         await refreshDepartmentTotals();
+        setSchedules(await gateway.getAudits());
       } catch (e) { showError(e); }
     });
   };
@@ -392,7 +408,7 @@ export const useAppActions = (props: AppActionsProps) => {
   };
 
   const handleRejectArchive = async (locationId: string) => {
-    try { const updated = await gateway.updateLocation(locationId, { status: 'Active' }); setLocations(prev => prev.map(l => l.id === locationId ? (updated as unknown as Location) : l)); }
+    try { const updated = await gateway.updateLocation(locationId, { status: 'Active' }); setLocations(prev => prev.map(l => l.id === locationId ? (updated as unknown as Location) : l)); setSchedules(await gateway.getAudits()); await refreshDepartmentTotals(); }
     catch (e) { showError(e); }
   };
 
@@ -512,10 +528,21 @@ export const useAppActions = (props: AppActionsProps) => {
         const totalAssets = dept.totalAssets || 0; if (totalAssets === 0) continue;
         const tier = allTiers.filter(t => (totalAssets / totalInstAssets) * 100 >= t.minAssets).reverse()[0];
         if (!tier) continue;
-        const deptLocs = allLocs.filter(l => l.departmentId === dept.id).sort((a, b) => (b.totalAssets || 0) - (a.totalAssets || 0));
+        const deptLocs = allLocs.filter(l => l.departmentId === dept.id && l.status !== 'Archived').sort((a, b) => (b.totalAssets || 0) - (a.totalAssets || 0));
         const deptAudits = allAudits.filter(a => a.departmentId === dept.id);
         
         let assignedAssets = 0;
+        const usedLocIds = new Set<string>();
+
+        // Account for locked audits so we don't over-assign
+        deptAudits.filter(a => isAuditLocked(a)).forEach(a => {
+          usedLocIds.add(a.locationId);
+          const loc = deptLocs.find(l => l.id === a.locationId);
+          if (loc) {
+            assignedAssets += (loc.totalAssets || 1);
+          }
+        });
+
         for (const phase of allPhases) {
           const kt = kpiTierTargets.find(k => k.tierId === tier.id && k.phaseId === phase.id);
           const targetPct = kt?.targetPercentage ?? tier.targets?.[phase.id] ?? 0;
@@ -524,7 +551,7 @@ export const useAppActions = (props: AppActionsProps) => {
           if (needs <= 0) continue;
 
           let currentPhaseAssets = 0;
-          const toAssign = deptLocs.filter(l => !deptAudits.some(a => a.locationId === l.id && isAuditLocked(a)));
+          const toAssign = deptLocs.filter(l => !usedLocIds.has(l.id));
           for (const loc of toAssign) {
             if (currentPhaseAssets < needs) {
                const existing = deptAudits.find(a => a.locationId === loc.id);
@@ -540,6 +567,7 @@ export const useAppActions = (props: AppActionsProps) => {
                  supervisorId: currentUser?.id || ''
                });
                currentPhaseAssets += (loc.totalAssets || 1);
+               usedLocIds.add(loc.id);
             }
           }
           assignedAssets += currentPhaseAssets;
@@ -758,7 +786,7 @@ export const useAppActions = (props: AppActionsProps) => {
       setIsProcessing(true);
       const result = await bulkManagement.addLocations(newLocs, departments, users, locations, locationMappings, buildings);
       if (result.newUsersCreated?.length) setUsers(prev => [...prev, ...result.newUsersCreated!]);
-      setLocations(await gateway.getLocations()); await refreshDepartmentTotals(); setDepartments(await gateway.getDepartments());
+      setLocations(await gateway.getLocations()); await refreshDepartmentTotals(); setDepartments(await gateway.getDepartments()); setSchedules(await gateway.getAudits());
       showToast('Locations imported');
     } catch (e) { showError(e); }
     finally { setIsProcessing(false); }
@@ -853,12 +881,12 @@ export const useAppActions = (props: AppActionsProps) => {
   };
 
   const handleUpsertLocations = async (locs: Omit<Location, 'id'>[]) => {
-    try { await gateway.upsertLocations(locs); setLocations(await gateway.getLocations()); await refreshDepartmentTotals(); }
+    try { await gateway.upsertLocations(locs); setLocations(await gateway.getLocations()); await refreshDepartmentTotals(); setSchedules(await gateway.getAudits()); }
     catch (e) { showError(e); }
   };
 
   const handleSyncLocationMappings = async () => {
-    try { await gateway.syncLocationMappings(); setLocations(await gateway.getLocations()); await refreshDepartmentTotals(); }
+    try { await gateway.syncLocationMappings(); setLocations(await gateway.getLocations()); await refreshDepartmentTotals(); setSchedules(await gateway.getAudits()); }
     catch (e) { showError(e); }
   };
 
@@ -909,7 +937,7 @@ export const useAppActions = (props: AppActionsProps) => {
   return {
     showToast, closeToast, showError, customConfirm, customAlert, logActivity, handleLogout, handleLoginSuccess,
     refreshDepartmentTotals, handleToggleLock, handleAssign, handleUnassign, handleDeleteAudit, handleUpdateAudit,
-    handleUpdateAuditDate, handleToggleStatus, handleAddLoc, handleUpdateLoc, handleArchiveLoc, handleAddDept,
+    handleUpdateAuditDate, handleSendApprovalEmail, handleToggleStatus, handleAddLoc, handleUpdateLoc, handleArchiveLoc, handleAddDept,
     handleUpdateDept, handleArchiveDept, handleAddPermission, handleRemovePermission, handleUpdatePhase,
     handleRebalanceSchedule, handleResetOperationalData, handleLockPairing, handleUnlockPairing, handleResetPairingData, handleViewChange,
     handleResetDepartments, handleResetLocations, handleResetUsers, handleResetPhases, handleResetKPI,

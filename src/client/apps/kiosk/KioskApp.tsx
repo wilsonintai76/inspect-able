@@ -942,8 +942,6 @@ export const KioskApp: React.FC = () => {
                   locationFilter={locationFilter}
                   uniqueBuildings={uniqueBuildings}
                   uniqueLevels={uniqueLevels}
-                  auditorStats={auditorStats}
-                  threshold={maxAssets}
                   onSearchChange={setSearch}
                   onPhaseChange={setPhaseFilter}
                   onStatusChange={setStatusFilter}

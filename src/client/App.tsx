@@ -111,7 +111,7 @@ const App: React.FC = () => {
     handleLoginSuccess, handleLogout, handleViewChange,
     handleIssueCertForRenewal, handleUpdateDashboardConfig,
     handleAssign, handleUnassign, handleUpdateAuditDate,
-    handleUpdateAudit, handleToggleStatus, handleToggleLock,
+    handleUpdateAudit, handleToggleStatus, handleToggleLock, handleSendApprovalEmail,
     handleAddMember, handleBulkAddMembers, handleUpdateMember,
     handleDeleteMember, handleUpdateUserRoles, handleUpdateUserStatus,
     handleResetUserPassword, handleAddDept, handleUpdateDept,
@@ -305,13 +305,12 @@ const App: React.FC = () => {
       notifications={appData.notifications}
       setNotifications={appData.setNotifications}
       connectionErrorMessage={connectionErrorMessage}
+      isProcessing={appData.isProcessing}
     >
       <AutoUpdater />
       {activeView === 'overview' && (
         <OverviewDashboard
           schedules={filteredSchedules}
-          config={currentUser.dashboardConfig || DEFAULT_DASHBOARD_CONFIG}
-          onUpdateConfig={handleUpdateDashboardConfig}
           phases={auditPhases}
           kpiTiers={kpiTiers}
           departments={departmentsWithAssets}
@@ -326,7 +325,6 @@ const App: React.FC = () => {
           kpiTierTargets={kpiTierTargets}
           openAuditThreshold={openAuditThreshold}
           users={users}
-          onRebalance={handleRebalanceSchedule}
         />
       )}
       {activeView === 'auditor-dashboard' && (
@@ -347,6 +345,7 @@ const App: React.FC = () => {
       {activeView === 'schedule' && (
         <AuditTable
           schedules={filteredSchedules}
+          activities={activities}
           users={users}
           currentUserName={currentUser.name}
           userRoles={currentUser.roles}
@@ -370,6 +369,7 @@ const App: React.FC = () => {
           maxAssetsPerDay={maxAssetsPerDay}
           buildings={buildings}
           assignmentMode={assignmentMode}
+          onSendEmail={handleSendApprovalEmail}
         />
       )}
       {activeView === 'team' && (
@@ -445,6 +445,7 @@ const App: React.FC = () => {
           onApproveArchive={handleApproveArchive}
           onRejectArchive={handleRejectArchive}
           onApproveCert={appActions.handleApproveCert}
+          onSendEmail={handleSendApprovalEmail}
           coordinatorDeptId={!isAdminUser && currentUser.roles?.includes('Coordinator') ? currentUser.departmentId : undefined}
         />
       )}
@@ -544,6 +545,8 @@ const App: React.FC = () => {
           openAuditThreshold={openAuditThreshold}
           onUpdateOpenAuditThreshold={handleUpdateOpenAuditThreshold}
           onMergeLocations={handleMergeLocations}
+          onRestoreLocation={handleRejectArchive}
+          onPurgeLocation={handlePurgeLoc}
         />
       )}
       {activeView === 'profile' && <UserProfile user={currentUser} departments={departmentsWithAssets} onUpdate={handleUpdateMember} />}

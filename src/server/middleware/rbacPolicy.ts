@@ -33,7 +33,7 @@ export const RBAC_POLICY: Record<RBACPermission, UserRole[]> = {
   'set:audit:date':         ['Admin', 'Coordinator', 'Supervisor'],             // Set Audit Dates (*priority rules in app)
   'self:assign:internal':   ['Admin', 'Supervisor', 'Auditor'],                // Self-Assign (internal audit)
   'self:assign:cross':      ['Admin', 'Supervisor', 'Auditor'],                // Self-Assign (cross-audit)
-  'assign:others':          ['Admin'],                                          // Assign Others (schedule)
+  'assign:others':          ['Admin', 'Coordinator'],                            // Assign Others (schedule) — Coordinators: dept-scoped
   'auto:assign':            ['Admin'],                                          // Auto-Assign
   // Officer Hub
   'officer:hub':            ['Admin', 'Supervisor', 'Auditor'],

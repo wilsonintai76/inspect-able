@@ -90,17 +90,6 @@ export const auditAssignmentGuard = async (
     return next();
   }
 
-  // Coordinators with assign-others permission are still department-scoped.
-  // They can only assign officers to audits under their own department.
-  if (canAssignOthers && isCoordinatorCaller && !isAdminCaller) {
-    if (!caller.departmentId || caller.departmentId !== targetDeptId) {
-      return c.json(
-        { error: 'Forbidden: coordinators can only assign officers for audits in their own department' },
-        403,
-      );
-    }
-  }
-
   // ── Resolve the site supervisor ID ───────────────────────────────────────
   let supervisorId: string | null = (updates as any).supervisorId ?? null;
   if (!supervisorId) {
@@ -149,18 +138,11 @@ export const auditAssignmentGuard = async (
     const auditorDeptId = auditor?.department_id;
     if (!auditorDeptId) continue; // No dept set, cannot verify — allow
 
-    // Fetch target department's exemption status (Internal Audit Mode)
-    const targetDept = await c.env.DB.prepare(
-      'SELECT is_exempted FROM departments WHERE id = ?'
-    ).bind(targetDeptId).first<{ is_exempted: number }>();
-    const isInternalAuditMode = targetDept?.is_exempted === 1;
-
-    // Rule 2a: Own-department block (Bypass allowed for ADMINS or departments in Internal Audit Mode)
-    const isAdmin = isAdminCaller;
-    if (auditorDeptId === targetDeptId && !isAdmin && !isInternalAuditMode) {
+    // Rule 2a: Own-department block (ABSOLUTE — no exemptions)
+    if (auditorDeptId === targetDeptId) {
       return c.json(
         {
-          error: 'Conflict of interest: an auditor cannot be assigned to audit their own department unless it is in Internal Audit Mode',
+          error: 'Conflict of interest: an auditor cannot be assigned to audit their own department',
           code: 'SELF_DEPARTMENT',
         },
         409,
@@ -215,11 +197,6 @@ export const auditAssignmentGuard = async (
     // Bypass if system is running in Open Audit Mode (always active)
     if (assignmentMode === 'open-audit') {
       continue;
-    }
-
-    // Bypass for Internal Audit Mode (Self-Audit)
-    if (isInternalAuditMode && auditorDeptId === targetDeptId) {
-      continue; 
     }
 
     // Checks both directed and mutual permissions at either Department or Group level.

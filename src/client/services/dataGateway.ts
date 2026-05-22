@@ -78,6 +78,10 @@ class DataGateway {
     await this.rpc<unknown>(h => (api as any).db.audits[':id'].$delete({ param: { id } }, { headers: h }));
   }
 
+  async sendApprovalEmail(id: string): Promise<void> {
+    await this.rpc<unknown>(h => (api as any).db.audits[':id']['send-approval-email'].$post({ param: { id } }, { headers: h }));
+  }
+
   // --- USERS ---
   async getUsers(): Promise<User[]> {
     return this.rpc<User[]>(h => (api as any).db.users.$get({}, { headers: h }));

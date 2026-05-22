@@ -42,7 +42,7 @@ compute.get('/kpi', async (c) => {
   const [deptsResult, locsResult, schedulesResult, tiersResult, tierTargetsResult, phasesResult, instKPIsResult] =
     await Promise.all([
       db.prepare('SELECT id, name, total_assets FROM departments').all(),
-      db.prepare('SELECT id, department_id, total_assets FROM locations').all(),
+      db.prepare("SELECT id, department_id, total_assets FROM locations WHERE status != 'Archived'").all(),
       db.prepare('SELECT location_id, department_id, phase_id, status FROM audit_schedules').all(),
       db.prepare('SELECT id, name, min_assets FROM kpi_tiers ORDER BY min_assets ASC').all(),
       db.prepare('SELECT tier_id, phase_id, target_percentage FROM kpi_tier_targets').all(),
@@ -167,7 +167,7 @@ compute.post(
 
     const [deptsRes, locsRes, schedulesRes, tiersRes, tierTargetsRes, phasesRes] = await Promise.all([
       db.prepare('SELECT * FROM departments').all(),
-      db.prepare('SELECT * FROM locations ORDER BY total_assets DESC').all(),
+      db.prepare("SELECT * FROM locations WHERE status != 'Archived' ORDER BY total_assets DESC").all(),
       db.prepare('SELECT * FROM audit_schedules').all(),
       db.prepare('SELECT * FROM kpi_tiers ORDER BY min_assets ASC').all(),
       db.prepare('SELECT * FROM kpi_tier_targets').all(),
@@ -374,7 +374,7 @@ compute.post(
             OR JSON_EXTRACT(roles, '$') LIKE '%Staff%'
           )
       `).all(),
-      db.prepare('SELECT department_id, count(*) as count FROM locations GROUP BY department_id').all()
+      db.prepare("SELECT department_id, count(*) as count FROM locations WHERE status != 'Archived' GROUP BY department_id").all()
     ]);
     
     const depts = (freshDeptsRes.results || []) as any[];
@@ -822,7 +822,7 @@ compute.post(
       `).all(),
       db.prepare('SELECT phase_id, target_percentage FROM institution_kpi_targets').all(),
       db.prepare('SELECT * FROM cross_audit_permissions WHERE is_active = 1').all(),
-      db.prepare('SELECT department_id, count(*) as count FROM locations GROUP BY department_id').all(),
+      db.prepare("SELECT department_id, count(*) as count FROM locations WHERE status != 'Archived' GROUP BY department_id").all(),
       db.prepare('SELECT * FROM audit_groups').all()
     ]);
 
@@ -1456,7 +1456,7 @@ compute.post(
       db.prepare('SELECT id, name, start_date, end_date FROM audit_phases ORDER BY start_date ASC').all(),
       db.prepare('SELECT phase_id, target_percentage FROM institution_kpi_targets').all(),
       db.prepare("SELECT value FROM system_settings WHERE id = 'audit_constraints'").first<{ value: string }>(),
-      db.prepare('SELECT department_id, count(*) as count, SUM(total_assets) as assets FROM locations GROUP BY department_id').all(),
+      db.prepare("SELECT department_id, count(*) as count, SUM(total_assets) as assets FROM locations WHERE status != 'Archived' GROUP BY department_id").all(),
       db.prepare("SELECT phase_id, status, count(*) as count FROM audit_schedules GROUP BY phase_id, status").all()
     ]);
  

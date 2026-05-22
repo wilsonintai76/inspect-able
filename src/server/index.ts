@@ -57,6 +57,36 @@ app.notFound((c) => c.json({ success: false, error: 'Route not found' }, 404));
 // Public routes (no auth required)
 app.get('/health', (c) => c.json({ status: 'ok', time: new Date().toISOString() }));
 
+// ─── Performance Indexes (applied once per cold start, idempotent) ──────────
+app.use('*', async (c, next) => {
+  try {
+    const db = c.env.DB;
+    // Audit schedules indexes
+    await db.exec(`CREATE INDEX IF NOT EXISTS idx_schedules_date ON audit_schedules(date)`);
+    await db.exec(`CREATE INDEX IF NOT EXISTS idx_schedules_status ON audit_schedules(status)`);
+    await db.exec(`CREATE INDEX IF NOT EXISTS idx_schedules_location ON audit_schedules(location_id)`);
+    await db.exec(`CREATE INDEX IF NOT EXISTS idx_schedules_department ON audit_schedules(department_id)`);
+    await db.exec(`CREATE INDEX IF NOT EXISTS idx_schedules_phase ON audit_schedules(phase_id)`);
+    await db.exec(`CREATE INDEX IF NOT EXISTS idx_schedules_auditor1 ON audit_schedules(auditor1_id)`);
+    await db.exec(`CREATE INDEX IF NOT EXISTS idx_schedules_auditor2 ON audit_schedules(auditor2_id)`);
+    await db.exec(`CREATE INDEX IF NOT EXISTS idx_schedules_supervisor ON audit_schedules(supervisor_id)`);
+    await db.exec(`CREATE INDEX IF NOT EXISTS idx_schedules_loc_status ON audit_schedules(location_id, status)`);
+    await db.exec(`CREATE INDEX IF NOT EXISTS idx_schedules_date_status ON audit_schedules(date, status)`);
+    await db.exec(`CREATE INDEX IF NOT EXISTS idx_schedules_dept_status ON audit_schedules(department_id, status)`);
+    await db.exec(`CREATE INDEX IF NOT EXISTS idx_schedules_auditor1_date ON audit_schedules(auditor1_id, date)`);
+    await db.exec(`CREATE INDEX IF NOT EXISTS idx_schedules_auditor2_date ON audit_schedules(auditor2_id, date)`);
+    // Locations indexes
+    await db.exec(`CREATE INDEX IF NOT EXISTS idx_locations_department ON locations(department_id)`);
+    await db.exec(`CREATE INDEX IF NOT EXISTS idx_locations_status ON locations(status)`);
+    // Users indexes
+    await db.exec(`CREATE INDEX IF NOT EXISTS idx_users_department ON users(department_id)`);
+    await db.exec(`CREATE INDEX IF NOT EXISTS idx_users_cert_expiry ON users(certification_expiry)`);
+    await db.exec(`CREATE INDEX IF NOT EXISTS idx_users_status ON users(status)`);
+  } catch (_) { /* indexes may already exist, safe to ignore */ }
+  await next();
+});
+// ────────────────────────────────────────────────────────────────────────────
+
 // Protected routes — auth → domain guard applied in order
 app.use('/db/*', authMiddleware, domainGuard);
 app.use('/ai/*', authMiddleware, domainGuard);

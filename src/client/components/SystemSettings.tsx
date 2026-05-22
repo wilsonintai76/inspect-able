@@ -6,6 +6,7 @@ import { KPISettings } from './KPISettings';
 import { TierDistributionTable } from './TierDistributionTable';
 import { suggestThresholds } from '../services/aiService';
 import { DataManagementWorkflow } from './DataManagementWorkflow';
+import { ArchivedLocationsPanel } from './ArchivedLocationsPanel';
 import { Zap, Sliders, AlertCircle, Eye, Calendar, UserCheck, Users, UserPlus, Edit, ShieldAlert, ShieldCheck, Network, Lock, Unlock, RotateCcw, Building2, Trash2, Database, RefreshCcw } from 'lucide-react';
 import { BackupManager } from './BackupManager';
 import { AuditConstraints } from './AuditConstraints';
@@ -102,6 +103,9 @@ interface SystemSettingsProps {
   onUpsertLocations?: (locs: Location[]) => Promise<void>;
   onMergeLocations?: (sourceIds: string[], targetId: string) => Promise<void>;
   onResetOnlyPermissions?: () => void;
+  // Archived locations management
+  onRestoreLocation?: (id: string) => Promise<void>;
+  onPurgeLocation?: (id: string) => Promise<void>;
 }
 
 export const SystemSettings: React.FC<SystemSettingsProps> = ({
@@ -182,6 +186,8 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
   onDeleteLocationMapping,
   onSyncLocationNotes,
   onMergeLocations,
+  onRestoreLocation,
+  onPurgeLocation,
   onUnlockPairing,
   currentUser,
   isGroupSimulatorActive,
@@ -490,7 +496,7 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
                 
                 <div className="space-y-3">
                   <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Source(s) (ToDelete)</label>
+                    <label htmlFor="merge-sources" className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Source(s) (ToDelete)</label>
                     <select 
                       multiple
                       className="w-full p-2 bg-white border border-slate-200 rounded-lg text-[11px] font-medium h-24 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
@@ -503,7 +509,7 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
                   </div>
                   
                   <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Target (ToKeep)</label>
+                    <label htmlFor="merge-target" className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Target (ToKeep)</label>
                     <select 
                       className="w-full p-2 bg-white border border-slate-200 rounded-lg text-[11px] font-medium focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
                       id="merge-target"
@@ -546,6 +552,17 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
             </div>
           </div>
         </div>
+      )}
+
+      {/* ─── Archived Locations ─── */}
+      {isAdmin && (
+        <ArchivedLocationsPanel
+          locations={locations}
+          departments={departments}
+          onRestore={onRestoreLocation || (async () => {})}
+          onPurge={onPurgeLocation || (async () => {})}
+          showToast={showToast}
+        />
       )}
 
       {isAdmin && <BrandingSettings showToast={showToast} />}

@@ -275,7 +275,7 @@ export const useAppData = () => {
     const deptTotals: Record<string, number> = {};
     const deptLocations: Record<string, number> = {};
     locations.forEach(l => { 
-      if (l.departmentId) {
+      if (l.departmentId && l.status !== 'Archived') {
         deptTotals[l.departmentId] = (deptTotals[l.departmentId] || 0) + (l.totalAssets || 0);
         deptLocations[l.departmentId] = (deptLocations[l.departmentId] || 0) + 1;
       }
@@ -313,9 +313,12 @@ export const useAppData = () => {
       if (selectedDept !== 'All' && s.departmentId !== departments.find(d => d.name === selectedDept)?.id) return false;
       if (selectedStatus !== 'All' && s.status !== selectedStatus) return false;
       if (selectedPhaseId !== 'All' && s.phaseId !== selectedPhaseId) return false;
+      // Exclude audits for archived locations
+      const loc = locations.find(l => l.id === s.locationId);
+      if (loc && loc.status === 'Archived') return false;
       return true;
     });
-  }, [schedules, selectedDept, selectedStatus, selectedPhaseId, departments]);
+  }, [schedules, selectedDept, selectedStatus, selectedPhaseId, departments, locations]);
 
   const topDepartments = useMemo(() => {
     return departmentsWithAssets

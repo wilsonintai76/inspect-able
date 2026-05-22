@@ -1,7 +1,7 @@
 
 import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { AuditPhase, KPITier, KPITierTarget, Department, Location, AuditSchedule, InstitutionKPITarget } from '@shared/types';
-import { ChevronDown, Building2, TrendingUp, AlertCircle, CheckCircle2, Trophy } from 'lucide-react';
+import { ChevronDown, Building2, TrendingUp, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { PrintButton } from './PrintButton';
 import { printKPICompletionTarget } from '../lib/printUtils';
@@ -228,85 +228,6 @@ export const KPIStatsWidget: React.FC<KPIStatsWidgetProps> = ({ phases, kpiTiers
            </div>
         </div>
       )}
-
-      <div className="space-y-6">
-        <h5 className="text-[11px] font-black uppercase text-slate-400 tracking-widest mb-4 flex items-center gap-2">
-           <Trophy className="w-3.5 h-3.5" />
-           {t('dashboard.tier_progress')}
-        </h5>
-        {tierStats.map(stat => {
-           const progressColor = stat.status === 'On Track' ? 'bg-emerald-500' : 'bg-amber-500';
-           const width = `${Math.min(100, stat.actualPercentage)}%`;
-           const targetMarker = `${Math.min(100, stat.targetPercentage)}%`;
-           const isExpanded = expandedTierId === stat.id;
-
-           return (
-             <div key={stat.id} className="group border border-slate-100 rounded-2xl p-4 hover:border-blue-100 transition-all bg-slate-50/30">
-               <div className="flex justify-between items-end mb-3 cursor-pointer" onClick={() => toggleExpand(stat.id)}>
-                 <div>
-                   <div className="flex items-center gap-2">
-                     <span className="text-sm font-bold text-slate-700 block">{stat.name}</span>
-                     <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
-                   </div>
-                   <span className="text-[10px] text-slate-400 font-medium">
-                     {stat.minAssets}% - {stat.isHighestTier ? '100' : stat.nextMin - 1}% Size Threshold • {stat.deptCount} Departments
-                   </span>
-                 </div>
-                 <div className="text-right">
-                   <span className={`text-xl font-black ${stat.status === 'On Track' ? 'text-emerald-600' : 'text-amber-600'}`}>
-                     {stat.actualPercentage}%
-                   </span>
-                   <span className="text-[10px] text-slate-400 font-medium ml-1 block">
-                     Target: {stat.targetPercentage}%
-                   </span>
-                 </div>
-               </div>
-               
-               <TierProgressBar actual={stat.actualPercentage} target={stat.targetPercentage} color={progressColor} />
-
-               {/* Expanded Department List */}
-               {isExpanded && (
-                 <div className="mt-4 pt-4 border-t border-slate-100 animate-in fade-in slide-in-from-top-1">
-                    <h5 className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-3">Department Breakdown</h5>
-                    
-                    {(!stat.departments || stat.departments.length === 0) ? (
-                        <p className="text-xs text-slate-400 italic">No departments fall into this asset tier.</p>
-                    ) : (
-                        <div className="space-y-3">
-                            {stat.departments.map(dept => (
-                                <div key={dept.id} className="flex items-center gap-3">
-                                    <div className="grow min-w-0">
-                                        <div className="flex justify-between mb-1">
-                                            <span className="text-xs font-bold text-slate-700 truncate">{dept.name}</span>
-                                            <span className={`text-[10px] font-bold ${dept.percentage >= stat.targetPercentage ? 'text-emerald-600' : 'text-amber-600'}`}>
-                                                {dept.percentage}%
-                                            </span>
-                                        </div>
-                                <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
-                                            <DeptProgressBar percentage={dept.percentage} color={dept.percentage >= stat.targetPercentage ? 'bg-emerald-400' : 'bg-amber-400'} />
-                                        </div>
-                                    </div>
-                                    <div className="text-right shrink-0 min-w-15">
-                                        <div className="text-[9px] text-slate-400 font-mono">
-                                            {dept.inspectedAssets.toLocaleString()}/{dept.assets.toLocaleString()} aset
-                                        </div>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                 </div>
-               )}
-             </div>
-           );
-        })}
-
-        {(!tierStats || tierStats.length === 0) && (
-           <div className="text-center py-6 text-slate-400 text-xs italic">
-             No KPI tiers configured. Please contact admin.
-           </div>
-        )}
-      </div>
     </div>
   );
 };

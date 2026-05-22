@@ -4,7 +4,7 @@ import {
   Users, MapPin, Calendar, Clock, AlertTriangle, 
   CheckCircle2, XCircle, Activity, ShieldAlert,
   Search, Filter, ArrowUpRight, Check, X,
-  AlertCircle, History, GraduationCap
+  AlertCircle, History, GraduationCap, Mail
 } from 'lucide-react';
 import { 
   User, Location, AuditSchedule, SystemActivity, 
@@ -23,13 +23,14 @@ interface AdminDashboardProps {
   onApproveArchive: (locationId: string) => void;
   onRejectArchive: (locationId: string) => void;
   onApproveCert: (user: User) => void;
+  onSendEmail: (id: string) => void;
   /** When set, scopes all data to this department (Coordinator view) */
   coordinatorDeptId?: string;
 }
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   users, locations, schedules, activities, departments, buildings, phases,
-  onApproveArchive, onRejectArchive, onApproveCert, coordinatorDeptId
+  onApproveArchive, onRejectArchive, onApproveCert, onSendEmail, coordinatorDeptId
 }) => {
   const isDeptScoped = !!coordinatorDeptId;
 
@@ -38,10 +39,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const scopedSchedules  = isDeptScoped ? schedules.filter(s => s.departmentId === coordinatorDeptId)  : schedules;
   const scopedUsers      = isDeptScoped ? users.filter(u => u.departmentId === coordinatorDeptId)       : users;
 
-  // 1. Pending Location Deletions
   const pendingDeletions = useMemo(() => 
     scopedLocations.filter(l => l.status === 'Pending_Delete'),
     [scopedLocations]
+  );
+
+  const awaitingApprovals = useMemo(() => 
+    scopedSchedules.filter(s => s.status === 'Awaiting Approval'),
+    [scopedSchedules]
   );
 
   // 2. Audit Gaps
@@ -83,6 +88,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     scopedUsers.filter(u => u.renewalRequested),
     [scopedUsers]
   );
+
+  const approvalReminderAuditIds = useMemo(() => {
+    return new Set(
+      activities
+        .filter(activity => {
+          const metadata = activity.metadata as Record<string, unknown> | undefined;
+          const hasAuditId = typeof metadata?.auditId === 'string';
+          const isApprovalEmail = metadata?.category === 'approval_email'
+            || /approval (email|reminder email)/i.test(activity.message);
+          return hasAuditId && isApprovalEmail;
+        })
+        .map(activity => String((activity.metadata as Record<string, unknown>).auditId))
+    );
+  }, [activities]);
 
   // Utility to get building abbreviation
   const getBuildingAbbr = (buildingId?: string | null) => {
@@ -130,6 +149,69 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         
         {/* LEFT COLUMN: PENDING TASKS & GAPS */}
         <div className="lg:col-span-2 space-y-8">
+
+          {/* 0. PENDING AUDIT APPROVALS */}
+          <section className="bg-white rounded-[32px] border border-slate-200 overflow-hidden shadow-sm">
+            <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center text-indigo-600 shadow-sm border border-indigo-200">
+                  <Activity className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900">Pending Audit Approvals</h3>
+                  <p className="text-xs text-slate-500 font-medium">Audits waiting for supervisor approval.</p>
+                </div>
+              </div>
+              <span className="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-[10px] font-black uppercase tracking-widest border border-indigo-200">
+                {awaitingApprovals.length} Pending
+              </span>
+            </div>
+            
+            <div className="divide-y divide-slate-50 max-h-96 overflow-y-auto">
+              {awaitingApprovals.map(audit => {
+                const loc = locations.find(l => l.id === audit.locationId);
+                const dept = departments.find(d => d.id === audit.departmentId);
+                const supervisor = users.find(u => u.id === audit.supervisorId);
+                const hasSentReminder = approvalReminderAuditIds.has(audit.id);
+                return (
+                  <div key={audit.id} className="p-6 flex items-center justify-between hover:bg-slate-50/50 transition-colors group">
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-2xl bg-white border border-slate-200 flex items-center justify-center text-slate-400 group-hover:border-indigo-200 group-hover:text-indigo-500 transition-colors shrink-0">
+                        <MapPin className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <div className="font-bold text-slate-900 flex items-center gap-2">
+                          {loc?.name || 'Unknown Location'}
+                        </div>
+                        <div className="text-xs text-slate-500 font-medium">{dept?.name || 'Unknown Dept'} • Supervisor: {supervisor?.name || 'Unassigned'}</div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button 
+                        onClick={() => {
+                          if (!window.confirm(`Send an approval reminder email to the supervisor for "${loc?.name || audit.locationId}"?`)) return;
+                          onSendEmail(audit.id);
+                        }}
+                        className="flex items-center justify-center gap-1.5 px-4 py-2 bg-white border border-slate-200 text-slate-600 hover:text-indigo-600 hover:border-indigo-200 hover:bg-indigo-50 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all active:scale-95 whitespace-nowrap"
+                        title="Send approval reminder email to supervisor"
+                      >
+                        <Mail className="w-3.5 h-3.5" />
+                        {hasSentReminder ? 'Resend Reminder' : 'Send Reminder'}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+              {awaitingApprovals.length === 0 && (
+                <div className="p-12 text-center">
+                  <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto mb-3 opacity-50">
+                    <CheckCircle2 className="w-6 h-6 text-slate-400" />
+                  </div>
+                  <p className="text-sm font-medium text-slate-400 italic">No audits waiting for approval.</p>
+                </div>
+              )}
+            </div>
+          </section>
           
           {/* 1. APPROVAL QUEUE */}
           <section className="bg-white rounded-[32px] border border-slate-200 overflow-hidden shadow-sm">

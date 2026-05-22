@@ -38,6 +38,7 @@ export interface User {
   status: 'Active' | 'Inactive' | 'Suspended' | 'Pending';
   isVerified?: boolean;
   mustChangePIN?: boolean;
+  hasPassword?: boolean; // false if Google OAuth-bound (no local password)
   password?: string;
   dashboardConfig?: DashboardConfig;
 }

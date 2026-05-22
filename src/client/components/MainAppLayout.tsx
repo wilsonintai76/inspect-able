@@ -16,6 +16,7 @@ interface MainAppLayoutProps {
   notifications: AppNotification[];
   setNotifications: React.Dispatch<React.SetStateAction<AppNotification[]>>;
   connectionErrorMessage: string | null;
+  isProcessing?: boolean;
   children: React.ReactNode;
 }
 
@@ -31,6 +32,7 @@ export const MainAppLayout: React.FC<MainAppLayoutProps> = ({
   notifications,
   setNotifications,
   connectionErrorMessage,
+  isProcessing,
   children
 }) => {
   return (
@@ -96,7 +98,13 @@ export const MainAppLayout: React.FC<MainAppLayoutProps> = ({
             {connectionErrorMessage && (
               <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl flex items-center gap-3 animate-in fade-in slide-in-from-top-2">
                 <AlertCircle className="w-5 h-5 shrink-0" />
-                <span className="font-medium text-sm">{connectionErrorMessage}</span>
+                <span className="font-medium text-sm flex-1">{connectionErrorMessage}</span>
+                <button
+                  onClick={() => window.location.reload()}
+                  className="px-4 py-1.5 bg-red-600 text-white rounded-lg text-xs font-bold hover:bg-red-700 transition-colors shrink-0"
+                >
+                  Retry
+                </button>
               </div>
             )}
 
@@ -140,6 +148,19 @@ export const MainAppLayout: React.FC<MainAppLayoutProps> = ({
           </footer>
         </div>
       </div>
+
+      {/* ─── Global Processing Overlay ─── */}
+      {isProcessing && (
+        <div className="fixed inset-0 z-300 flex items-center justify-center bg-slate-900/30 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl px-8 py-6 shadow-2xl flex items-center gap-4 animate-in zoom-in-95 duration-200">
+            <div className="w-8 h-8 border-3 border-slate-200 border-t-blue-600 rounded-full animate-spin"></div>
+            <div>
+              <p className="text-sm font-bold text-slate-900">Processing...</p>
+              <p className="text-xs text-slate-400">Please wait while your request is handled</p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

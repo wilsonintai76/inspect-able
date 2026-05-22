@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { AuditSchedule, User, UserRole, Department, Location, CrossAuditPermission, AuditPhase, Building as BuildingType } from '@shared/types';
+import { AuditSchedule, User, UserRole, Department, Location, CrossAuditPermission, AuditPhase, Building as BuildingType, SystemActivity } from '@shared/types';
 import { useRBAC } from '../contexts/RBACContext';
 import { AuditReportModal } from './AuditReportModal';
 import { AuditUploadModal } from './AuditUploadModal';
@@ -35,18 +35,21 @@ interface AuditTableProps {
   allLocations: Location[];
   crossAuditPermissions: CrossAuditPermission[];
   auditPhases: AuditPhase[];
+  activities: SystemActivity[];
   maxAssetsPerDay: number;
   buildings?: BuildingType[];
   assignmentMode?: 'cross-audit' | 'open-audit';
+  onSendEmail: (id: string) => void;
 }
 
 export const AuditTable: React.FC<AuditTableProps> = ({ 
   schedules, users, currentUserName, userRoles, departments, selectedDept, onDeptChange, selectedStatus, onStatusChange,
   selectedPhaseId, onPhaseChange, onAssign, onUnassign, onUpdateDate, onUpdateAudit, onToggleStatus, onToggleLock,
-  allDepartments, allLocations, crossAuditPermissions, auditPhases,
+  allDepartments, allLocations, crossAuditPermissions, auditPhases, activities,
   maxAssetsPerDay,
   buildings = [],
-  assignmentMode = 'cross-audit'
+  assignmentMode = 'cross-audit',
+  onSendEmail,
 }) => {
   const { hasPermission, rbacMatrix } = useRBAC();
   const [reportAudit, setReportAudit] = useState<AuditSchedule | null>(null);
@@ -78,18 +81,19 @@ export const AuditTable: React.FC<AuditTableProps> = ({
     return expiry > now;
   }, [currentUser]);
 
-  // Combined concept: Eligible Field Auditor
-  const canSelfAssignSelf = hasFieldRole && isCertified;
+  // Self-assign is for Auditor role only — not Coordinators, Supervisors, or Staff
+  const canSelfAssignSelf = isAuditor && isCertified;
 
   const hasPerm = (perm: string) => hasPermission(perm, userRoles);
 
   const canEditDates = hasPerm('edit:audit:date');
   const canSelfAssignPerm = hasPerm('edit:audit:assign');
-  const canAssignOthers = isAdmin && hasPerm('edit:audit:assign:others');
+  const canAssignOthers = (isAdmin || isCoordinator) && hasPerm('edit:audit:assign:others');
   const canAutoAssign = hasPerm('edit:audit:auto_assign');
   const canViewAllSchedule = hasPerm('view:schedule:all');
   const canViewOwnSchedule = hasPerm('view:schedule:own');
   const canViewMatrixSchedule = hasPerm('view:schedule:matrix');
+  const canSendApprovalReminder = hasPerm('view:admin:dashboard');
 
   const hasPhases = auditPhases?.length > 0;
   const todayStr = new Date().toISOString().split('T')[0];
@@ -152,8 +156,8 @@ export const AuditTable: React.FC<AuditTableProps> = ({
     const myEntityId = getEntityName(currentUser?.departmentId || '');
     const targetEntityId = getEntityName(targetDeptId);
 
-    // 1. Prevent self-audit at the entity level (Department or Group)
-    if (myEntityId === targetEntityId && !isAdmin) return false;
+    // 1. COI Rule (ABSOLUTE): Cannot audit own department — top management policy
+    if (myEntityId === targetEntityId) return false;
 
     // 2. Check if a pairing exists in crossAuditPermissions (only if in cross-audit mode)
     if (assignmentMode === 'cross-audit') {
@@ -197,27 +201,22 @@ export const AuditTable: React.FC<AuditTableProps> = ({
         return;
     }
     if (newDate) {
-        // Find if the new date matches ANY active phase
         const matchingPhase = auditPhases.find(p => {
-          const start = new Date(p.startDate);
-          const end = new Date(p.endDate);
-          start.setHours(0, 0, 0, 0);
-          end.setHours(23, 59, 59, 999);
+          const start = new Date(p.startDate); start.setHours(0, 0, 0, 0);
+          const end = new Date(p.endDate); end.setHours(23, 59, 59, 999);
           const d = new Date(newDate);
           return d >= start && d <= end;
         });
 
-        if (!matchingPhase) {
-          // If no matching phase found, show alert with available phase ranges
-          const ranges = auditPhases.map(p => `${p.name} (${p.startDate} to ${p.endDate})`).join('\n');
-          alert(`ACCESS DENIED: The selected date must fall inside one of the configured audit phases:\n\n${ranges}`);
+        if (matchingPhase && matchingPhase.id !== phaseId) {
+          onUpdateAudit(id, { date: newDate, phaseId: matchingPhase.id });
           return;
         }
     }
     onUpdateDate(id, newDate);
   };
 
-  const handleSelfAssign = (auditId: string, slot: 1 | 2, date: string, phaseId: string, manualUserId?: string) => {
+  const handleSelfAssign = async (auditId: string, slot: 1 | 2, date: string, phaseId: string, manualUserId?: string) => {
     const audit = schedules.find(s => s.id === auditId);
     if (!audit) return;
 
@@ -280,9 +279,16 @@ export const AuditTable: React.FC<AuditTableProps> = ({
       alert("Please select a valid audit date before assigning yourself.");
       return;
     }
-    if (!isDateInValidPhase(date, phaseId)) {
-        alert("The current date set for this audit is not within its valid phase. Please update the date first.");
-        return;
+    // Phase is a projection guideline — accept any phase as long as date falls in one
+    const matchingPhase = auditPhases.find(p => {
+      const d = new Date(date);
+      const start = new Date(p.startDate); start.setHours(0,0,0,0);
+      const end = new Date(p.endDate); end.setHours(23,59,59,999);
+      return d >= start && d <= end;
+    });
+    if (matchingPhase && matchingPhase.id !== phaseId) {
+      // Auto-update phaseId to match the date
+      await onUpdateAudit(auditId, { date, phaseId: matchingPhase.id });
     }
     onAssign(auditId, slot, assignUserId);
   };
@@ -392,8 +398,8 @@ export const AuditTable: React.FC<AuditTableProps> = ({
       // Own Dept Permission
       if (canViewOwnSchedule && s.departmentId === currentUser?.departmentId) isVisible = true;
       
-      // Matrix-Based Permission (View only cross-audit targets)
-      if (canViewMatrixSchedule && canAuditDepartment(s.departmentId)) isVisible = true;
+      // Matrix-Based Permission — show all cross-audit targets (own-dept disabled per-row)
+      if (canViewMatrixSchedule) isVisible = true;
 
       if (!isVisible) return false;
 
@@ -409,6 +415,20 @@ export const AuditTable: React.FC<AuditTableProps> = ({
   const isAuditLocked = (audit: AuditSchedule) => {
     return audit.isLocked === true;
   };
+
+  const approvalReminderAuditIds = useMemo(() => {
+    return new Set(
+      activities
+        .filter(activity => {
+          const metadata = activity.metadata as Record<string, unknown> | undefined;
+          const hasAuditId = typeof metadata?.auditId === 'string';
+          const isApprovalEmail = metadata?.category === 'approval_email'
+            || /approval (email|reminder email)/i.test(activity.message);
+          return hasAuditId && isApprovalEmail;
+        })
+        .map(activity => String((activity.metadata as Record<string, unknown>).auditId))
+    );
+  }, [activities]);
 
   const activePhase = useMemo(() => {
     const today = new Date();
@@ -524,6 +544,8 @@ export const AuditTable: React.FC<AuditTableProps> = ({
                   hasFieldRole={hasFieldRole}
                   isCertified={isCertified}
                   assignmentMode={assignmentMode}
+                  canSendApprovalReminder={canSendApprovalReminder}
+                  hasSentApprovalReminder={approvalReminderAuditIds.has(audit.id)}
                   isAuditLocked={isAuditLocked}
                   isDateInValidPhase={isDateInValidPhase}
                   getBuildingAbbr={getBuildingAbbr}
@@ -532,6 +554,7 @@ export const AuditTable: React.FC<AuditTableProps> = ({
                   canAuditDepartment={canAuditDepartment}
                   getStatusBadgeStyles={getStatusBadgeStyles}
                   onDateChange={handleDateChange}
+                  onSendEmail={onSendEmail}
                   onToggleLock={onToggleLock}
                   onAssign={handleSelfAssign}
                   onUnassign={onUnassign}
