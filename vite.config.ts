@@ -27,6 +27,7 @@ export default defineConfig((configEnv) => {
         rollupOptions: isSSR ? {} : {
           input: {
             main: path.resolve(__dirname, 'index.html'),
+            mobile: path.resolve(__dirname, 'mobile.html'),
             kiosk: path.resolve(__dirname, 'kiosk.html'),
           },
         },
@@ -36,11 +37,11 @@ export default defineConfig((configEnv) => {
         tailwindcss(), 
         isSSR ? cloudflare() : null,
         {
-          name: 'dev-kiosk-rewrite',
+          name: 'dev-mobile-rewrite',
           configureServer(server) {
             server.middlewares.use((req, res, next) => {
-              if (req.headers.host && req.headers.host.startsWith('kiosk.') && (req.url === '/' || req.url === '/index.html')) {
-                req.url = '/kiosk.html';
+              if (req.headers.host && req.headers.host.startsWith('mobile.') && (req.url === '/' || req.url === '/index.html')) {
+                req.url = '/mobile.html';
               }
               next();
             });

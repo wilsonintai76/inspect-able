@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { Bindings, Variables } from '../types';
-import { requirePolicy, emptyContextBuilder } from '../middleware/pbac';
+import { requirePolicy, emptyContextBuilder, userPatchContextBuilder } from '../middleware/pbac';
 import { evaluateAccess, deriveCapabilities } from '../utils/policyEngine';
 import { sendSupervisorApprovalEmail } from '../services/emailService';
 import { hashPassword } from '../services/authService';
@@ -128,7 +128,7 @@ router.post('/users', requirePolicy('user.create', emptyContextBuilder()), zVali
 router.patch(
   '/users/:id',
   zValidator('json', patchUserSchema),
-  requirePolicy('user.update', emptyContextBuilder()),
+  requirePolicy('user.update', userPatchContextBuilder()),
   async (c) => {
   const id = c.req.param('id');
   const updates = c.req.valid('json');

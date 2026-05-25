@@ -29,6 +29,7 @@ app.use('*', cors({
     const allowed = [
       'https://auth.inspect-able.com',
       'https://www.inspect-able.com',
+      'https://mobile.inspect-able.com',
       'https://kiosk.inspect-able.com',
       'https://inspect-able.com',
       'https://inspect-able.pages.dev',
@@ -106,10 +107,11 @@ const baseApp = new Hono<{ Bindings: Bindings, Variables: Variables }>();
 
 baseApp.get('/', async (c) => {
   const host = c.req.header('host') || '';
+  const isMobile = host.startsWith('mobile.');
   const isKiosk = host.startsWith('kiosk.');
   
   // Serve the appropriate HTML file from ASSETS
-  const filename = isKiosk ? 'kiosk.html' : 'index.html';
+  const filename = isMobile ? 'mobile.html' : (isKiosk ? 'kiosk.html' : 'index.html');
   const asset = await c.env.ASSETS.fetch(new URL(`/${filename}`, c.req.url).toString());
   
   if (asset.ok) return asset as any;

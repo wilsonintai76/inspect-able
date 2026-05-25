@@ -8,7 +8,7 @@ interface Props {
   logoBrand?: string;
 }
 
-export const KioskLoginScreen: React.FC<Props> = ({ logoBrand }) => {
+export const MobileLoginScreen: React.FC<Props> = ({ logoBrand }) => {
   const googleUrl = `/api/auth/google?returnTo=${encodeURIComponent(window.location.origin)}`;
   const displayLogo = logoBrand || BRANDING.logoBrand;
 

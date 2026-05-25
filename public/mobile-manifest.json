@@ -1,7 +1,7 @@
 {
-  "name": "Audit Kiosk Pro",
-  "short_name": "Audit Kiosk",
-  "description": "Standalone real-time asset scheduling and auditor workload tracking kiosk.",
+  "name": "Audit Mobile Pro",
+  "short_name": "Audit Mobile",
+  "description": "Mobile-friendly real-time asset scheduling and auditor workload tracking app.",
   "start_url": "/",
   "display": "standalone",
   "orientation": "portrait-primary",

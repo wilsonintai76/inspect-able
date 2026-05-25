@@ -37,6 +37,8 @@ export interface PbaoUser {
 export interface PolicyEvaluationContext {
   /** The department of the location being audited (for COI checks). */
   targetDepartmentId?: string | null;
+  /** The ID of the target user (for user.update self-update checks). */
+  targetUserId?: string | null;
   /** The current status of the schedule slot (e.g. 'open', 'assigned'). */
   scheduleStatus?: string | null;
   /** The auditor ID of an already-filled slot (for double-booking checks). */
@@ -306,6 +308,29 @@ function REQUIRE_CAPABILITY(capability: string, reasonCode?: string): PolicyDefi
 const CAN_ASSIGN_OTHERS = REQUIRE_CAPABILITY('assign:others', 'MISSING_CAPABILITY');
 
 /**
+ * CAN_UPDATE_USER — Self-Update or Admin/Coordinator Gate
+ *
+ * ALLOW if the caller is updating their own record (self-service).
+ * Otherwise DENY unless the user holds 'manage:users' capability.
+ */
+const CAN_UPDATE_USER: PolicyDefinition = {
+  name: 'CAN_UPDATE_USER',
+  description: 'User can update their own record; others require manage:users',
+  evaluate(user, ctx) {
+    // Self-update is always allowed (handler enforces additional field-level restrictions)
+    if (ctx.targetUserId && user.id === ctx.targetUserId) {
+      return { allowed: true };
+    }
+    // Updating someone else requires manage:users capability
+    const caps = deriveCapabilities(user);
+    if (!caps.has('manage:users')) {
+      return { allowed: false, reason: 'MISSING_CAPABILITY' };
+    }
+    return { allowed: true };
+  },
+};
+
+/**
  * COORDINATOR_DEPT_SCOPE — Coordinator Department Boundary
  *
  * DENY if a Coordinator tries to operate outside their own department.
@@ -376,9 +401,9 @@ export const ACTION_POLICIES: Record<PbacAction, PolicyDefinition[]> = {
     COORDINATOR_DEPT_SCOPE,
   ],
   'user.update': [
+    CAN_UPDATE_USER,
     // Complex inline logic (self vs admin vs coordinator vs cert changes)
     // remains in the handler; PBAC gates the basic capability.
-    REQUIRE_CAPABILITY('manage:users', 'MISSING_CAPABILITY'),
   ],
   'user.delete': [
     REQUIRE_CAPABILITY('manage:users', 'MISSING_CAPABILITY'),

@@ -14,7 +14,7 @@ interface Props {
   onSignOut: () => void;
 }
 
-export const KioskProfilePanel: React.FC<Props> = ({
+export const MobileProfilePanel: React.FC<Props> = ({
   currentUser,
   showProfile,
   profilePhone,

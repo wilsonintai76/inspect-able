@@ -228,7 +228,8 @@ export function bodyDeptContextBuilder(
 }
 
 /**
- * For user.update — fetches the target user's department for coordinator scoping.
+ * For user.update — fetches the target user's department for coordinator scoping
+ * and passes the target user ID for self-update checks.
  */
 export function userPatchContextBuilder(
   overrides?: Partial<PolicyEvaluationContext>,
@@ -242,6 +243,7 @@ export function userPatchContextBuilder(
       .first<{ department_id: string | null }>();
     return {
       targetDepartmentId: target?.department_id ?? null,
+      targetUserId: targetId,
       ...overrides,
     };
   };

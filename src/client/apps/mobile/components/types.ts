@@ -1,4 +1,4 @@
-export interface KioskSchedule {
+export interface MobileSchedule {
   id: string;
   departmentId: string;
   departmentName: string;
@@ -28,7 +28,7 @@ export interface KioskSchedule {
   isLocked?: boolean;
 }
 
-export interface KioskUser {
+export interface MobileUser {
   id: string;
   name: string;
   designation: string | null;
@@ -39,7 +39,7 @@ export interface KioskUser {
   contactNumber?: string | null;
 }
 
-export interface KioskPhase {
+export interface MobilePhase {
   id: string;
   name: string;
   startDate: string;

@@ -1,5 +1,6 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
+import { ConfigProvider, App as AntApp } from 'antd';
 import { KioskApp } from './apps/kiosk/KioskApp';
 import './index.css';
 
@@ -8,15 +9,19 @@ if (container) {
   const root = createRoot(container);
   root.render(
     <React.StrictMode>
-      <KioskApp />
+      <ConfigProvider
+        theme={{
+          token: {
+            colorPrimary: '#4f46e5',
+            borderRadius: 8,
+            fontFamily: 'system-ui, -apple-system, sans-serif',
+          },
+        }}
+      >
+        <AntApp>
+          <KioskApp />
+        </AntApp>
+      </ConfigProvider>
     </React.StrictMode>
   );
-}
-
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js')
-      .then(reg => console.log('Kiosk ServiceWorker registered successfully:', reg.scope))
-      .catch(err => console.error('Kiosk ServiceWorker registration failed:', err));
-  });
 }

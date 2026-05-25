@@ -4,14 +4,13 @@ import { gateway } from './services/dataGateway';
 import { authService } from './services/auth';
 import {
   AppView,
-  DashboardConfig,
   UserRole
 } from '@shared/types';
 
 // Components
 import { AuditTable } from './components/AuditTable';
 import { UserManagement } from './components/UserManagement';
-import { UnifiedDashboard } from './components/UnifiedDashboard';
+import { InstitutionalSection } from './components/dashboard/InstitutionalSection';
 import { BuildingManagement } from './components/BuildingManagement';
 import { SystemSettings } from './components/SystemSettings';
 import { DepartmentManagement } from './components/DepartmentManagement';
@@ -22,7 +21,7 @@ import { KnowledgeBase } from './components/KnowledgeBase';
 import { AutoUpdater } from './components/AutoUpdater';
 import { MainAppLayout } from './components/MainAppLayout';
 import { GlobalModals } from './components/GlobalModals';
-import { KioskApp } from './apps/kiosk/KioskApp';
+import { MobileApp } from './apps/mobile/MobileApp';
 
 // Hooks
 import { useAppData } from './hooks/useAppData';
@@ -30,14 +29,6 @@ import { useAppActions } from './hooks/useAppActions';
 
 // Icons
 import { ShieldCheck, Monitor } from 'lucide-react';
-
-const DEFAULT_DASHBOARD_CONFIG: DashboardConfig = {
-  showStats: false,
-  showTrends: false,
-  showUpcoming: true,
-  showDeptDistribution: false,
-  showKPI: true,
-};
 
 const App: React.FC = () => {
 
@@ -264,8 +255,8 @@ const App: React.FC = () => {
     );
   }
 
-  if (viewState === 'kiosk') {
-    return <KioskApp />;
+  if (viewState === 'mobile') {
+    return <MobileApp />;
   }
 
 
@@ -305,30 +296,19 @@ const App: React.FC = () => {
     >
       <AutoUpdater />
       {activeView === 'dashboard' && (
-        <UnifiedDashboard
-          currentUser={currentUser}
+        <InstitutionalSection
+          users={users}
+          departments={departmentsWithAssets}
+          locations={locations}
           schedules={appData.schedules}
           phases={auditPhases}
           kpiTiers={kpiTiers}
-          departments={departmentsWithAssets}
-          locations={locations}
-          users={users}
+          kpiTierTargets={kpiTierTargets}
+          institutionKPIs={institutionKPIs}
           activities={activities}
           buildings={buildings}
-          institutionKPIs={institutionKPIs}
-          kpiTierTargets={kpiTierTargets}
-          auditGroups={auditGroups}
           openAuditThreshold={openAuditThreshold}
-          dashboardConfig={DEFAULT_DASHBOARD_CONFIG}
-          maxAssetsPerDay={maxAssetsPerDay}
-          onApproveArchive={handleApproveArchive}
-          onRejectArchive={handleRejectArchive}
-          onApproveCert={appActions.handleApproveCert}
           onSendEmail={handleSendApprovalEmail}
-          onRequestRenewal={appActions.handleRequestRenewal}
-          onUpdateDate={handleUpdateAuditDate}
-          onUpdateAudit={handleUpdateAudit}
-          setActiveView={(v: string) => setActiveView(v as AppView)}
         />
       )}
       {activeView === 'schedule' && (

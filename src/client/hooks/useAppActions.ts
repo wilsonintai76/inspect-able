@@ -12,7 +12,7 @@ import { useSystemActions } from './useSystemActions';
 interface AppActionsProps {
   currentUser: User | null;
   setCurrentUser: React.Dispatch<React.SetStateAction<User | null>>;
-  setViewState: React.Dispatch<React.SetStateAction<'landing' | 'app' | 'docs' | 'kiosk'>>;
+  setViewState: React.Dispatch<React.SetStateAction<'landing' | 'app' | 'docs' | 'mobile'>>;
   activeView: AppView;
   setActiveView: React.Dispatch<React.SetStateAction<AppView>>;
   schedules: AuditSchedule[];

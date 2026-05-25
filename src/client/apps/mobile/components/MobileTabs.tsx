@@ -1,15 +1,15 @@
 import React from 'react';
 import { Calendar, BarChart3, Filter, ShieldCheck } from 'lucide-react';
 
-export type KioskTab = 'schedule' | 'stats' | 'filters' | 'hub';
+export type MobileTab = 'schedule' | 'stats' | 'filters' | 'hub';
 
 interface Props {
-  activeTab: KioskTab;
-  onTabChange: (tab: KioskTab) => void;
+  activeTab: MobileTab;
+  onTabChange: (tab: MobileTab) => void;
   badgeCount?: number;
 }
 
-export const KioskTabs: React.FC<Props> = ({ activeTab, onTabChange, badgeCount }) => {
+export const MobileTabs: React.FC<Props> = ({ activeTab, onTabChange, badgeCount }) => {
   const tabs = [
     { id: 'filters' as const,  label: 'Filters',  icon: Filter, badge: badgeCount },
     { id: 'schedule' as const, label: 'Schedule', icon: Calendar },

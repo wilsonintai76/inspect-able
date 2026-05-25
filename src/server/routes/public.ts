@@ -11,7 +11,7 @@ const pub = new Hono<{ Bindings: Bindings; Variables: Variables }>();
  *   2. session cookie               (SSO cookie set on any subdomain login)
  * Returns null if neither is valid.
  */
-async function getKioskSession(c: any): Promise<string | null> {
+async function getMobileSession(c: any): Promise<string | null> {
   // ── 1. Bearer JWT ──────────────────────────────────────────────────────────
   const authHeader = c.req.header('Authorization') || '';
   if (authHeader.startsWith('Bearer ')) {
@@ -42,7 +42,7 @@ async function getKioskSession(c: any): Promise<string | null> {
  * Verify the authenticated user is a Certified Officer:
  * any Active, verified user with a valid (non-expired) certification_expiry.
  * The "Auditor" role label is NOT required — certification is the sole gate,
- * matching the client-side hasCert check in KioskApp.tsx.
+ * matching the client-side hasCert check in MobileApp.tsx.
  * Returns an error message string, or null if the check passes.
  */
 async function assertCertifiedOfficer(db: D1Database, userId: string): Promise<string | null> {
@@ -54,7 +54,7 @@ async function assertCertifiedOfficer(db: D1Database, userId: string): Promise<s
   if (user.status !== 'Active') return 'Your account is not active.';
   if (!user.is_verified) return 'Your account is not verified.';
   if (!user.certification_expiry || user.certification_expiry < today) {
-    return 'Access restricted: this kiosk is for certified officers only.';
+    return 'Access restricted: this mobile app is for certified officers only.';
   }
   return null;
 }
@@ -62,22 +62,23 @@ async function assertCertifiedOfficer(db: D1Database, userId: string): Promise<s
 /**
  * GET /api/public/kiosk
  *
+ * Used by the Mobile app (mobile.inspect-able.com).
  * Returns all audit schedules enriched with department, location, phase,
  * and auditor/supervisor display names. Also returns all active users
  * (for the searchable assignment combobox) and phases.
  * Restricted to certified officers (Auditor role + valid certification).
  */
 pub.get('/kiosk', async (c) => {
-  // Require SSO session — kiosk is no longer publicly accessible
-  const sessionUserId = await getKioskSession(c);
+  // Require SSO session — mobile is no longer publicly accessible
+  const sessionUserId = await getMobileSession(c);
   if (!sessionUserId) return c.json({ error: 'Authentication required' }, 401);
 
-  // Kiosk is for certified officers only
+  // Mobile is for certified officers only
   const certError = await assertCertifiedOfficer(c.env.DB, sessionUserId);
   if (certError) return c.json({ error: certError, code: 'NOT_CERTIFIED' }, 403);
 
   // KV read-through cache — skips the 6-query D1 batch on every 30 s poll
-  const cachedKiosk = await c.env.SETTINGS.get('kiosk_cache');
+  const cachedKiosk = await c.env.SETTINGS.get('mobile_cache');
   if (cachedKiosk) {
     c.header('Cache-Control', 'no-store');
     return c.json(JSON.parse(cachedKiosk));
@@ -202,13 +203,13 @@ pub.get('/kiosk', async (c) => {
     const strategy = strategyStr ? JSON.parse(strategyStr) : {};
     const maxAssets = strategy.openAuditThreshold || 500;
 
-    const kioskPayload = { schedules, users, phases, maxAssets, buildings };
+    const mobilePayload = { schedules, users, phases, maxAssets, buildings };
     // Write to KV with 60 s TTL — any schedule PATCH immediately busts this entry
-    await c.env.SETTINGS.put('kiosk_cache', JSON.stringify(kioskPayload), { expirationTtl: 60 });
+    await c.env.SETTINGS.put('mobile_cache', JSON.stringify(mobilePayload), { expirationTtl: 60 });
     c.header('Cache-Control', 'no-store');
-    return c.json(kioskPayload);
+    return c.json(mobilePayload);
   } catch (err: any) {
-    console.error('[Public Kiosk] Error:', err);
+    console.error('[Public Mobile] Error:', err);
     return c.json({ schedules: [], users: [], phases: [], maxAssets: 500, buildings: [] });
   }
 });
@@ -216,18 +217,18 @@ pub.get('/kiosk', async (c) => {
 /**
  * PATCH /api/public/kiosk/schedules/:id
  *
- * Allows a user to self-assign to an audit slot as auditor1, auditor2 or supervisor.
+ * Used by the Mobile app. Allows a user to self-assign to an audit slot as auditor1, auditor2 or supervisor.
  * Body: { userId: string, role: 'auditor1' | 'auditor2' | 'supervisor', date?: string | null }
- * The user must exist, be Active, and be verified. No auth token required (kiosk mode).
+ * The user must exist, be Active, and be verified. No auth token required (mobile mode).
  */
 pub.patch('/kiosk/schedules/:id', async (c) => {
   const scheduleId = c.req.param('id');
 
   // Require SSO session
-  const sessionUserId = await getKioskSession(c);
+  const sessionUserId = await getMobileSession(c);
   if (!sessionUserId) return c.json({ error: 'Authentication required' }, 401);
 
-  // Kiosk is for certified officers only
+  // Mobile is for certified officers only
   const certError = await assertCertifiedOfficer(c.env.DB, sessionUserId);
   if (certError) return c.json({ error: certError, code: 'NOT_CERTIFIED' }, 403);
 
@@ -235,7 +236,7 @@ pub.patch('/kiosk/schedules/:id', async (c) => {
     const body = await c.req.json() as { userId?: string; role?: string; date?: string | null; action?: 'assign' | 'unassign' };
     const { role, date, action = 'assign' } = body;
 
-    // Kiosk is self-assign only
+    // Mobile is self-assign only
     const userId = sessionUserId;
 
     // Get the schedule details
@@ -422,11 +423,11 @@ pub.patch('/kiosk/schedules/:id', async (c) => {
         }
       }
 
-      // Bust the kiosk cache so the next poll reflects the new assignment
-      await c.env.SETTINGS.delete('kiosk_cache');
+      // Bust the mobile cache so the next poll reflects the new assignment
+      await c.env.SETTINGS.delete('mobile_cache');
       return c.json({ success: true, name: user.name });
     } else {
-      // Unassign – kiosk users can only remove their own assignment (supervisor slot blocked)
+      // Unassign – mobile users can only remove their own assignment (supervisor slot blocked)
       if (!role) return c.json({ error: 'role is required' }, 400);
       if (role === 'supervisor') return c.json({ error: 'Supervisor assignment must be managed from the main site.' }, 403);
       const colMap: Record<string, string> = { auditor1: 'auditor1_id', auditor2: 'auditor2_id', supervisor: 'supervisor_id' };
@@ -443,8 +444,8 @@ pub.patch('/kiosk/schedules/:id', async (c) => {
       await c.env.DB.prepare(
         `UPDATE audit_schedules SET ${col} = NULL WHERE id = ?`
       ).bind(scheduleId).run();
-      // Bust the kiosk cache so the next poll reflects the removed assignment
-      await c.env.SETTINGS.delete('kiosk_cache');
+      // Bust the mobile cache so the next poll reflects the removed assignment
+      await c.env.SETTINGS.delete('mobile_cache');
 
       // Revert Awaiting Approval / In Progress -> Pending if any assignment is missing
       const remaining = await c.env.DB.prepare(
@@ -473,10 +474,10 @@ pub.patch('/kiosk/schedules/:id', async (c) => {
  * Body: { date: string | null }
  */
 pub.patch('/kiosk/schedules/:id/date', async (c) => {
-  const sessionUserId = await getKioskSession(c);
+  const sessionUserId = await getMobileSession(c);
   if (!sessionUserId) return c.json({ error: 'Authentication required' }, 401);
 
-  // Kiosk is for certified officers only
+  // Mobile is for certified officers only
   const certError = await assertCertifiedOfficer(c.env.DB, sessionUserId);
   if (certError) return c.json({ error: certError, code: 'NOT_CERTIFIED' }, 403);
 
@@ -535,8 +536,8 @@ pub.patch('/kiosk/schedules/:id/date', async (c) => {
       }
     }
 
-    // Bust the kiosk cache so the next poll reflects the updated date
-    await c.env.SETTINGS.delete('kiosk_cache');
+    // Bust the mobile cache so the next poll reflects the updated date
+    await c.env.SETTINGS.delete('mobile_cache');
     return c.json({ success: true });
   } catch (err: any) {
     return c.json({ error: err.message }, 500);

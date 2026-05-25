@@ -9,6 +9,10 @@ pattern = "auth.inspect-able.com"
 custom_domain = true
 
 [[routes]]
+pattern = "mobile.inspect-able.com"
+custom_domain = true
+
+[[routes]]
 pattern = "kiosk.inspect-able.com"
 custom_domain = true
 

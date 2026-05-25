@@ -26,10 +26,10 @@ import { CrossAuditPermission, AssignmentMode } from '@shared/types';
 import { SOFTWARE_DEV_DEPT_NAME, BRANDING } from '../constants';
 
 export const useAppData = () => {
-  const [viewState, setViewState] = useState<'landing' | 'app' | 'docs' | 'kiosk'>(() => {
-    // If the user visits kiosk.domain.com, instantly route to the kiosk view.
-    if (typeof window !== 'undefined' && window.location.hostname.startsWith('kiosk.')) {
-      return 'kiosk';
+  const [viewState, setViewState] = useState<'landing' | 'app' | 'docs' | 'mobile'>(() => {
+    // If the user visits mobile.domain.com, instantly route to the mobile view.
+    if (typeof window !== 'undefined' && window.location.hostname.startsWith('mobile.')) {
+      return 'mobile';
     }
     return 'landing';
   });

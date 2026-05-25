@@ -8,7 +8,7 @@ interface Props {
   onClose: () => void;
 }
 
-export const KioskIOSBanner: React.FC<Props> = ({
+export const MobileIOSBanner: React.FC<Props> = ({
   isIOS,
   isStandalone,
   showIOSBanner,
@@ -22,7 +22,7 @@ export const KioskIOSBanner: React.FC<Props> = ({
         <div className="flex items-center gap-2">
           <Smartphone className="w-4 h-4 shrink-0 text-indigo-200" />
           <span>
-            Install Standalone Kiosk: Tap the <span className="bg-indigo-700 px-1.5 py-0.5 rounded text-white font-extrabold">Share button</span> ↗️ in Safari, then scroll down and select <span className="bg-indigo-700 px-1.5 py-0.5 rounded text-white font-extrabold">Add to Home Screen</span>.
+            Install Mobile App: Tap the <span className="bg-indigo-700 px-1.5 py-0.5 rounded text-white font-extrabold">Share button</span> ↗️ in Safari, then scroll down and select <span className="bg-indigo-700 px-1.5 py-0.5 rounded text-white font-extrabold">Add to Home Screen</span>.
           </span>
         </div>
         <button 
