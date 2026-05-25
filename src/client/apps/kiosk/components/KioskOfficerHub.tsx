@@ -44,7 +44,7 @@ export const KioskOfficerHub: React.FC<Props> = ({
         <div>
           <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
             <ShieldCheck className="w-6 h-6 text-indigo-600 shrink-0" />
-            Personal Officer Hub
+            Personal Officer Dashboard
           </h2>
           <p className="text-slate-500 text-xs sm:text-sm mt-1">
             Welcome back, <span className="font-extrabold text-slate-700">{currentUser.name}</span>. Manage your assigned inspections below.

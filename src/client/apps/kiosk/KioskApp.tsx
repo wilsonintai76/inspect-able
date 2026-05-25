@@ -645,7 +645,7 @@ export const KioskApp: React.FC = () => {
     };
   }, [schedules, users]);
 
-  // ── Personal Hub computations (Officer Hub in Kiosk) ──────────────────────
+  // ── Personal Dashboard computations (Officer Dashboard in Kiosk) ───────────────────
   const mySchedules = useMemo(() => {
     if (!currentUser) return [];
     return schedules.filter(s => s.auditor1Id === currentUser.id || s.auditor2Id === currentUser.id);
@@ -838,7 +838,7 @@ export const KioskApp: React.FC = () => {
                     : 'text-slate-500 hover:text-slate-900'
                 }`}
               >
-                My Hub
+                Dashboard
               </button>
             </div>
           </div>

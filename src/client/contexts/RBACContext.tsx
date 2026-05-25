@@ -15,8 +15,8 @@ export const DEFAULT_RBAC_MATRIX: RBACMatrix = {
   'edit:audit:assign':        ['Admin', 'Supervisor', 'Auditor'],                 // Self-Assign — Coordinator ✗
   'edit:audit:assign:others': ['Admin', 'Coordinator'],                           // Assign Others — Admin + Coordinator (dept-scoped)
   'edit:audit:auto_assign':   ['Admin'],                                          // Auto-Assign — Admin only
-  // Officer Hub
-  'view:audit:assigned':      ['Admin', 'Supervisor', 'Auditor'],                 // Officer Hub — Coordinator & Staff ✗
+  // Personal Officer Dashboard
+  'view:audit:assigned':      ['Admin', 'Supervisor', 'Auditor'],                 // Officer Dashboard — Coordinator & Staff ✗
   // User Management
   'view:team:all':            ['Admin'],                                          // View All Members — Admin only
   'view:team:own':            ['Admin', 'Coordinator', 'Supervisor'],             // View Dept Members

@@ -14,7 +14,7 @@ export const KioskTabs: React.FC<Props> = ({ activeTab, onTabChange, badgeCount 
     { id: 'filters' as const,  label: 'Filters',  icon: Filter, badge: badgeCount },
     { id: 'schedule' as const, label: 'Schedule', icon: Calendar },
     { id: 'stats' as const,    label: 'Stats',    icon: BarChart3 },
-    { id: 'hub' as const,      label: 'My Hub',   icon: ShieldCheck },
+    { id: 'hub' as const,      label: 'Dashboard',   icon: ShieldCheck },
   ];
 
   return (

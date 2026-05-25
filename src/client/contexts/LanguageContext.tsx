@@ -13,9 +13,9 @@ const LanguageContext = createContext<LanguageContextType | undefined>(undefined
 const translations: Record<Locale, Record<string, string>> = {
   en: {
     // Nav Labels
-    'nav.overview': 'Overview Hub',
+    'nav.overview': 'Institutional Dashboard',
     'nav.inspection_schedule': 'Inspection Schedule',
-    'nav.inspecting_officer_dashboard': 'Officer Hub',
+    'nav.inspecting_officer_dashboard': 'Institutional Dashboard',
     'nav.user_management': 'User Management',
     'nav.departments': 'Departments',
     'nav.asset_locations': 'Asset Locations',

@@ -230,7 +230,7 @@ export const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ phases = [] }) => 
                   Not a role — a <strong>capability overlay</strong>. Any user with a valid <code>certificationExpiry</code> date automatically gains officer capabilities regardless of their base role.
                 </p>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-1.5 text-[11px]">
-                  {['Self-assign to audit slots','Access Officer Hub','Use Audit Kiosk','Upload inspection reports','Toggle audit status'].map(c => (
+                  {['Self-assign to audit slots','Access Personal Dashboard','Use Audit Kiosk','Upload inspection reports','Toggle audit status'].map(c => (
                     <div key={c} className="flex items-start gap-1.5"><Check className="w-3 h-3 text-emerald-500 mt-0.5 shrink-0" /><span className="text-slate-700">{c}</span></div>
                   ))}
                 </div>

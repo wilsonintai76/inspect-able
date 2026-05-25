@@ -759,7 +759,7 @@ export const DataManagementWorkflow: React.FC<DataManagementWorkflowProps> = ({
                 </div>
               </div>
               <p className="text-sm text-slate-600 mb-6 max-w-2xl">
-                Upload [senarai aset belum diperiksa]. The system will count uninspected assets per location and update the Overview Hub statistics accordingly.
+                Upload [senarai aset belum diperiksa]. The system will count uninspected assets per location and update the Institutional Dashboard statistics accordingly.
               </p>
               <div className="flex flex-wrap gap-3 items-center">
                 <button
