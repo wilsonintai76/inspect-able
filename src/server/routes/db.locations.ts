@@ -1,7 +1,7 @@
-﻿import { Hono } from 'hono';
+import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { Bindings, Variables } from '../types';
-import { rbacGuard } from '../middleware/rbacGuard';
+import { requirePolicy, emptyContextBuilder } from '../middleware/pbac';
 import { sendSupervisorApprovalEmail } from '../services/emailService';
 import { hashPassword } from '../services/authService';
 import { 
@@ -48,7 +48,7 @@ router.get('/locations', async (c) => {
   }
 });
 
-router.post('/locations', rbacGuard('manage:locations'), async (c) => {
+router.post('/locations', requirePolicy('location.manage', emptyContextBuilder()), async (c) => {
   const loc = await c.req.json();
   const id = loc.id || crypto.randomUUID();
   const caller = c.get('user');
@@ -94,7 +94,7 @@ router.post('/locations', rbacGuard('manage:locations'), async (c) => {
   }
 });
 
-router.patch('/locations/:id', rbacGuard('manage:locations'), async (c) => {
+router.patch('/locations/:id', requirePolicy('location.manage', emptyContextBuilder()), async (c) => {
   const id = c.req.param('id');
   const updates = await c.req.json();
   const caller = c.get('user');
@@ -174,7 +174,7 @@ router.patch('/locations/:id', rbacGuard('manage:locations'), async (c) => {
   }
 });
 
-router.delete('/locations/:id', rbacGuard('manage:locations'), async (c) => {
+router.delete('/locations/:id', requirePolicy('location.manage', emptyContextBuilder()), async (c) => {
   const id = c.req.param('id');
   const caller = c.get('user');
   const callerRoles: string[] = caller?.roles || [];
@@ -200,7 +200,7 @@ router.delete('/locations/:id', rbacGuard('manage:locations'), async (c) => {
   }
 });
 
-router.delete('/locations/:id/purge', rbacGuard('manage:locations'), async (c) => {
+router.delete('/locations/:id/purge', requirePolicy('location.manage', emptyContextBuilder()), async (c) => {
   const id = c.req.param('id');
   try {
     const row = await c.env.DB.prepare("SELECT status FROM locations WHERE id = ? LIMIT 1").bind(id).first<{ status: string }>();
@@ -215,7 +215,7 @@ router.delete('/locations/:id/purge', rbacGuard('manage:locations'), async (c) =
   }
 });
 
-router.post('/locations/merge', rbacGuard('manage:locations'), async (c) => {
+router.post('/locations/merge', requirePolicy('location.manage', emptyContextBuilder()), async (c) => {
   const { sourceIds, targetId } = await c.req.json() as { sourceIds: string[], targetId: string };
   if (!sourceIds || sourceIds.length === 0 || !targetId) {
     return c.json({ error: 'Source IDs and Target ID required' }, 400);
@@ -287,7 +287,7 @@ router.post('/locations/merge', rbacGuard('manage:locations'), async (c) => {
   }
 });
 
-router.delete('/locations/:id/force', rbacGuard('admin:hub'), async (c) => {
+router.delete('/locations/:id/force', requirePolicy('system.reset', emptyContextBuilder()), async (c) => {
   const id = c.req.param('id');
   try {
     await c.env.DB.prepare('DELETE FROM locations WHERE id = ?').bind(id).run();
@@ -300,7 +300,7 @@ router.delete('/locations/:id/force', rbacGuard('admin:hub'), async (c) => {
 
 // â”€â”€â”€ RESET LOCATIONS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Deletes ALL locations and consolidation groups. Keeps departments.
-router.post('/locations/clear', rbacGuard('admin:hub'), async (c) => {
+router.post('/locations/clear', requirePolicy('system.reset', emptyContextBuilder()), async (c) => {
   try {
     const deletes = [
       { id: 'schedules', sql: 'DELETE FROM audit_schedules' },
@@ -322,7 +322,7 @@ router.post('/locations/clear', rbacGuard('admin:hub'), async (c) => {
   }
 });
 
-router.post('/locations/bulk', rbacGuard('manage:locations'), async (c) => {
+router.post('/locations/bulk', requirePolicy('location.manage', emptyContextBuilder()), async (c) => {
   const locs = await c.req.json();
   try {
     // 1. Fetch existing departments for validation
@@ -383,7 +383,7 @@ router.post('/locations/bulk', rbacGuard('manage:locations'), async (c) => {
   }
 });
 
-router.post('/locations/sync-notes', rbacGuard('manage:locations'), async (c) => {
+router.post('/locations/sync-notes', requirePolicy('location.manage', emptyContextBuilder()), async (c) => {
   try {
     // Prepend "Original: [name]" to description if not already starting with "Original:"
     // CHAR(10) is newline in SQLite
@@ -402,7 +402,7 @@ router.post('/locations/sync-notes', rbacGuard('manage:locations'), async (c) =>
   }
 });
 
-router.post('/locations/upsert', rbacGuard('manage:locations'), async (c) => {
+router.post('/locations/upsert', requirePolicy('location.manage', emptyContextBuilder()), async (c) => {
   const locs = await c.req.json();
   try {
     const statements = locs.map((l: any) => {
@@ -448,7 +448,7 @@ router.post('/locations/upsert', rbacGuard('manage:locations'), async (c) => {
   }
 });
 
-router.post('/locations/sync', rbacGuard('manage:locations'), async (c) => {
+router.post('/locations/sync', requirePolicy('location.manage', emptyContextBuilder()), async (c) => {
   try {
     // 1. Fetch current mappings
     const { results: mappings } = await c.env.DB.prepare('SELECT source_name, target_department_id FROM department_mappings').all();

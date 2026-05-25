@@ -1,8 +1,8 @@
-﻿import { Hono } from 'hono';
+import { Hono } from 'hono';
 import { z } from 'zod';
 import { zValidator } from '@hono/zod-validator';
 import { Bindings, Variables } from '../types';
-import { rbacGuard } from '../middleware/rbacGuard';
+import { requirePolicy, emptyContextBuilder } from '../middleware/pbac';
 import { sendSupervisorApprovalEmail } from '../services/emailService';
 import { hashPassword } from '../services/authService';
 import { backupD1ToR2, cleanupOldBackups } from '../services/backupService';
@@ -32,7 +32,7 @@ router.get('/audit-phases', async (c) => {
   }
 });
 
-router.post('/audit-phases', rbacGuard('admin:hub'), async (c) => {
+router.post('/audit-phases', requirePolicy('phase.manage', emptyContextBuilder()), async (c) => {
   const phase = await c.req.json();
   const id = phase.id || crypto.randomUUID();
   try {
@@ -45,7 +45,7 @@ router.post('/audit-phases', rbacGuard('admin:hub'), async (c) => {
   }
 });
 
-router.patch('/audit-phases/:id', rbacGuard('admin:hub'), async (c) => {
+router.patch('/audit-phases/:id', requirePolicy('phase.manage', emptyContextBuilder()), async (c) => {
   const id = c.req.param('id');
   const updates = await c.req.json();
   const fields = [];
@@ -64,7 +64,7 @@ router.patch('/audit-phases/:id', rbacGuard('admin:hub'), async (c) => {
   }
 });
 
-router.delete('/audit-phases/:id', rbacGuard('admin:hub'), async (c) => {
+router.delete('/audit-phases/:id', requirePolicy('phase.manage', emptyContextBuilder()), async (c) => {
   const id = c.req.param('id');
   try {
     await c.env.DB.prepare('DELETE FROM audit_phases WHERE id = ?').bind(id).run();
@@ -87,7 +87,7 @@ router.get('/kpi-tiers', async (c) => {
   }
 });
 
-router.post('/kpi-tiers', rbacGuard('admin:hub'), async (c) => {
+router.post('/kpi-tiers', requirePolicy('kpi.manage', emptyContextBuilder()), async (c) => {
   const tier = await c.req.json();
   const id = tier.id || crypto.randomUUID();
   try {
@@ -100,7 +100,7 @@ router.post('/kpi-tiers', rbacGuard('admin:hub'), async (c) => {
   }
 });
 
-router.patch('/kpi-tiers/:id', rbacGuard('admin:hub'), async (c) => {
+router.patch('/kpi-tiers/:id', requirePolicy('kpi.manage', emptyContextBuilder()), async (c) => {
   const id = c.req.param('id');
   const updates = await c.req.json();
   const fields = [];
@@ -117,7 +117,7 @@ router.patch('/kpi-tiers/:id', rbacGuard('admin:hub'), async (c) => {
   }
 });
 
-router.delete('/kpi-tiers/:id', rbacGuard('admin:hub'), async (c) => {
+router.delete('/kpi-tiers/:id', requirePolicy('kpi.manage', emptyContextBuilder()), async (c) => {
   const id = c.req.param('id');
   try {
     await c.env.DB.prepare('DELETE FROM kpi_tiers WHERE id = ?').bind(id).run();
@@ -142,7 +142,7 @@ router.get('/kpi-tier-targets', async (c) => {
   }
 });
 
-router.post('/kpi-tier-targets', rbacGuard('admin:hub'), async (c) => {
+router.post('/kpi-tier-targets', requirePolicy('kpi.manage', emptyContextBuilder()), async (c) => {
   const target = await c.req.json();
   const id = target.id || crypto.randomUUID();
   try {
@@ -155,7 +155,7 @@ router.post('/kpi-tier-targets', rbacGuard('admin:hub'), async (c) => {
   }
 });
 
-router.delete('/kpi-tier-targets/:id', rbacGuard('admin:hub'), async (c) => {
+router.delete('/kpi-tier-targets/:id', requirePolicy('kpi.manage', emptyContextBuilder()), async (c) => {
   const id = c.req.param('id');
   try {
     await c.env.DB.prepare('DELETE FROM kpi_tier_targets WHERE id = ?').bind(id).run();
@@ -175,7 +175,7 @@ router.get('/audit-groups', async (c) => {
   }
 });
 
-router.post('/audit-groups', rbacGuard('edit:team'), async (c) => {
+router.post('/audit-groups', requirePolicy('group.manage', emptyContextBuilder()), async (c) => {
   const group = await c.req.json();
   const id = group.id || crypto.randomUUID();
   try {
@@ -186,7 +186,7 @@ router.post('/audit-groups', rbacGuard('edit:team'), async (c) => {
   }
 });
 
-router.patch('/audit-groups/:id', rbacGuard('edit:team'), async (c) => {
+router.patch('/audit-groups/:id', requirePolicy('group.manage', emptyContextBuilder()), async (c) => {
   const id = c.req.param('id');
   const updates = await c.req.json();
   const fields = [];
@@ -202,7 +202,7 @@ router.patch('/audit-groups/:id', rbacGuard('edit:team'), async (c) => {
   }
 });
 
-router.delete('/audit-groups/:id', rbacGuard('admin:hub'), async (c) => {
+router.delete('/audit-groups/:id', requirePolicy('group.manage', emptyContextBuilder()), async (c) => {
   const id = c.req.param('id');
   try {
     // We must handle foreign key dependencies manually or ensure they are cleared.
@@ -234,7 +234,7 @@ router.get('/institution-kpi-targets', async (c) => {
   }
 });
 
-router.post('/institution-kpi-targets', rbacGuard('admin:hub'), async (c) => {
+router.post('/institution-kpi-targets', requirePolicy('kpi.manage', emptyContextBuilder()), async (c) => {
   const target = await c.req.json();
   try {
     await c.env.DB.prepare(
@@ -285,7 +285,7 @@ router.get('/buildings', async (c) => {
   }
 });
 
-router.post('/buildings', rbacGuard('edit:team'), zValidator('json', z.object({
+router.post('/buildings', requirePolicy('admin.manage', emptyContextBuilder()), zValidator('json', z.object({
   id:          z.string().optional(),
   name:        z.string().min(1),
   abbr:        z.string().min(1),
@@ -309,7 +309,7 @@ router.post('/buildings', rbacGuard('edit:team'), zValidator('json', z.object({
   }
 });
 
-router.patch('/buildings/:id', rbacGuard('edit:team'), zValidator('json', z.object({
+router.patch('/buildings/:id', requirePolicy('admin.manage', emptyContextBuilder()), zValidator('json', z.object({
   name:        z.string().min(1).optional(),
   abbr:        z.string().min(1).optional(),
   description: z.string().nullable().optional(),
@@ -339,7 +339,7 @@ router.patch('/buildings/:id', rbacGuard('edit:team'), zValidator('json', z.obje
   }
 });
 
-router.delete('/buildings/:id', rbacGuard('admin:hub'), async (c) => {
+router.delete('/buildings/:id', requirePolicy('admin.manage', emptyContextBuilder()), async (c) => {
   const id = c.req.param('id');
   try {
     await c.env.DB.prepare('DELETE FROM buildings WHERE id = ?').bind(id).run();
@@ -350,7 +350,7 @@ router.delete('/buildings/:id', rbacGuard('admin:hub'), async (c) => {
   }
 });
 
-router.post('/buildings/bulk', rbacGuard('admin:hub'), zValidator('json', z.array(z.object({
+router.post('/buildings/bulk', requirePolicy('admin.manage', emptyContextBuilder()), zValidator('json', z.array(z.object({
   name:        z.string().min(1),
   abbr:        z.string().min(1),
   description: z.string().nullable().optional(),
@@ -398,7 +398,7 @@ router.get('/system-settings', async (c) => {
   }
 });
 
-router.post('/system-settings/:id', rbacGuard('system:settings'), async (c) => {
+router.post('/system-settings/:id', requirePolicy('system.settings', emptyContextBuilder()), async (c) => {
   const id = c.req.param('id');
   const { value } = await c.req.json();
   try {
@@ -453,7 +453,7 @@ router.post('/activity', async (c) => {
 // targets, and 3 institution KPI targets in a single D1 batch.
 // Called once after login (admin) or after a full reset. Uses INSERT OR IGNORE
 // so it is safe to call repeatedly and will never duplicate rows.
-router.post('/system/initialize-defaults', rbacGuard('admin:hub'), async (c) => {
+router.post('/system/initialize-defaults', requirePolicy('system.reset', emptyContextBuilder()), async (c) => {
   try {
     // 0. Schema migrations (idempotent â€” safe to call repeatedly)
     await c.env.DB.prepare('ALTER TABLE departments ADD COLUMN is_archived INTEGER DEFAULT 0').run().catch(() => {});
@@ -634,7 +634,7 @@ router.post('/system/initialize-defaults', rbacGuard('admin:hub'), async (c) => 
 });
 
 // â”€â”€â”€ USERS CLEAR â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-router.post('/users/clear', rbacGuard('admin:hub'), async (c) => {
+router.post('/users/clear', requirePolicy('system.reset', emptyContextBuilder()), async (c) => {
   const body = await c.req.json().catch(() => ({}));
   const keep_user_id: string | undefined = body?.keep_user_id;
   try {
@@ -651,7 +651,7 @@ router.post('/users/clear', rbacGuard('admin:hub'), async (c) => {
 });
 
 // â”€â”€â”€ AUDIT PHASES CLEAR â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-router.post('/audit-phases/clear', rbacGuard('admin:hub'), async (c) => {
+router.post('/audit-phases/clear', requirePolicy('system.reset', emptyContextBuilder()), async (c) => {
   try {
     // audit_schedules has FK â†’ audit_phases
     await c.env.DB.prepare('DELETE FROM audit_schedules').run();
@@ -667,7 +667,7 @@ router.post('/audit-phases/clear', rbacGuard('admin:hub'), async (c) => {
 });
 
 // â”€â”€â”€ KPI CLEAR â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-router.post('/kpi/clear', rbacGuard('admin:hub'), async (c) => {
+router.post('/kpi/clear', requirePolicy('system.reset', emptyContextBuilder()), async (c) => {
   try {
     // kpi_tier_targets has FK â†’ kpi_tiers
     await c.env.DB.prepare('DELETE FROM kpi_tier_targets').run();
@@ -685,7 +685,7 @@ router.post('/kpi/clear', rbacGuard('admin:hub'), async (c) => {
 // Uses sequential individual DELETEs (not batch) so each table is independently
 // committed. A batch() is atomic â€” if ANY statement fails the ENTIRE batch rolls
 // back silently, which previously left departments intact.
-router.post('/system/full-reset', rbacGuard('admin:hub'), async (c) => {
+router.post('/system/full-reset', requirePolicy('system.reset', emptyContextBuilder()), async (c) => {
   const body = await c.req.json().catch(() => ({}));
   const keep_user_id: string | undefined = body?.keep_user_id;
   try {
@@ -751,7 +751,7 @@ router.post('/system/full-reset', rbacGuard('admin:hub'), async (c) => {
 // â”€â”€â”€ Backup Routes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 // POST /db/backup â€” manually trigger a D1â†’R2 backup (Admin only)
-router.post('/backup', rbacGuard('system:settings'), async (c) => {
+router.post('/backup', requirePolicy('system.settings', emptyContextBuilder()), async (c) => {
   try {
     const result = await backupD1ToR2({ db: c.env.DB, bucket: c.env.BACKUP });
     return c.json({ success: true, key: result.key, tablesSync: result.tablesSync, rowsSync: result.rowsSync, errors: result.errors });
@@ -761,7 +761,7 @@ router.post('/backup', rbacGuard('system:settings'), async (c) => {
 });
 
 // GET /db/backups â€” list all backup files in R2 (Admin only)
-router.get('/backups', rbacGuard('system:settings'), async (c) => {
+router.get('/backups', requirePolicy('system.settings', emptyContextBuilder()), async (c) => {
   try {
     const listed = await c.env.BACKUP.list({ prefix: 'backups/' });
     const files = (listed.objects || []).map((obj: any) => ({
@@ -775,7 +775,7 @@ router.get('/backups', rbacGuard('system:settings'), async (c) => {
   }
 });
 // DELETE /db/backups?key=backups/... — delete a specific backup file (Admin only)
-router.delete('/backups', rbacGuard('system:settings'), async (c) => {
+router.delete('/backups', requirePolicy('system.settings', emptyContextBuilder()), async (c) => {
   const key = c.req.query('key');
   if (!key || !key.startsWith('backups/')) {
     return c.json({ error: 'Invalid key' }, 400);
@@ -789,7 +789,7 @@ router.delete('/backups', rbacGuard('system:settings'), async (c) => {
 });
 
 // POST /db/backups/cleanup — delete backups older than ?days= (default 30) (Admin only)
-router.post('/backups/cleanup', rbacGuard('system:settings'), async (c) => {
+router.post('/backups/cleanup', requirePolicy('system.settings', emptyContextBuilder()), async (c) => {
   try {
     const days = parseInt(c.req.query('days') || '30', 10) || 30;
     const result = await cleanupOldBackups(c.env.BACKUP, days);
@@ -799,7 +799,7 @@ router.post('/backups/cleanup', rbacGuard('system:settings'), async (c) => {
   }
 });
 // GET /db/backups/download?key=backups/... â€” stream a backup file as download (Admin only)
-router.get('/backups/download', rbacGuard('system:settings'), async (c) => {
+router.get('/backups/download', requirePolicy('system.settings', emptyContextBuilder()), async (c) => {
   const key = c.req.query('key');
   if (!key || !key.startsWith('backups/')) {
     return c.json({ error: 'Invalid key' }, 400);
@@ -820,7 +820,7 @@ router.get('/backups/download', rbacGuard('system:settings'), async (c) => {
 });
 
 // POST /db/backups/restore â€” restore D1 from uploaded JSON backup (Admin only)
-router.post('/backups/restore', rbacGuard('system:settings'), async (c) => {
+router.post('/backups/restore', requirePolicy('system.settings', emptyContextBuilder()), async (c) => {
   try {
     const body = await c.req.json() as { snapshot: Record<string, any[]>; confirmation?: string };
     if (!body.snapshot || typeof body.snapshot !== 'object') {

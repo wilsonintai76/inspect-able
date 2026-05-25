@@ -1,7 +1,7 @@
-﻿import { Hono } from 'hono';
+import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { Bindings, Variables } from '../types';
-import { rbacGuard } from '../middleware/rbacGuard';
+import { requirePolicy, emptyContextBuilder } from '../middleware/pbac';
 import { sendSupervisorApprovalEmail } from '../services/emailService';
 import { hashPassword } from '../services/authService';
 import { 
@@ -56,7 +56,7 @@ router.get('/departments', async (c) => {
 });
 
 // Sync department asset totals from locations (Source of Truth)
-router.post('/departments/refresh', rbacGuard('manage:departments'), async (c) => {
+router.post('/departments/refresh', requirePolicy('department.manage', emptyContextBuilder()), async (c) => {
   try {
     await refreshDepartmentAssetTotals(c.env.DB);
     return c.json({ success: true });
@@ -65,7 +65,7 @@ router.post('/departments/refresh', rbacGuard('manage:departments'), async (c) =
   }
 });
 
-router.post('/departments', rbacGuard('manage:departments'), async (c) => {
+router.post('/departments', requirePolicy('department.manage', emptyContextBuilder()), async (c) => {
   const dept = await c.req.json();
   const id = dept.id || crypto.randomUUID();
   const groupId = crypto.randomUUID(); // Auto-create a solo group
@@ -94,7 +94,7 @@ router.post('/departments', rbacGuard('manage:departments'), async (c) => {
   }
 });
 
-router.patch('/departments/:id', rbacGuard('manage:departments'), async (c) => {
+router.patch('/departments/:id', requirePolicy('department.manage', emptyContextBuilder()), async (c) => {
   const id = c.req.param('id');
   const updates = await c.req.json();
   const fields: string[] = [];
@@ -131,7 +131,7 @@ router.patch('/departments/:id', rbacGuard('manage:departments'), async (c) => {
   }
 });
 
-router.delete('/departments/:id', rbacGuard('manage:departments'), async (c) => {
+router.delete('/departments/:id', requirePolicy('department.manage', emptyContextBuilder()), async (c) => {
   const id = c.req.param('id');
   const caller = c.get('user');
   try {
@@ -144,7 +144,7 @@ router.delete('/departments/:id', rbacGuard('manage:departments'), async (c) => 
   }
 });
 
-router.delete('/departments/:id/purge', rbacGuard('manage:departments'), async (c) => {
+router.delete('/departments/:id/purge', requirePolicy('department.manage', emptyContextBuilder()), async (c) => {
   const id = c.req.param('id');
   try {
     // Only allow purge if already archived
@@ -166,7 +166,7 @@ router.delete('/departments/:id/purge', rbacGuard('manage:departments'), async (
   }
 });
 
-router.delete('/departments/:id/force', rbacGuard('admin:hub'), async (c) => {
+router.delete('/departments/:id/force', requirePolicy('system.reset', emptyContextBuilder()), async (c) => {
   const id = c.req.param('id');
   try {
     // Orphan locations and clean up their non-completed audits
@@ -185,7 +185,7 @@ router.delete('/departments/:id/force', rbacGuard('admin:hub'), async (c) => {
 
 // â”€â”€â”€ RESET DEPARTMENTS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Deletes ALL departments, locations, and schedules. MAINTAINS users.
-router.post('/departments/clear', rbacGuard('admin:hub'), async (c) => {
+router.post('/departments/clear', requirePolicy('system.reset', emptyContextBuilder()), async (c) => {
   try {
     const deletes = [
       { id: 'schedules', sql: 'DELETE FROM audit_schedules' },

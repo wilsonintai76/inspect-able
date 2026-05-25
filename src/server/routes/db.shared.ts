@@ -3,7 +3,7 @@ import { cache } from 'hono/cache';
 import { z } from 'zod';
 import { zValidator } from '@hono/zod-validator';
 import { Bindings, Variables } from '../types';
-import { rbacGuard } from '../middleware/rbacGuard';
+
 import { auditAssignmentGuard } from '../middleware/conflictOfInterest';
 import { verifyNativeJwt } from '../middleware/auth';
 import { hashPassword } from '../services/authService';

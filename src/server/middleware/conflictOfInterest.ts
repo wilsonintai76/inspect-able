@@ -1,6 +1,6 @@
 import { Context, Next } from 'hono';
 import { Bindings, Variables } from '../types';
-import { hasPermissionInContext } from './rbac';
+import { deriveCapabilities } from '../utils/policyEngine';
 
 // ─── auditAssignmentGuard ─────────────────────────────────────────────────────
 // Enforces two business rules on any request that sets auditor1Id / auditor2Id:
@@ -43,7 +43,15 @@ export const auditAssignmentGuard = async (
   const isCoordinatorCaller = callerRoles.includes('Coordinator') || caller.role === 'Coordinator';
 
   // ── Rule 1: Self-assignment enforcement ──────────────────────────────────
-  const canAssignOthers = await hasPermissionInContext(c, 'edit:audit:assign:others');
+  const caps = deriveCapabilities({
+    id: caller.id,
+    email: caller.email,
+    role: caller.role,
+    roles: callerRoles,
+    departmentId: caller.departmentId ?? null,
+    certificationExpiry: caller.certificationExpiry ?? null,
+  });
+  const canAssignOthers = caps.has('assign:others');
   if (!canAssignOthers) {
     const illegalSlot = incomingAuditorIds.find(id => id !== caller.id);
     if (illegalSlot) {

@@ -1,7 +1,7 @@
-﻿import { Hono } from 'hono';
+import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { Bindings, Variables } from '../types';
-import { rbacGuard } from '../middleware/rbacGuard';
+import { requirePolicy, emptyContextBuilder } from '../middleware/pbac';
 import { sendSupervisorApprovalEmail } from '../services/emailService';
 import { hashPassword } from '../services/authService';
 import { 
@@ -63,7 +63,7 @@ router.get('/users', async (c) => {
   }
 });
 
-router.post('/users', rbacGuard('edit:team'), zValidator('json', userSchema), async (c) => {
+router.post('/users', requirePolicy('user.create', emptyContextBuilder()), zValidator('json', userSchema), async (c) => {
   const newUser = c.req.valid('json');
   const caller = c.get('user');
   const isSuperAdmin = caller?.email?.toLowerCase() === 'admin@poliku.edu.my';
@@ -280,7 +280,7 @@ router.patch('/users/:id', zValidator('json', patchUserSchema), async (c) => {
   }
 });
 
-router.delete('/users/:id', rbacGuard('admin:hub'), async (c) => {
+router.delete('/users/:id', requirePolicy('user.delete', emptyContextBuilder()), async (c) => {
   const id = c.req.param('id');
   try {
     // Step 1: Clear all foreign key references before deleting the user
@@ -308,7 +308,7 @@ router.delete('/users/:id', rbacGuard('admin:hub'), async (c) => {
   }
 });
 
-router.post('/users/:id/verify', rbacGuard('admin:hub'), async (c) => {
+router.post('/users/:id/verify', requirePolicy('user.verify', emptyContextBuilder()), async (c) => {
   const id = c.req.param('id');
   try {
     await c.env.DB.prepare('UPDATE users SET is_verified = 1, status = \'Active\' WHERE id = ?').bind(id).run();

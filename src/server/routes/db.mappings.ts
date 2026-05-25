@@ -1,7 +1,7 @@
-﻿import { Hono } from 'hono';
+import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { Bindings, Variables } from '../types';
-import { rbacGuard } from '../middleware/rbacGuard';
+import { requirePolicy, emptyContextBuilder } from '../middleware/pbac';
 import { sendSupervisorApprovalEmail } from '../services/emailService';
 import { hashPassword } from '../services/authService';
 import { 
@@ -30,7 +30,7 @@ router.get('/department-mappings', async (c) => {
   }
 });
 
-router.post('/department-mappings', rbacGuard('manage:departments'), async (c) => {
+router.post('/department-mappings', requirePolicy('mapping.manage', emptyContextBuilder()), async (c) => {
   const mapping = await c.req.json();
   const id = mapping.id || crypto.randomUUID();
   try {
@@ -43,7 +43,7 @@ router.post('/department-mappings', rbacGuard('manage:departments'), async (c) =
   }
 });
 
-router.post('/department-mappings/clear', rbacGuard('manage:departments'), async (c) => {
+router.post('/department-mappings/clear', requirePolicy('mapping.manage', emptyContextBuilder()), async (c) => {
   try {
     await c.env.DB.prepare('DELETE FROM department_mappings').run();
     return c.json({ success: true });
@@ -52,7 +52,7 @@ router.post('/department-mappings/clear', rbacGuard('manage:departments'), async
   }
 });
 
-router.delete('/department-mappings/:id', rbacGuard('manage:departments'), async (c) => {
+router.delete('/department-mappings/:id', requirePolicy('mapping.manage', emptyContextBuilder()), async (c) => {
   const id = c.req.param('id');
   try {
     await c.env.DB.prepare('DELETE FROM department_mappings WHERE id = ?').bind(id).run();
@@ -77,7 +77,7 @@ router.get('/location-mappings', async (c) => {
   }
 });
 
-router.post('/location-mappings', rbacGuard('manage:locations'), async (c) => {
+router.post('/location-mappings', requirePolicy('mapping.manage', emptyContextBuilder()), async (c) => {
   const mapping = await c.req.json();
   const id = mapping.id || crypto.randomUUID();
   try {
@@ -90,7 +90,7 @@ router.post('/location-mappings', rbacGuard('manage:locations'), async (c) => {
   }
 });
 
-router.delete('/location-mappings/:id', rbacGuard('manage:locations'), async (c) => {
+router.delete('/location-mappings/:id', requirePolicy('mapping.manage', emptyContextBuilder()), async (c) => {
   const id = c.req.param('id');
   try {
     await c.env.DB.prepare('DELETE FROM location_mappings WHERE id = ?').bind(id).run();
@@ -177,7 +177,7 @@ router.post('/permissions/reset-only', async (c) => {
   }
 });
 
-router.post('/permissions/clear', rbacGuard('system:settings'), async (c) => {
+router.post('/permissions/clear', requirePolicy('system.settings', emptyContextBuilder()), async (c) => {
   try {
     // SYNCHRONIZED RESET: Clear pairings AND groups/links (User Requirement)
     await c.env.DB.batch([

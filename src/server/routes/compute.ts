@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import { zValidator } from '@hono/zod-validator';
 import { Bindings, Variables } from '../types';
-import { requirePermission } from '../middleware/rbac';
+import { requirePolicy, emptyContextBuilder } from '../middleware/pbac';
 
 const compute = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 
@@ -172,7 +172,7 @@ compute.get('/kpi', async (c) => {
 // ─────────────────────────────────────────────────────────────────────────────
 compute.post(
   '/rebalance',
-  requirePermission('manage:system'),
+  requirePolicy('system.settings', emptyContextBuilder()),
   async (c) => {
     const db = c.env.DB;
 
@@ -352,7 +352,7 @@ const commitDraftSchema = z.object({
 
 compute.post(
   '/consolidate',
-  requirePermission('manage:system'),
+  requirePolicy('system.settings', emptyContextBuilder()),
   zValidator('json', consolidateSchema),
   async (c) => {
     const { threshold: baseThreshold, excludedDeptIds, minAuditors, minAuditorsPerGroup, groupingMargin, useAI, aiConsolidation, pairingMode, dryRun, auditorMargin } = c.req.valid('json');
@@ -743,7 +743,7 @@ Output ONLY a JSON array of groups:
 
 compute.post(
   '/consolidate/commit-draft',
-  requirePermission('manage:system'),
+  requirePolicy('system.settings', emptyContextBuilder()),
   zValidator('json', commitDraftSchema),
   async (c) => {
     const { groups } = c.req.valid('json');
@@ -811,7 +811,7 @@ const crossAuditSchema = z.object({
 
 compute.post(
   '/cross-audit/generate',
-  requirePermission('manage:system'),
+  requirePolicy('system.settings', emptyContextBuilder()),
   zValidator('json', crossAuditSchema),
   async (c) => {
     const { mode, minAuditors, strictAuditorRule, autoPairingMutual, respectManualPairings, simulate, useAI } =
@@ -1202,7 +1202,7 @@ Return ONLY a JSON array of best pairs based on THEIR INDEX in the names list (a
 // ─────────────────────────────────────────────────────────────────────────────
 compute.post(
   '/auto-tier-targets',
-  requirePermission('manage:system'),
+  requirePolicy('system.settings', emptyContextBuilder()),
   async (c) => {
     const db = c.env.DB;
 
@@ -1456,7 +1456,7 @@ compute.post(
 // ─────────────────────────────────────────────────────────────────────────────
 compute.post(
   '/feasibility',
-  requirePermission('manage:system'),
+  requirePolicy('system.settings', emptyContextBuilder()),
   async (c) => {
     const db = c.env.DB;
     const MODEL = '@cf/meta/llama-3.1-8b-instruct-fp8-fast';
