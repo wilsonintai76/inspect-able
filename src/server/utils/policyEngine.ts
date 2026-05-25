@@ -72,6 +72,7 @@ export type PbacAction =
   | 'user.update'
   | 'user.delete'
   | 'user.verify'
+  | 'user.certify'
   // ── Admin management actions ──────────────────────────────────────────
   | 'admin.manage'
   | 'department.manage'
@@ -82,7 +83,8 @@ export type PbacAction =
   | 'permission.manage'
   | 'mapping.manage'
   | 'system.reset'
-  | 'system.settings';
+  | 'system.settings'
+  | 'data.purge';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Capability Derivation (no DB schema changes needed)
@@ -153,6 +155,8 @@ export function deriveCapabilities(user: PbaoUser): Set<string> {
     caps.add('manage:permissions');
     caps.add('manage:mappings');
     caps.add('manage:settings');
+    caps.add('manage:certs');             // Issue/renew officer certifications
+    caps.add('purge:data');               // Permanently delete archived records
     caps.add('system:reset');
   }
 
@@ -382,6 +386,10 @@ export const ACTION_POLICIES: Record<PbacAction, PolicyDefinition[]> = {
   'user.verify': [
     REQUIRE_CAPABILITY('manage:users', 'MISSING_CAPABILITY'),
   ],
+  // ── Certification issuance (Admin only) ───────────────────────────────
+  'user.certify': [
+    REQUIRE_CAPABILITY('manage:certs', 'MISSING_CAPABILITY'),
+  ],
   // ── Admin operations ──────────────────────────────────────────────────
   'admin.manage': [
     REQUIRE_CAPABILITY('manage:departments', 'MISSING_CAPABILITY'),
@@ -412,6 +420,10 @@ export const ACTION_POLICIES: Record<PbacAction, PolicyDefinition[]> = {
   ],
   'system.settings': [
     REQUIRE_CAPABILITY('manage:settings', 'MISSING_CAPABILITY'),
+  ],
+  // ── Permanent data purge (Admin only) ─────────────────────────────────
+  'data.purge': [
+    REQUIRE_CAPABILITY('purge:data', 'MISSING_CAPABILITY'),
   ],
 };
 

@@ -2,6 +2,7 @@
 import { zValidator } from '@hono/zod-validator';
 import { Bindings, Variables } from '../types';
 import { requirePolicy, bodyDeptContextBuilder, emptyContextBuilder, auditPatchContextBuilder } from '../middleware/pbac';
+import { deriveCapabilities } from '../utils/policyEngine';
 import { sendSupervisorApprovalEmail } from '../services/emailService';
 import { hashPassword } from '../services/authService';
 import { 
@@ -164,7 +165,8 @@ router.patch('/audits/:id', zValidator('json', patchAuditSchema), patchAuditPerm
   if (updates.reportPath !== undefined) { fields.push('report_path = ?'); values.push(updates.reportPath); }
   if (updates.isLocked !== undefined) {
     const callerRoles = (c.get('user') as any)?.roles || [];
-    if (!callerRoles.includes('Supervisor') && !callerRoles.includes('Admin') && !callerRoles.includes('Coordinator')) {
+    const caps = deriveCapabilities({ id: (c.get('user') as any)?.id || '', email: (c.get('user') as any)?.email || '', role: (c.get('user') as any)?.role || '', roles: callerRoles, departmentId: (c.get('user') as any)?.departmentId || null, certificationExpiry: (c.get('user') as any)?.certificationExpiry || null });
+    if (!caps.has('manage:locations') && !caps.has('system:admin') && !caps.has('manage:departments')) {
       return c.json({ error: 'Only Supervisors can lock or unlock schedules.' }, 403);
     }
     fields.push('is_locked = ?');

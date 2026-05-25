@@ -39,8 +39,6 @@ export const auditAssignmentGuard = async (
 
   const caller = c.get('user')!;
   const callerRoles = caller.roles || [];
-  const isAdminCaller = callerRoles.includes('Admin') || caller.role === 'Admin';
-  const isCoordinatorCaller = callerRoles.includes('Coordinator') || caller.role === 'Coordinator';
 
   // ── Rule 1: Self-assignment enforcement ──────────────────────────────────
   const caps = deriveCapabilities({
@@ -51,6 +49,8 @@ export const auditAssignmentGuard = async (
     departmentId: caller.departmentId ?? null,
     certificationExpiry: caller.certificationExpiry ?? null,
   });
+  const isAdminCaller = caps.has('system:admin');
+  const isCoordinatorCaller = caps.has('manage:departments') && !isAdminCaller;
   const canAssignOthers = caps.has('assign:others');
   if (!canAssignOthers) {
     const illegalSlot = incomingAuditorIds.find(id => id !== caller.id);

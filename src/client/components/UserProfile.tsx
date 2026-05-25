@@ -2,6 +2,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { User, Department, UserRole } from '@shared/types';
 import { Mail, CheckCircle2, User as UserIcon, Phone, Info, Loader2, Award, AlertCircle, RotateCw, Shield, KeyRound, Link2, ExternalLink, Unlink } from 'lucide-react';
+import { hasCapability } from '../lib/pbacUtils';
 
 interface UserProfileProps {
   user: User;
@@ -26,7 +27,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ user, departments, onU
   const [passwordSuccess, setPasswordSuccess] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
-  const isAdmin = user.roles.includes('Admin');
+  const isAdmin = hasCapability(user, 'system:admin');
 
   // ── Connected OAuth accounts ───────────────────────────────────────────────
   type LinkedAccount = { provider: string; provider_email: string; created_at: string };
@@ -162,144 +163,129 @@ export const UserProfile: React.FC<UserProfileProps> = ({ user, departments, onU
 
           <div className="grid lg:grid-cols-3 gap-8">
             <div className="lg:col-span-2">
-              {!isProfileComplete ? (
-                <form onSubmit={handleSubmit} className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest block">Official Display Name</label>
-                      <div className="relative group">
-                        <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4 transition-colors group-focus-within:text-blue-500" />
-                        <input 
-                          required
-                          type="text"
-                          readOnly={!isAdmin}
-                          className={`w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-semibold focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all ${!isAdmin ? 'opacity-70 cursor-not-allowed bg-slate-100' : ''}`}
-                          placeholder="Enter your full legal name"
-                          value={formData.name}
-                          onChange={e => setFormData({ ...formData, name: e.target.value })}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest block">Personal Contact Number</label>
-                      <div className="relative group">
-                        <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4 transition-colors group-focus-within:text-blue-500" />
-                        <input 
-                          required
-                          type="tel"
-                          className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-semibold focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all"
-                          placeholder="+1 (555) 000-0000"
-                          value={formData.contactNumber}
-                          onChange={e => setFormData({ ...formData, contactNumber: e.target.value })}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest block">Designation</label>
-                      <div className="relative group">
-                        <select 
-                          title="Designation"
-                          required
-                          className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-semibold focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all appearance-none"
-                          value={formData.designation}
-                          onChange={e => setFormData({ ...formData, designation: e.target.value })}
-                        >
-                          <option value="Staff">Staff</option>
-                          <option value="Supervisor">Supervisor</option>
-                          <option value="Coordinator">Coordinator</option>
-                          <option value="Head Of Department">Head Of Department</option>
-                          {user.email?.toLowerCase() === 'admin@poliku.edu.my' && <option value="Developer">Developer</option>}
-                        </select>
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest block">Department</label>
-                      <div className="relative group">
-                        <select 
-                          title="Department"
-                          required
-                          className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-semibold focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all appearance-none"
-                          value={formData.departmentId}
-                          onChange={e => setFormData({ ...formData, departmentId: e.target.value })}
-                        >
-                          <option value="">Select Department</option>
-                          {departments.map(d => (
-                            <option key={d.id} value={d.id}>{d.name}</option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
-
-                  </div>
-
-                  <div className="bg-blue-50/50 rounded-2xl p-4 border border-blue-100/50 flex items-start gap-4">
-                    <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center text-blue-600 shrink-0">
-                      <Info className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <h4 className="text-xs font-bold text-blue-900 mb-1">Account Metadata</h4>
-                      <p className="text-[10px] text-blue-700/70 leading-relaxed font-medium">
-                        Assigned Department: <strong>{departments.find(d => d.id === user.departmentId)?.name || 'General'}</strong><br/>
-                        Designation: <strong>{user.designation || 'Staff'}</strong><br/>
-                        Roles: <strong>{user.roles.join(', ')}</strong><br/>
-                        Last Login: <strong>{user.lastActive}</strong>
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-4 pt-4 border-t border-slate-100">
-                    <button 
-                      type="submit"
-                      disabled={isSaving}
-                      className="flex items-center gap-3 px-8 py-3.5 bg-slate-900 text-white rounded-2xl text-sm font-bold hover:bg-slate-800 transition-all shadow-xl shadow-slate-900/10 active:scale-95 disabled:opacity-50"
-                    >
-                      {isSaving ? (
-                        <><Loader2 className="w-4 h-4 animate-spin" /> Processing...</>
-                      ) : (
-                        <>Complete Profile Setup</>
-                      )}
-                    </button>
-                    
-                    {showSuccess && (
-                      <div className="flex items-center gap-2 text-emerald-600 text-sm font-bold animate-in fade-in slide-in-from-left-2">
-                        <CheckCircle2 className="w-4 h-4" />
-                        Profile updated successfully
-                      </div>
-                    )}
-                  </div>
-                </form>
-              ) : (
-                <div className="space-y-6">
-                  <div className="bg-emerald-50/80 rounded-2xl p-6 border border-emerald-100/80 flex items-start gap-4">
+              <form onSubmit={handleSubmit} className="space-y-6">
+                {isProfileComplete && (
+                  <div className="mb-6 flex items-start gap-4 p-4 bg-emerald-50/80 border border-emerald-100/80 rounded-2xl animate-in fade-in duration-300">
                     <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-600 shrink-0">
                       <CheckCircle2 className="w-5 h-5" />
                     </div>
                     <div>
-                      <h4 className="text-sm font-bold text-emerald-900 mb-2">Profile Completed</h4>
-                      <p className="text-xs text-emerald-700/80 leading-relaxed font-medium mb-4">
+                      <h4 className="text-sm font-bold text-emerald-900 mb-0.5">Profile Completed</h4>
+                      <p className="text-xs text-emerald-700/80 leading-relaxed font-medium">
                         Your profile has been fully set up. If you need to change your Official Name, Department, or Designation, please contact the system administrator.
                       </p>
-                      <div className="grid grid-cols-2 gap-4 text-[11px]">
-                        <div>
-                          <span className="text-emerald-600/60 font-bold uppercase tracking-wider block mb-1">Department</span>
-                          <span className="font-semibold text-emerald-900">{departments.find(d => d.id === user.departmentId)?.name || 'General'}</span>
-                        </div>
-                        <div>
-                          <span className="text-emerald-600/60 font-bold uppercase tracking-wider block mb-1">Designation</span>
-                          <span className="font-semibold text-emerald-900">{user.designation || 'Staff'}</span>
-                        </div>
-                        <div>
-                          <span className="text-emerald-600/60 font-bold uppercase tracking-wider block mb-1">Institutional Roles</span>
-                          <span className="font-semibold text-emerald-900">{user.roles.join(', ')}</span>
-                        </div>
-                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest block">Official Display Name</label>
+                    <div className="relative group">
+                      <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4 transition-colors group-focus-within:text-blue-500" />
+                      <input 
+                        required
+                        type="text"
+                        readOnly={isProfileComplete ? !isAdmin : !isAdmin}
+                        className={`w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-semibold focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all ${(isProfileComplete && !isAdmin) ? 'opacity-70 cursor-not-allowed bg-slate-100' : ''}`}
+                        placeholder="Enter your full legal name"
+                        value={formData.name}
+                        onChange={e => setFormData({ ...formData, name: e.target.value })}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest block">Personal Contact Number</label>
+                    <div className="relative group">
+                      <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4 transition-colors group-focus-within:text-blue-500" />
+                      <input 
+                        required
+                        type="tel"
+                        className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-semibold focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all"
+                        placeholder="+1 (555) 000-0000"
+                        value={formData.contactNumber}
+                        onChange={e => setFormData({ ...formData, contactNumber: e.target.value })}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest block">Designation</label>
+                    <div className="relative group">
+                      <select 
+                        title="Designation"
+                        required
+                        disabled={isProfileComplete && !isAdmin}
+                        className={`w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-semibold focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all appearance-none ${(isProfileComplete && !isAdmin) ? 'opacity-70 cursor-not-allowed bg-slate-100' : ''}`}
+                        value={formData.designation}
+                        onChange={e => setFormData({ ...formData, designation: e.target.value })}
+                      >
+                        <option value="Staff">Staff</option>
+                        <option value="Supervisor">Supervisor</option>
+                        <option value="Coordinator">Coordinator</option>
+                        <option value="Head Of Department">Head Of Department</option>
+                        {user.email?.toLowerCase() === 'admin@poliku.edu.my' && <option value="Developer">Developer</option>}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest block">Department</label>
+                    <div className="relative group">
+                      <select 
+                        title="Department"
+                        required
+                        disabled={isProfileComplete && !isAdmin}
+                        className={`w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-semibold focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all appearance-none ${(isProfileComplete && !isAdmin) ? 'opacity-70 cursor-not-allowed bg-slate-100' : ''}`}
+                        value={formData.departmentId}
+                        onChange={e => setFormData({ ...formData, departmentId: e.target.value })}
+                      >
+                        <option value="">Select Department</option>
+                        {departments.map(d => (
+                          <option key={d.id} value={d.id}>{d.name}</option>
+                        ))}
+                      </select>
                     </div>
                   </div>
                 </div>
-              )}
+
+                <div className="bg-blue-50/50 rounded-2xl p-4 border border-blue-100/50 flex items-start gap-4">
+                  <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center text-blue-600 shrink-0">
+                    <Info className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-blue-900 mb-1">Account Metadata</h4>
+                    <p className="text-[10px] text-blue-700/70 leading-relaxed font-medium">
+                      Assigned Department: <strong>{departments.find(d => d.id === user.departmentId)?.name || 'General'}</strong><br/>
+                      Designation: <strong>{user.designation || 'Staff'}</strong><br/>
+                      Roles: <strong>{user.roles.join(', ')}</strong><br/>
+                      Last Login: <strong>{user.lastActive}</strong>
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-4 pt-4 border-t border-slate-100">
+                  <button 
+                    type="submit"
+                    disabled={isSaving}
+                    className="flex items-center gap-3 px-8 py-3.5 bg-slate-900 text-white rounded-2xl text-sm font-bold hover:bg-slate-800 transition-all shadow-xl shadow-slate-900/10 active:scale-95 disabled:opacity-50"
+                  >
+                    {isSaving ? (
+                      <><Loader2 className="w-4 h-4 animate-spin" /> Processing...</>
+                    ) : (
+                      <>{isProfileComplete ? 'Save Profile Updates' : 'Complete Profile Setup'}</>
+                    )}
+                  </button>
+                  
+                  {showSuccess && (
+                    <div className="flex items-center gap-2 text-emerald-600 text-sm font-bold animate-in fade-in slide-in-from-left-2">
+                      <CheckCircle2 className="w-4 h-4" />
+                      Profile updated successfully
+                    </div>
+                  )}
+                </div>
+              </form>
             </div>
 
             <div className="space-y-6">

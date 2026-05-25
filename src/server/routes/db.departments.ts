@@ -144,7 +144,7 @@ router.delete('/departments/:id', requirePolicy('department.manage', emptyContex
   }
 });
 
-router.delete('/departments/:id/purge', requirePolicy('department.manage', emptyContextBuilder()), async (c) => {
+router.delete('/departments/:id/purge', requirePolicy('data.purge', emptyContextBuilder()), async (c) => {
   const id = c.req.param('id');
   try {
     // Only allow purge if already archived

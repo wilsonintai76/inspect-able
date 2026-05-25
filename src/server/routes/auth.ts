@@ -4,6 +4,7 @@ import { zValidator } from '@hono/zod-validator';
 import { setCookie, deleteCookie } from 'hono/cookie';
 import { Bindings, Variables } from '../types';
 import { verifyNativeJwt } from '../middleware/auth';
+import { deriveCapabilities } from '../utils/policyEngine';
 import { hashPassword, generateToken } from '../services/authService';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -309,7 +310,9 @@ auth.patch(
   })),
   async (c) => {
     const info = await requireJwt(c);
-    if (!info || !info.roles.includes('Admin')) {
+    if (!info) return c.json({ success: false, message: 'Unauthorized' }, 401);
+    const caps = deriveCapabilities({ id: info.userId, email: '', role: '', roles: info.roles, departmentId: null });
+    if (!caps.has('system:admin')) {
       return c.json({ success: false, message: 'Forbidden: Admin only' }, 403);
     }
 

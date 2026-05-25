@@ -157,12 +157,10 @@ export const authMiddleware = async (
     return c.json({ success: false, message: 'User not found' }, 401);
   }
 
-  // Dynamic Certified Officer Role Injection
+  // PBAC derives asset_inspector from certificationExpiry — no need to inject 'Auditor' role
   const today = new Date().toISOString().split('T')[0];
   const isCertified = certificationExpiry && certificationExpiry >= today;
-  if (isCertified && !roles.includes('Auditor')) {
-    roles = [...roles, 'Auditor'];
-  }
+  // Auditor role injection removed — PBAC handles certification via deriveCapabilities
 
   // 4. Populate context
   c.set('user', {

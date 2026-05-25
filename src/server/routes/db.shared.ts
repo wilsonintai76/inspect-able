@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { zValidator } from '@hono/zod-validator';
 import { Bindings, Variables } from '../types';
 
-import { auditAssignmentGuard } from '../middleware/conflictOfInterest';
+import { deriveCapabilities } from '../utils/policyEngine';
 import { verifyNativeJwt } from '../middleware/auth';
 import { hashPassword } from '../services/authService';
 import { KVNamespace } from '@cloudflare/workers-types';
@@ -93,12 +93,9 @@ export const edgeCache = (seconds: number) =>
 // ═══════════════════════════════════════════════════════════════
 export const auditLockGuard = async (c: Context<{ Bindings: Bindings; Variables: Variables }>, next: Next) => {
   const caller = c.get('user')!;
-  const userRoles = caller.roles || [];
-  const isAdmin = userRoles.includes('Admin');
-  const isCoordinator = userRoles.includes('Coordinator');
-  const isSupervisor = userRoles.includes('Supervisor');
+  const caps = deriveCapabilities({ id: caller.id, email: caller.email, role: caller.role, roles: caller.roles || [], departmentId: caller.departmentId || null, certificationExpiry: caller.certificationExpiry || null });
 
-  if (isAdmin || isCoordinator || isSupervisor) return next();
+  if (caps.has('system:admin') || caps.has('manage:departments') || caps.has('manage:locations')) return next();
 
   const id = c.req.param('id');
   const updates = (c.req as any).valid('json') as Record<string, any>;

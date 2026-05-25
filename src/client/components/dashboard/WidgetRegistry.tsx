@@ -72,8 +72,6 @@ export interface DashboardWidgetProps {
   onUpdateAudit?: (id: string, u: Partial<AuditSchedule>) => Promise<void>;
   onNavigateToSchedule?: (auditId?: string) => void;
   setUploadAudit: (a: AuditSchedule | null) => void;
-  // Legacy compat
-  rbacMatrix?: Record<string, string[]>;
   dashboardConfig?: any;
 }
 

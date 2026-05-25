@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useRef } from 'react';
 import Papa from 'papaparse';
 import { User, UserRole, Department } from '@shared/types';
-import { useRBAC } from '../contexts/RBACContext';
+import { hasCapability, CAP_MANAGE_CERTS } from '../lib/pbacUtils';
 import { IssueCertificateModal } from './IssueCertificateModal';
 import { gateway } from '../services/dataGateway';
 import { Filter, Plus, User as UserIcon, Check, X, Award, Stamp, Pencil, Trash2, Key, ChevronDown, Printer } from 'lucide-react';
@@ -30,7 +30,16 @@ interface UserManagementProps {
 export const UserManagement: React.FC<UserManagementProps> = ({ 
   users, onAddMember, onBulkAddMembers, onUpdateMember, onDeleteMember, onUpdateRoles, onUpdateStatus, onResetPassword, currentUserRoles, departments, customConfirm, customAlert, phases = [], selectedDeptFilter: propSelectedDeptFilter, onDeptFilterChange, currentUserId 
 }) => {
-  const { hasPermission, rbacMatrix } = useRBAC();
+  // ── PBAC capability checks ───────────────────────────────────────────
+  const currentUserData = users.find(u => u.id === currentUserId);
+  const pbacUser = currentUserData ? { roles: currentUserData.roles, certificationExpiry: currentUserData.certificationExpiry, departmentId: currentUserData.departmentId } : { roles: [] as string[], certificationExpiry: null as string | null, departmentId: null as string | null };
+
+  const isAdmin = hasCapability(pbacUser, 'system:admin');
+  const canViewAll = isAdmin;                              // Admin sees all users
+  const canViewOwn = hasCapability(pbacUser, 'manage:users');  // Coordinators see dept users
+  const canEditTeam = hasCapability(pbacUser, 'manage:users');  // Admin/Coordinator can edit
+  const canIssueCert = hasCapability(pbacUser, CAP_MANAGE_CERTS); // Admin only
+
   const [internalSelectedDeptFilter, setInternalSelectedDeptFilter] = useState('All');
   
   const selectedDeptFilter = propSelectedDeptFilter !== undefined ? propSelectedDeptFilter : internalSelectedDeptFilter;
@@ -41,6 +50,12 @@ export const UserManagement: React.FC<UserManagementProps> = ({
       setInternalSelectedDeptFilter(deptId);
     }
   };
+
+  // ── Pending users ────────────────────────────────────────────────────
+  const pendingUsers = useMemo(() => {
+    return users.filter(u => u.status === 'Pending')
+      .filter(u => selectedDeptFilter === 'All' || u.departmentId === selectedDeptFilter);
+  }, [users, selectedDeptFilter]);
 
   const [selectedStatusFilter, setSelectedStatusFilter] = useState('All');
   const [selectedRoleFilter, setSelectedRoleFilter] = useState('All');
@@ -59,27 +74,12 @@ export const UserManagement: React.FC<UserManagementProps> = ({
     contactNumber: '',
   });
 
-  const isAdmin = currentUserRoles.includes('Admin');
-  
-  const hasPerm = (perm: string) => hasPermission(perm, currentUserRoles);
-
-  const canViewAll = hasPerm('view:team:all');
-  const canViewOwn = hasPerm('view:team:own');
-  const canEditTeam = hasPerm('edit:team');
-
-  const currentUserData = users.find(u => u.id === currentUserId);
-
-  // Pending users logic
-  const pendingUsers = useMemo(() => {
-    return users.filter(u => u.status === 'Pending')
-      .filter(u => selectedDeptFilter === 'All' || u.departmentId === selectedDeptFilter);
-  }, [users, selectedDeptFilter]);
-
+  // ── PBAC scoping for filteredUsers ───────────────────────────────────
   const filteredUsers = useMemo(() => {
     return users
       .filter(u => {
-          // 1. RBAC Scope Filtering
-          if (!canViewAll && canViewOwn) {
+          // 1. PBAC Scope Filtering
+          if (canViewOwn && !isAdmin) {
               if (u.departmentId !== currentUserData?.departmentId) return false;
           }
           if (!canViewAll && !canViewOwn) return false;
@@ -227,7 +227,6 @@ export const UserManagement: React.FC<UserManagementProps> = ({
   };
 
   const resetForm = () => {
-    const isAdmin = currentUserRoles.includes('Admin');
     const deptId = (!isAdmin && currentUserData?.departmentId) ? currentUserData.departmentId : '';
     setFormData({ name: '', email: '', departmentId: deptId, roles: ['Guest'] as string[], designation: '', contactNumber: '' });
     setIsFormOpen(false);
@@ -344,7 +343,6 @@ export const UserManagement: React.FC<UserManagementProps> = ({
                 <option value="Admin">Admin</option>
                 <option value="Coordinator">Coordinator</option>
                 <option value="Supervisor">Supervisor</option>
-                <option value="Auditor">Certified Officer</option>
                 <option value="Guest">Guest</option>
               </select>
               <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 w-3 h-3 pointer-events-none" />
@@ -481,9 +479,9 @@ export const UserManagement: React.FC<UserManagementProps> = ({
                     <label className="text-[10px] font-black uppercase text-slate-400">Department</label>
                     <select 
                       required 
-                      disabled={!isAdmin}
+                      disabled={!canEditTeam}
                       title="Department" 
-                      className={`w-full px-4 py-3 border rounded-xl text-sm ${!isAdmin ? 'bg-slate-100 cursor-not-allowed text-slate-500' : 'bg-slate-50 border-slate-200'}`} 
+                      className={`w-full px-4 py-3 border rounded-xl text-sm ${!canEditTeam ? 'bg-slate-100 cursor-not-allowed text-slate-500' : 'bg-slate-50 border-slate-200'}`} 
                       value={formData.departmentId} 
                       onChange={e => setFormData({ ...formData, departmentId: e.target.value })}
                     >
@@ -612,11 +610,23 @@ export const UserManagement: React.FC<UserManagementProps> = ({
                         <div>
                           <div className="text-sm font-bold text-slate-900">{user.name}</div>
                           <div className="flex items-center gap-1.5 flex-wrap mt-1">
-                             {user.roles.map(r => (
-                               <span key={r} className={`px-2 py-0.5 rounded text-[8px] font-black uppercase border ${getRoleBadgeStyle(r)}`}>
-                                 {r === 'Auditor' ? 'Certified Officer' : r}
+                             {/* Single role badge — bound to designation, or Admin if promoted */}
+                             {(() => {
+                               const role = (user.roles && user.roles.length > 0) ? user.roles[0] : 'Guest';
+                               // Map legacy Auditor role to display as certification, not a role
+                               const displayRole = role === 'Auditor' ? 'Guest' : role;
+                               return (
+                                 <span key={displayRole} className={`px-2 py-0.5 rounded text-[8px] font-black uppercase border ${getRoleBadgeStyle(displayRole)}`}>
+                                   {displayRole}
+                                 </span>
+                               );
+                             })()}
+                             {/* Certification indicator — shown if user has valid cert, regardless of role */}
+                             {user.certificationExpiry && new Date(user.certificationExpiry) > new Date() && (
+                               <span className="px-2 py-0.5 rounded text-[8px] font-black uppercase border bg-emerald-50 text-emerald-600 border-emerald-200">
+                                 Certified
                                </span>
-                             ))}
+                             )}
                              <span className="text-[9px] text-slate-400 font-bold uppercase">{user.designation}</span>
                              <span className="text-[9px] text-slate-400 font-bold uppercase">•</span>
                              <span className="text-[9px] text-slate-400 font-bold uppercase">{departments.find(d => d.id === user.departmentId)?.name || user.departmentId}</span>
@@ -644,23 +654,23 @@ export const UserManagement: React.FC<UserManagementProps> = ({
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2">
+                        {isAdmin && (
+                          <button 
+                            onClick={() => setCertifyingUser(user)}
+                            className="w-9 h-9 flex items-center justify-center bg-blue-50 text-blue-600 border border-blue-100 rounded-xl hover:bg-blue-600 hover:text-white transition-all shadow-sm"
+                            title="Issue Official Institutional Certificate"
+                          >
+                            <Stamp className="w-4 h-4" />
+                          </button>
+                        )}
                         {canEditTeam && (
-                          <>
-                            <button 
-                              onClick={() => setCertifyingUser(user)}
-                              className="w-9 h-9 flex items-center justify-center bg-blue-50 text-blue-600 border border-blue-100 rounded-xl hover:bg-blue-600 hover:text-white transition-all shadow-sm"
-                              title="Issue Official Institutional Certificate"
-                            >
-                              <Stamp className="w-4 h-4" />
-                            </button>
-                            <button 
-                              onClick={() => onResetPassword(user.id)}
-                              className="w-9 h-9 flex items-center justify-center bg-amber-50 text-amber-600 border border-amber-100 rounded-xl hover:bg-amber-600 hover:text-white transition-all shadow-sm"
-                              title="Reset to default password"
-                            >
-                              <Key className="w-4 h-4" />
-                            </button>
-                          </>
+                          <button 
+                            onClick={() => onResetPassword(user.id)}
+                            className="w-9 h-9 flex items-center justify-center bg-amber-50 text-amber-600 border border-amber-100 rounded-xl hover:bg-amber-600 hover:text-white transition-all shadow-sm"
+                            title="Reset to default password"
+                          >
+                            <Key className="w-4 h-4" />
+                          </button>
                         )}
                         {canEditTeam && (
                           <>

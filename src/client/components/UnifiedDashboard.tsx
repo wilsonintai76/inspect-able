@@ -13,7 +13,7 @@ interface UnifiedDashboardProps {
   departments: Department[]; locations: Location[]; users: User[]; activities: SystemActivity[];
   buildings: any[]; institutionKPIs: InstitutionKPITarget[]; kpiTierTargets: KPITierTarget[];
   auditGroups: AuditGroup[]; openAuditThreshold: number; dashboardConfig: any;
-  rbacMatrix?: Record<string, string[]>; maxAssetsPerDay?: number;
+  maxAssetsPerDay?: number;
   onApproveArchive?: (id: string) => void; onRejectArchive?: (id: string) => void;
   onApproveCert?: (u: User) => void; onSendEmail?: (id: string) => void;
   onRequestRenewal?: () => void; onUpdateDate?: (id: string, d: string) => void;
@@ -24,7 +24,7 @@ interface UnifiedDashboardProps {
 export const UnifiedDashboard: React.FC<UnifiedDashboardProps> = ({
   currentUser, schedules, phases, kpiTiers, departments, locations, users, activities,
   buildings, institutionKPIs, kpiTierTargets, auditGroups, openAuditThreshold,
-  dashboardConfig, rbacMatrix, maxAssetsPerDay,
+  dashboardConfig, maxAssetsPerDay,
   onApproveArchive, onRejectArchive, onApproveCert, onSendEmail,
   onRequestRenewal, onUpdateDate, onUpdateAudit, setActiveView,
 }) => {

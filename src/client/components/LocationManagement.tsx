@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Location, UserRole, Department, User, AuditPhase, Building, AuditSchedule } from '@shared/types';
-import { useRBAC } from '../contexts/RBACContext';
+import { hasCapability, CAP_PURGE_DATA } from '../lib/pbacUtils';
 import { Network, ChevronDown, Landmark, User as UserIcon, Phone, Pencil, Archive, ArchiveRestore, MapPinned, Building2, Layers, Plus, Flame } from 'lucide-react';
 import { LocationModal } from './LocationModal';
 import { PurgeConfirmModal } from './PurgeConfirmModal';
@@ -25,7 +25,13 @@ interface LocationManagementProps {
 export const LocationManagement: React.FC<LocationManagementProps> = ({ 
   locations, departments, users, userRoles, userDeptId, currentUser, onAdd, onUpdate, onDelete, onPurge, phases = [], buildings, schedules
 }) => {
-  const { rbacMatrix } = useRBAC();
+  // ── PBAC capability checks ───────────────────────────────────────────
+  const pbacUser = currentUser ? { roles: currentUser.roles, certificationExpiry: currentUser.certificationExpiry, departmentId: currentUser.departmentId } : { roles: userRoles, certificationExpiry: null as string | null, departmentId: userDeptId || null };
+  const isAdmin = hasCapability(pbacUser, 'system:admin');
+  const canManage = hasCapability(pbacUser, 'manage:locations');
+  const canPurge = hasCapability(pbacUser, CAP_PURGE_DATA);
+  const isCoordinator = canManage && !isAdmin;
+  const isSupervisor = canManage && !hasCapability(pbacUser, 'manage:departments') && !isAdmin;
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingLocation, setEditingLocation] = useState<Location | null>(null);
   const [selectedDeptFilter, setSelectedDeptFilter] = useState('All');
@@ -36,15 +42,7 @@ export const LocationManagement: React.FC<LocationManagementProps> = ({
 
   const LEVELS = ["LEVEL 1", "LEVEL 2", "LEVEL 3", "LEVEL 4", "LEVEL 5"];
 
-  const isAdmin = userRoles.includes('Admin');
-  const isCoordinator = userRoles.includes('Coordinator');
-  const isSupervisor = userRoles.includes('Supervisor');
-
-  const canManage = (() => {
-     if (!rbacMatrix) return isAdmin || isCoordinator;
-     const allowedRoles = rbacMatrix['manage:locations'] || [];
-     return (userRoles || []).some(r => allowedRoles.includes(r as any));
-  })();
+  // isAdmin, isCoordinator, isSupervisor, canManage now PBAC-derived above
 
   const getBuildingAbbr = (buildingId?: string, buildingName?: string) => {
     if (buildingId) {
@@ -397,7 +395,7 @@ export const LocationManagement: React.FC<LocationManagementProps> = ({
                                     >
                                       <ArchiveRestore className="w-4 h-4" />
                                     </button>
-                                    {(isAdmin || userRoles.includes('Admin' as UserRole)) && (
+                                    {(canPurge) && (
                                       <button
                                         onClick={() => setPurgeTarget(loc)}
                                         className="w-9 h-9 flex items-center justify-center bg-red-50 border border-red-200 text-red-400 hover:text-red-600 hover:border-red-300 rounded-xl transition-all"

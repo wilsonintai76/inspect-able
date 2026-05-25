@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { Department, Location, User, AuditGroup, UserRole } from '@shared/types';
 import { Plus, Layers, UserRound, Boxes, Pencil, Archive, ArchiveRestore, UserPlus, Printer, Flame } from 'lucide-react';
 import { AuditPhase } from '@shared/types';
-import { useRBAC } from '../contexts/RBACContext';
+import { hasCapability, CAP_PURGE_DATA } from '../lib/pbacUtils';
+
 import { DepartmentModal } from './DepartmentModal';
 import { PurgeConfirmModal } from './PurgeConfirmModal';
 
@@ -16,7 +17,6 @@ interface DepartmentManagementProps {
   onBulkUpdate?: (updates: { id: string; data: Partial<Department> }[]) => void;
   onDelete: (id: string) => void;
   onPurge: (id: string) => void;
-  isAdmin?: boolean;
   phases?: AuditPhase[];
   auditGroups?: AuditGroup[];
   onAddGroup?: (group: Omit<AuditGroup, 'id'>) => Promise<AuditGroup | void>;
@@ -36,7 +36,6 @@ export const DepartmentManagement: React.FC<DepartmentManagementProps> = ({
   onDelete,
   onPurge,
   users,
-  isAdmin = true,
   phases = [],
   auditGroups = [],
   onAddAuditor,
@@ -44,8 +43,12 @@ export const DepartmentManagement: React.FC<DepartmentManagementProps> = ({
   openAuditThreshold = 500,
   buildings = []
 }) => {
-  const { rbacMatrix } = useRBAC();
-  const isCoordinator = currentUserRoles.includes('Coordinator') && !currentUserRoles.includes('Admin');
+  // ── PBAC capability checks ───────────────────────────────────────────
+  const pbacUser = { roles: currentUserRoles, certificationExpiry: null as string | null, departmentId: null as string | null };
+  const isAdmin = hasCapability(pbacUser, 'system:admin');
+  const canManage = hasCapability(pbacUser, 'manage:departments');
+  const canPurge = hasCapability(pbacUser, CAP_PURGE_DATA);
+  const isCoordinator = canManage && !isAdmin;
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingDept, setEditingDept] = useState<Department | null>(null);
   const [showArchived, setShowArchived] = useState(false);
@@ -67,11 +70,7 @@ export const DepartmentManagement: React.FC<DepartmentManagementProps> = ({
 
   const archivedCount = React.useMemo(() => departments.filter(d => d.isArchived).length, [departments]);
 
-  const canManage = (() => {
-    if (!rbacMatrix) return isAdmin;
-    const allowedRoles = rbacMatrix['manage:departments'] || [];
-    return (currentUserRoles || []).some(r => allowedRoles.includes(r as any));
-  })();
+  // canManage is now PBAC-derived above
 
   const handleSave = (data: Omit<Department, 'id'> | Partial<Department>) => {
     if (editingDept) {
@@ -346,7 +345,7 @@ export const DepartmentManagement: React.FC<DepartmentManagementProps> = ({
                           {isArchived ? (
                             <>
                               <button title="Restore department" onClick={() => onUpdate(dept.id, { isArchived: false })} className="w-9 h-9 flex items-center justify-center bg-amber-50 border border-amber-200 text-amber-500 hover:text-amber-700 hover:border-amber-300 rounded-xl transition-colors"><ArchiveRestore className="w-4 h-4" /></button>
-                              {isAdmin && (
+                              {canPurge && (
                                 <button title="Purge permanently" onClick={() => setPurgeTarget(dept)} className="w-9 h-9 flex items-center justify-center bg-red-50 border border-red-200 text-red-400 hover:text-red-600 hover:border-red-300 rounded-xl transition-colors"><Flame className="w-4 h-4" /></button>
                               )}
                             </>

@@ -58,7 +58,6 @@ interface AppActionsProps {
   kpiTiers: any[];
   kpiTierTargets: any[];
   institutionKPIs: any[];
-  rbacMatrix: any;
   maxAssetsPerDay: number; maxLocationsPerDay: number; standaloneThresholdAssets: number;
   groupingMargin: number; groupingAuditorMargin: number;
   setMaxAssetsPerDay: React.Dispatch<React.SetStateAction<number>>;
@@ -93,7 +92,7 @@ export const useAppActions = (props: AppActionsProps) => {
     setShowForcePasswordModal, setShowProfileCompleteModal,
     loadAllData, loadPublicStats, setConnectionErrorMessage,
     departmentsWithAssets, auditPhases, kpiTiers, kpiTierTargets, institutionKPIs,
-    rbacMatrix, maxAssetsPerDay, maxLocationsPerDay, standaloneThresholdAssets,
+    maxAssetsPerDay, maxLocationsPerDay, standaloneThresholdAssets,
     groupingMargin, groupingAuditorMargin,
     setMaxAssetsPerDay, setMaxLocationsPerDay, setMinAuditorsPerLocation,
     setDailyInspectionCapacity, setStandaloneThresholdAssets,

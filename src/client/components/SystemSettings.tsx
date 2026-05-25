@@ -1,6 +1,7 @@
 import React, { useMemo, useRef } from 'react';
 import { CrossAuditPermission, Department, User, AuditPhase, KPITier, KPITierTarget, InstitutionKPITarget, UserRole, Location, AuditSchedule, DepartmentMapping, AuditGroup, AssignmentMode, LocationMapping, Building } from '@shared/types';
-import { useRBAC } from '../contexts/RBACContext';
+import { hasCapability } from '../lib/pbacUtils';
+
 import { AuditPhasesSettings } from './AuditPhasesSettings';
 import { KPISettings } from './KPISettings';
 import { TierDistributionTable } from './TierDistributionTable';
@@ -198,8 +199,10 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
   openAuditThreshold,
   onUpdateOpenAuditThreshold
 }) => {
-  const isAdmin = (userRoles || []).includes('Admin');
-  const isCoordinator = (userRoles || []).includes('Coordinator');
+  // ── PBAC capability checks ───────────────────────────────────────────
+  const pbacUser = currentUser ? { roles: currentUser.roles, certificationExpiry: currentUser.certificationExpiry } : { roles: userRoles, certificationExpiry: null as string | null };
+  const isAdmin = hasCapability(pbacUser, 'system:admin');
+  const isCoordinator = hasCapability(pbacUser, 'manage:departments') && !isAdmin;
   const [isProcessing, setIsProcessing] = React.useState(false);
   const [isSuggestingAI, setIsSuggestingAI] = React.useState(false);
   const [strictAuditorRule, setStrictAuditorRule] = React.useState(true);

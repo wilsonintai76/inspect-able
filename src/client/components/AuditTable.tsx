@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { AuditSchedule, User, UserRole, Department, Location, CrossAuditPermission, AuditPhase, Building as BuildingType, SystemActivity } from '@shared/types';
 import { hasCapability } from '../lib/pbacUtils';
-import { useRBAC } from '../contexts/RBACContext';
+
 import { AuditReportModal } from './AuditReportModal';
 import { AuditUploadModal } from './AuditUploadModal';
 import { Search, Calendar, Zap, FileSpreadsheet } from 'lucide-react';
@@ -51,7 +51,6 @@ export const AuditTable: React.FC<AuditTableProps> = ({
   assignmentMode = 'cross-audit',
   onSendEmail,
 }) => {
-  const { rbacMatrix } = useRBAC();
   const [reportAudit, setReportAudit] = useState<AuditSchedule | null>(null);
   const [uploadAudit, setUploadAudit] = useState<AuditSchedule | null>(null);
   const [selectedBlock, setSelectedBlock] = useState('All');
@@ -157,12 +156,12 @@ export const AuditTable: React.FC<AuditTableProps> = ({
 
     // 2. Check if a pairing exists in crossAuditPermissions (only if in cross-audit mode)
     if (assignmentMode === 'cross-audit') {
-      const hasPermission = crossAuditPermissions.some(p => 
+      const hasCrossAuditPerm = crossAuditPermissions.some(p => 
         p.auditorDeptId === myEntityId && 
         p.targetDeptId === targetEntityId && 
         p.isActive
       );
-      return isAdmin || hasPermission;
+      return isAdmin || hasCrossAuditPerm;
     }
 
     // 3. In Open Audit mode, any certified officer can audit any department (except COI)
@@ -246,8 +245,8 @@ export const AuditTable: React.FC<AuditTableProps> = ({
     const myEntityId = getEntityName(officerDeptId);
     const targetEntityId = getEntityName(audit.departmentId);
 
-    if (myEntityId === targetEntityId && !isAdmin) {
-      alert(`PAIRING RESTRICTION: ${isSelf ? 'You' : 'The selected officer'} cannot inspect ${isSelf ? 'your' : 'their'} own department.`);
+    if (myEntityId === targetEntityId) {
+      alert(`PAIRING RESTRICTION: ${isSelf ? 'You' : 'The selected officer'} cannot inspect ${isSelf ? 'your' : 'their'} own department. This is an institutional integrity rule with no exemptions.`);
       return;
     }
 

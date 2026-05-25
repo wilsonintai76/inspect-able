@@ -76,6 +76,8 @@ export function deriveClientCapabilities(user: ClientUser | null): Set<string> {
     caps.add('manage:permissions');
     caps.add('manage:mappings');
     caps.add('manage:settings');
+    caps.add('manage:certs');             // Issue/renew certifications
+    caps.add('purge:data');               // Permanently delete archived records
     caps.add('system:reset');
   }
 
@@ -112,6 +114,10 @@ export const CAP_SYSTEM_ADMIN = 'system:admin';
 export const CAP_SCHEDULE_MANAGE = 'schedule:manage_dept';
 /** View schedule */
 export const CAP_VIEW_SCHEDULE_ALL = 'schedule:manage_all';
+/** Issue/renew officer certifications */
+export const CAP_MANAGE_CERTS = 'manage:certs';
+/** Permanently delete archived records */
+export const CAP_PURGE_DATA = 'purge:data';
 
 // ── Sidebar link capability constants ────────────────────────────────────────
 

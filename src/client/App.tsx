@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useRBAC } from './contexts/RBACContext';
+// RBAC removed: use PBAC exclusively
 import { gateway } from './services/dataGateway';
 import { authService } from './services/auth';
 import {
@@ -40,7 +40,7 @@ const DEFAULT_DASHBOARD_CONFIG: DashboardConfig = {
 };
 
 const App: React.FC = () => {
-  const { rbacMatrix } = useRBAC();
+
 
   const [brandingLoaded, setBrandingLoaded] = useState(false);
   const [showMobileWarning, setShowMobileWarning] = useState(false);
@@ -60,7 +60,6 @@ const App: React.FC = () => {
   const appData = useAppData();
   const appActions = useAppActions({
     ...appData,
-    rbacMatrix,
     loadAllData: appData.loadAllData
   });
 
@@ -321,7 +320,6 @@ const App: React.FC = () => {
           auditGroups={auditGroups}
           openAuditThreshold={openAuditThreshold}
           dashboardConfig={DEFAULT_DASHBOARD_CONFIG}
-          rbacMatrix={rbacMatrix}
           maxAssetsPerDay={maxAssetsPerDay}
           onApproveArchive={handleApproveArchive}
           onRejectArchive={handleRejectArchive}
@@ -394,7 +392,6 @@ const App: React.FC = () => {
           onBulkUpdate={handleBulkUpdateDepts}
           onDelete={handleArchiveDept}
           onPurge={handlePurgeDept}
-          isAdmin={isAdminUser || false}
           phases={auditPhases}
           auditGroups={auditGroups}
           onAddGroup={handleAddAuditGroup}

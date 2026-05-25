@@ -3,6 +3,7 @@ import React, { useMemo } from 'react';
 import { Department, KPITier, AuditPhase, AuditSchedule, KPITierTarget, Location } from '@shared/types';
 import { Boxes, Layers, CheckCircle2, AlertCircle, MinusCircle, HelpCircle } from 'lucide-react';
 import { PrintButton } from './PrintButton';
+import { hasCapability } from '../lib/pbacUtils';
 import { printKPIPhasePlan } from '../lib/printUtils';
 
 interface TierDistributionTableProps {
@@ -86,7 +87,7 @@ export const TierDistributionTable: React.FC<TierDistributionTableProps> = ({
       );
       
       const dUsers = usersByDept[dept.id] || [];
-      const relevantUsers = dUsers.filter(u => u.roles.includes('Auditor') || u.roles.includes('Supervisor') || u.roles.includes('Coordinator'));
+      const relevantUsers = dUsers.filter(u => u.certificationExpiry && new Date(u.certificationExpiry) > new Date());
 
       return {
         ...dept,

@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { Bindings, Variables } from '../types';
 import { requirePolicy, emptyContextBuilder } from '../middleware/pbac';
+import { deriveCapabilities } from '../utils/policyEngine';
 import { sendSupervisorApprovalEmail } from '../services/emailService';
 import { hashPassword } from '../services/authService';
 import { 
@@ -53,8 +54,9 @@ router.post('/locations', requirePolicy('location.manage', emptyContextBuilder()
   const id = loc.id || crypto.randomUUID();
   const caller = c.get('user');
   const callerRoles: string[] = caller?.roles || [];
-  const isAdmin = callerRoles.includes('Admin') || caller?.email?.toLowerCase() === 'admin@poliku.edu.my';
-  const isCoordinator = callerRoles.includes('Coordinator');
+  const callerCaps = deriveCapabilities({ id: caller?.id || '', email: caller?.email || '', role: caller?.role || '', roles: callerRoles, departmentId: caller?.departmentId || null, certificationExpiry: caller?.certificationExpiry || null });
+  const isAdmin = callerCaps.has('system:admin') || caller?.email?.toLowerCase() === 'admin@poliku.edu.my';
+  const isCoordinator = callerCaps.has('manage:departments') && !isAdmin;
   // Coordinators may only add locations to their own department
   if (!isAdmin && isCoordinator && loc.departmentId && loc.departmentId !== caller?.departmentId) {
     return c.json({ error: 'Coordinators can only add locations to their own department' }, 403);
@@ -98,9 +100,9 @@ router.patch('/locations/:id', requirePolicy('location.manage', emptyContextBuil
   const id = c.req.param('id');
   const updates = await c.req.json();
   const caller = c.get('user');
-  const callerRoles: string[] = caller?.roles || [];
-  const isAdmin = callerRoles.includes('Admin') || caller?.email?.toLowerCase() === 'admin@poliku.edu.my';
-  const isCoordinator = callerRoles.includes('Coordinator');
+  const callerCaps = deriveCapabilities({ id: caller?.id || '', email: caller?.email || '', role: caller?.role || '', roles: caller?.roles || [], departmentId: caller?.departmentId || null, certificationExpiry: caller?.certificationExpiry || null });
+  const isAdmin = callerCaps.has('system:admin') || caller?.email?.toLowerCase() === 'admin@poliku.edu.my';
+  const isCoordinator = callerCaps.has('manage:departments') && !isAdmin;
   // Coordinators may only edit locations in their own department
   if (!isAdmin && isCoordinator) {
     const existing = await c.env.DB.prepare('SELECT department_id FROM locations WHERE id = ? LIMIT 1').bind(id).first<{ department_id: string }>();
@@ -177,9 +179,9 @@ router.patch('/locations/:id', requirePolicy('location.manage', emptyContextBuil
 router.delete('/locations/:id', requirePolicy('location.manage', emptyContextBuilder()), async (c) => {
   const id = c.req.param('id');
   const caller = c.get('user');
-  const callerRoles: string[] = caller?.roles || [];
-  const isAdmin = callerRoles.includes('Admin') || caller?.email?.toLowerCase() === 'admin@poliku.edu.my';
-  const isCoordinator = callerRoles.includes('Coordinator');
+  const callerCaps = deriveCapabilities({ id: caller?.id || '', email: caller?.email || '', role: caller?.role || '', roles: caller?.roles || [], departmentId: caller?.departmentId || null, certificationExpiry: caller?.certificationExpiry || null });
+  const isAdmin = callerCaps.has('system:admin') || caller?.email?.toLowerCase() === 'admin@poliku.edu.my';
+  const isCoordinator = callerCaps.has('manage:departments') && !isAdmin;
   // Coordinators may only archive locations in their own department
   if (!isAdmin && isCoordinator) {
     const existing = await c.env.DB.prepare('SELECT department_id FROM locations WHERE id = ? LIMIT 1').bind(id).first<{ department_id: string }>();
@@ -200,7 +202,7 @@ router.delete('/locations/:id', requirePolicy('location.manage', emptyContextBui
   }
 });
 
-router.delete('/locations/:id/purge', requirePolicy('location.manage', emptyContextBuilder()), async (c) => {
+router.delete('/locations/:id/purge', requirePolicy('data.purge', emptyContextBuilder()), async (c) => {
   const id = c.req.param('id');
   try {
     const row = await c.env.DB.prepare("SELECT status FROM locations WHERE id = ? LIMIT 1").bind(id).first<{ status: string }>();

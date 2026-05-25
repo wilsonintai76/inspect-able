@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { Bindings, Variables } from '../types';
 import { requirePolicy, emptyContextBuilder } from '../middleware/pbac';
+import { evaluateAccess, deriveCapabilities } from '../utils/policyEngine';
 import { sendSupervisorApprovalEmail } from '../services/emailService';
 import { hashPassword } from '../services/authService';
 import { 
@@ -20,8 +21,9 @@ const router = new Hono<{ Bindings: Bindings, Variables: Variables }>();
 router.get('/users', async (c) => {
   try {
     const caller = c.get('user');
+    const callerCaps = deriveCapabilities({ id: caller?.id || '', email: caller?.email || '', role: caller?.role || '', roles: caller?.roles || [], departmentId: caller?.departmentId || null, certificationExpiry: caller?.certificationExpiry || null });
     const isSuperAdmin = caller?.email?.toLowerCase() === 'admin@poliku.edu.my';
-    const isAdmin = caller?.roles?.includes('Admin');
+    const isAdmin = callerCaps.has('system:admin');
 
     let sql = 'SELECT id, name, email, roles, designation, picture, department_id, contact_number, status, is_verified, must_change_pin, certification_issued, certification_expiry, renewal_requested, last_active, password_hash FROM users';
     const binds: any[] = [];
@@ -66,11 +68,12 @@ router.get('/users', async (c) => {
 router.post('/users', requirePolicy('user.create', emptyContextBuilder()), zValidator('json', userSchema), async (c) => {
   const newUser = c.req.valid('json');
   const caller = c.get('user');
+  const callerCaps = deriveCapabilities({ id: caller?.id || '', email: caller?.email || '', role: caller?.role || '', roles: caller?.roles || [], departmentId: caller?.departmentId || null, certificationExpiry: caller?.certificationExpiry || null });
   const isSuperAdmin = caller?.email?.toLowerCase() === 'admin@poliku.edu.my';
-  const isAdmin = caller?.roles?.includes('Admin');
+  const isAdmin = callerCaps.has('system:admin');
 
   // Enforce departmental isolation for non-admins
-  if (!isSuperAdmin && !isAdmin && caller?.roles?.includes('Coordinator')) {
+  if (!isSuperAdmin && !isAdmin && callerCaps.has('manage:departments')) {
     if (newUser.departmentId !== caller.departmentId) {
       return c.json({ error: 'Coordinators can only create users in their own department' }, 403);
     }
@@ -122,15 +125,76 @@ router.post('/users', requirePolicy('user.create', emptyContextBuilder()), zVali
   }
 });
 
-router.patch('/users/:id', zValidator('json', patchUserSchema), async (c) => {
+router.patch(
+  '/users/:id',
+  zValidator('json', patchUserSchema),
+  requirePolicy('user.update', emptyContextBuilder()),
+  async (c) => {
   const id = c.req.param('id');
   const updates = c.req.valid('json');
   const caller = c.get('user');
   const callerRoles: string[] = caller?.roles || [];
+  const callerCaps = deriveCapabilities({ id: caller?.id || '', email: caller?.email || '', role: caller?.role || '', roles: callerRoles, departmentId: caller?.departmentId || null, certificationExpiry: caller?.certificationExpiry || null });
   const isSuperAdmin = caller?.email?.toLowerCase() === 'admin@poliku.edu.my';
-  const isAdmin = callerRoles.includes('Admin');
-  const isCoordinator = callerRoles.includes('Coordinator');
+  const isAdmin = callerCaps.has('system:admin');
+  const isCoordinator = callerCaps.has('manage:departments') && !isAdmin;
 
+  // Fetch target user's current record to compare fields and bypass checks for unchanged values
+  const targetUserDB = await c.env.DB.prepare(
+    'SELECT name, email, roles, designation, department_id, contact_number, is_verified, certification_issued, certification_expiry, password_hash FROM users WHERE id = ?'
+  ).bind(id).first<{
+    name: string;
+    email: string;
+    roles: string;
+    designation: string | null;
+    department_id: string | null;
+    contact_number: string | null;
+    is_verified: number;
+    certification_issued: string | null;
+    certification_expiry: string | null;
+    password_hash: string | null;
+  }>();
+
+  if (!targetUserDB) {
+    return c.json({ error: 'User not found' }, 404);
+  }
+
+  // Filter out updates that don't change values to avoid false-positive permission blocks
+  if (updates.name !== undefined && updates.name === targetUserDB.name) delete updates.name;
+  if (updates.email !== undefined && updates.email.toLowerCase().trim() === targetUserDB.email.toLowerCase().trim()) delete updates.email;
+  if (updates.designation !== undefined && updates.designation === targetUserDB.designation) delete updates.designation;
+  if (updates.departmentId !== undefined && updates.departmentId === targetUserDB.department_id) delete updates.departmentId;
+  if (updates.contactNumber !== undefined && updates.contactNumber === targetUserDB.contact_number) delete updates.contactNumber;
+
+  if (updates.roles !== undefined) {
+    try {
+      const currentRoles = JSON.parse(targetUserDB.roles || '[]');
+      if (
+        Array.isArray(updates.roles) &&
+        updates.roles.length === currentRoles.length &&
+        updates.roles.every(r => currentRoles.includes(r))
+      ) {
+        delete updates.roles;
+      }
+    } catch (e) {
+      // Keep updates.roles on parse error
+    }
+  }
+
+  if (updates.isVerified !== undefined) {
+    const currentVerified = targetUserDB.is_verified === 1;
+    if (updates.isVerified === currentVerified) delete updates.isVerified;
+  }
+
+  if (updates.certificationIssued !== undefined && updates.certificationIssued === targetUserDB.certification_issued) {
+    delete updates.certificationIssued;
+  }
+
+  if (updates.certificationExpiry !== undefined && updates.certificationExpiry === targetUserDB.certification_expiry) {
+    delete updates.certificationExpiry;
+  }
+
+  // ── Scoping & Authorization Checks ──
   if (isSuperAdmin) {
     // Superadmin bypass
   } else if (!isAdmin && !isCoordinator && caller?.id !== id) {
@@ -139,8 +203,7 @@ router.patch('/users/:id', zValidator('json', patchUserSchema), async (c) => {
   } else if (!isAdmin && isCoordinator) {
     // Coordinators can update themselves OR users in their department
     if (caller?.id !== id) {
-      const targetUser = await c.env.DB.prepare('SELECT department_id FROM users WHERE id = ?').bind(id).first<{department_id: string}>();
-      if (!targetUser || targetUser.department_id !== caller?.departmentId) {
+      if (targetUserDB.department_id !== caller?.departmentId) {
         return c.json({ error: 'Coordinators can only manage users within their own department' }, 403);
       }
       
@@ -150,21 +213,22 @@ router.patch('/users/:id', zValidator('json', patchUserSchema), async (c) => {
       }
     }
   }
-  // Only Admin can change roles, verification, and certification
-  if (!isAdmin && (updates.roles !== undefined || updates.isVerified !== undefined || updates.certificationIssued !== undefined || updates.certificationExpiry !== undefined)) {
-    return c.json({ error: 'Forbidden: only Admin can change roles or certification' }, 403);
-  }
 
-  // Protect Google-bound email: if user has no password_hash, email is managed by Google OAuth
-  if (updates.email !== undefined) {
-    const targetUser = await c.env.DB.prepare('SELECT password_hash FROM users WHERE id = ?').bind(id).first<{password_hash: string | null}>();
-    if (targetUser && !targetUser.password_hash) {
-      return c.json({ error: 'Email is managed by Google. Unlink the Google account first to change the email.' }, 403);
+  // Check if target user's profile is complete
+  const isTargetProfileComplete = !!(
+    targetUserDB.name &&
+    targetUserDB.designation &&
+    targetUserDB.department_id &&
+    targetUserDB.contact_number
+  );
+
+  // If a non-admin is updating themselves:
+  if (caller?.id === id && !isAdmin) {
+    // Completed profiles cannot change name, departmentId, or designation
+    if (isTargetProfileComplete && (updates.name !== undefined || updates.departmentId !== undefined || updates.designation !== undefined)) {
+      return c.json({ error: 'Forbidden: completed profiles can only be modified by an administrator' }, 403);
     }
   }
-
-  const fields: string[] = [];
-  const values: any[] = [];
 
   // Sync roles if designation is updated and roles are NOT explicitly provided
   if (updates.designation !== undefined && updates.roles === undefined) {
@@ -174,32 +238,59 @@ router.patch('/users/:id', zValidator('json', patchUserSchema), async (c) => {
     }
   }
 
-  // ── Role enforcement: only Admin can promote to Admin, no other manual role changes ──
+  // Only Admin can change verification and certification
+  if (!isAdmin && (updates.isVerified !== undefined || updates.certificationIssued !== undefined || updates.certificationExpiry !== undefined)) {
+    return c.json({ error: 'Forbidden: only Admin can change verification or certification' }, 403);
+  }
+  // ── PBAC: Certification issuance/renewal requires manage:certs capability ──
+  if ((updates.certificationIssued !== undefined || updates.certificationExpiry !== undefined)) {
+    const certifyResult = evaluateAccess(caller as any, 'user.certify', { targetDepartmentId: targetUserDB.department_id });
+    if (!certifyResult.allowed) {
+      return c.json({ error: certifyResult.reason || 'Forbidden: certification management requires Admin role' }, 403);
+    }
+  }
+
+  // Protect Google-bound email: if user has no password_hash, email is managed by Google OAuth
+  if (updates.email !== undefined && !targetUserDB.password_hash) {
+    return c.json({ error: 'Email is managed by Google. Unlink the Google account first to change the email.' }, 403);
+  }
+
+  // ── Role Enforcement ──
   if (updates.roles !== undefined) {
     const newRole = Array.isArray(updates.roles) ? updates.roles[0] : null; // single role
-    const callerRoles = (c.get('user')?.roles || []) as string[];
-    const isCallerAdmin = callerRoles.includes('Admin');
-
-    if (!newRole || !isCallerAdmin) {
-      return c.json({ error: 'Forbidden: only Admin can manage roles' }, 403);
+    if (!newRole) {
+      return c.json({ error: 'Invalid role assignment' }, 400);
     }
 
-    // Allowed: promotion to Admin, or demotion from Admin back to designation-default
-    if (newRole !== 'Admin') {
-      const currentUser = await c.env.DB.prepare('SELECT roles, designation FROM users WHERE id = ?').bind(id).first<{roles: string; designation: string | null}>();
-      const currentRoles = currentUser?.roles ? JSON.parse(currentUser.roles) : [];
-      const isCurrentlyAdmin = Array.isArray(currentRoles) && currentRoles.includes('Admin');
-      
-      if (!isCurrentlyAdmin) {
-        // Non-admin → non-admin change rejected. Only Admin can be freely assigned.
-        return c.json({ error: 'Forbidden: roles are bound to designation. Only Admin can be manually assigned.' }, 403);
+    const targetDesignation = updates.designation !== undefined ? updates.designation : targetUserDB.designation;
+    const boundRoles = getRolesForDesignation(targetDesignation);
+    const isBound = boundRoles && boundRoles.includes(newRole);
+
+    // Only Admin can manually assign a role that is NOT bound to their designation, or assign the 'Admin' role
+    if (newRole === 'Admin' && !isAdmin) {
+      return c.json({ error: 'Forbidden: only Admin can assign the Admin role' }, 403);
+    }
+
+    if (!isBound && !isAdmin) {
+      return c.json({ error: 'Forbidden: only Admin can perform manual role overrides' }, 403);
+    }
+
+    // Demoting an Admin is only allowed by Admins
+    try {
+      const currentRoles = JSON.parse(targetUserDB.roles || '[]');
+      if (currentRoles.includes('Admin') && !isAdmin) {
+        return c.json({ error: 'Forbidden: only Admin can demote an Admin user' }, 403);
       }
-      // Admin → non-Admin (demotion back to designation-default): allowed
+    } catch (e) {
+      // Ignore JSON parse errors
     }
     
     // Normalize to single role
     updates.roles = [newRole];
   }
+
+  const fields: string[] = [];
+  const values: any[] = [];
 
   if (updates.password !== undefined) { 
     const hash = await hashPassword(updates.password);
@@ -314,24 +405,7 @@ router.post('/users/:id/verify', requirePolicy('user.verify', emptyContextBuilde
     await c.env.DB.prepare('UPDATE users SET is_verified = 1, status = \'Active\' WHERE id = ?').bind(id).run();
     // Evict stale role cache so next request fetches updated status from D1
     await c.env.SETTINGS.delete(`ucache:${id}`).catch(() => {});
-    const { results } = await c.env.DB.prepare('SELECT * FROM users WHERE id = ?').bind(id).all();
-    const u = results[0] as any;
-    return c.json({
-      id: u.id,
-      name: u.name,
-      email: u.email,
-      roles: JSON.parse(u.roles || '["Staff"]'),
-      designation: u.designation,
-      picture: u.picture,
-      departmentId: u.department_id,
-      contactNumber: u.contact_number,
-      status: u.status,
-      isVerified: u.is_verified === 1,
-      mustChangePIN: u.must_change_pin === 1,
-      certificationIssued: u.certification_issued,
-      certificationExpiry: u.certification_expiry,
-      lastActive: u.last_active,
-    });
+    return c.json({ success: true });
   } catch (err: any) {
     return c.json({ error: err.message }, 500);
   }
