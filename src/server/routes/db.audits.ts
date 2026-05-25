@@ -1,7 +1,7 @@
 ﻿import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { Bindings, Variables } from '../types';
-import { rbacGuard } from '../middleware/rbacGuard';
+import { requirePolicy, bodyDeptContextBuilder, emptyContextBuilder, auditPatchContextBuilder } from '../middleware/pbac';
 import { sendSupervisorApprovalEmail } from '../services/emailService';
 import { hashPassword } from '../services/authService';
 import { 
@@ -66,7 +66,7 @@ router.get('/audits', async (c) => {
   }
 });
 
-router.post('/audits', zValidator('json', auditSchema), rbacGuard('assign:others'), zeroAssetGuard, auditAssignmentGuard, async (c) => {
+router.post('/audits', zValidator('json', auditSchema), requirePolicy('audit.create', bodyDeptContextBuilder()), zeroAssetGuard, auditAssignmentGuard, async (c) => {
   const audit = c.req.valid('json');
   const id = audit.id || crypto.randomUUID();
   
@@ -129,8 +129,8 @@ router.patch('/audits/:id', zValidator('json', patchAuditSchema), patchAuditPerm
 
   // Automatic status transitions between Pending and In Progress based on assignment completeness
   const existingForActivation = await c.env.DB.prepare(
-    'SELECT status, date, supervisor_id, auditor1_id, auditor2_id FROM audit_schedules WHERE id = ?'
-  ).bind(id).first<{ status: string; date: string | null; supervisor_id: string | null; auditor1_id: string | null; auditor2_id: string | null }>();
+    'SELECT status, date, supervisor_id, auditor1_id, auditor2_id, phase_id FROM audit_schedules WHERE id = ?'
+  ).bind(id).first<{ status: string; date: string | null; supervisor_id: string | null; auditor1_id: string | null; auditor2_id: string | null; phase_id: string | null }>();
 
   if (existingForActivation) {
     const currentStatus = updates.status || existingForActivation.status;
@@ -175,7 +175,21 @@ router.patch('/audits/:id', zValidator('json', patchAuditSchema), patchAuditPerm
       fields.push('status = ?');
       values.push('In Progress');
       updates.status = 'In Progress'; // used below for email guard
+
+      // Auto-assign phase on lock if none explicitly set and none exists
+      if (updates.phaseId === undefined && !existingForActivation?.phase_id) {
+        const now = new Date().toISOString().split('T')[0];
+        const phase = await c.env.DB.prepare(
+          'SELECT id FROM audit_phases WHERE start_date <= ? AND end_date >= ? LIMIT 1'
+        ).bind(now, now).first<{ id: string }>();
+        if (phase) {
+          fields.push('phase_id = ?');
+          values.push(phase.id);
+          updates.phaseId = phase.id;
+        }
+      }
     }
+    // Revoke approval: In Progress → Awaiting Approval (if all fields still present)
     // Revoke approval: In Progress â†’ Awaiting Approval (if all fields still present)
     if (updates.isLocked === false && existingForActivation?.status === 'In Progress') {
       const d  = existingForActivation.date;
@@ -244,11 +258,13 @@ router.patch('/audits/:id', zValidator('json', patchAuditSchema), patchAuditPerm
           }
         }
         // --- End: Department move audit repair logic ---
-            const supervisor = await c.env.DB.prepare(
-              'SELECT name, email FROM users WHERE id = ?'
-            ).bind(supervisorId).first<{ name: string; email: string }>();
-
-            if (!supervisor?.email) return;
+            const sIds = (supervisorId || '').split(',').map((s: string) => s.trim()).filter(Boolean);
+            const supervisors: { name: string; email: string }[] = [];
+            for (const sid of sIds) {
+              const u = await c.env.DB.prepare('SELECT name, email FROM users WHERE id = ?').bind(sid).first<{ name: string; email: string }>();
+              if (u?.email) supervisors.push({ name: u.name, email: u.email });
+            }
+            if (supervisors.length === 0) return;
 
             // Get location and department names
             const schedule = await c.env.DB.prepare(
@@ -269,22 +285,24 @@ router.patch('/audits/:id', zValidator('json', patchAuditSchema), patchAuditPerm
 
             const auditDate = schedule?.date ?? 'TBD';
 
-            await sendSupervisorApprovalEmail(
-              c.env.RESEND_API_KEY!,
-              supervisor.email,
-              supervisor.name,
-              locationName,
-              departmentName,
-              auditDate,
-              c.env.APP_URL,
-            );
-            await logApprovalReminderActivity(
-              c,
-              id,
-              'system',
-              supervisor.name,
-              'automatic',
-            );
+            for (const supervisor of supervisors) {
+              await sendSupervisorApprovalEmail(
+                c.env.RESEND_API_KEY!,
+                supervisor.email,
+                supervisor.name,
+                locationName,
+                departmentName,
+                auditDate,
+                c.env.APP_URL,
+              );
+              await logApprovalReminderActivity(
+                c,
+                id,
+                'system',
+                supervisor.name,
+                'automatic',
+              );
+            }
           } catch (emailErr) {
             console.error('[Email] Supervisor approval email failed:', emailErr);
           }
@@ -299,7 +317,7 @@ router.patch('/audits/:id', zValidator('json', patchAuditSchema), patchAuditPerm
   }
 });
 
-router.delete('/audits/:id', rbacGuard('assign:others'), async (c) => {
+router.delete('/audits/:id', requirePolicy('audit.delete', auditPatchContextBuilder()), async (c) => {
   const id = c.req.param('id');
   try {
     await c.env.DB.prepare('DELETE FROM audit_schedules WHERE id = ?').bind(id).run();
@@ -312,7 +330,7 @@ router.delete('/audits/:id', rbacGuard('assign:others'), async (c) => {
 
 // â”€â”€â”€ Maintenance: Unassign Expired/Revoked Auditors â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Admin endpoint to unassign all auditors with expired/revoked certificates from future audits
-router.post('/audits/maintenance/unassign-expired-auditors', rbacGuard('admin:hub'), async (c) => {
+router.post('/audits/maintenance/unassign-expired-auditors', requirePolicy('system.reset', emptyContextBuilder()), async (c) => {
   try {
     const today = new Date().toISOString().split('T')[0];
     await unassignExpiredAuditors(c.env.DB, today);
@@ -324,7 +342,7 @@ router.post('/audits/maintenance/unassign-expired-auditors', rbacGuard('admin:hu
 });
 
 // â”€â”€â”€ Maintenance: Clean up orphaned audits for archived locations â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-router.post('/audits/maintenance/cleanup-archived-location-audits', rbacGuard('admin:hub'), async (c) => {
+router.post('/audits/maintenance/cleanup-archived-location-audits', requirePolicy('system.reset', emptyContextBuilder()), async (c) => {
   try {
     // Find all archived locations and delete their non-completed audits
     const archivedLocs = await c.env.DB.prepare(
@@ -346,7 +364,7 @@ router.post('/audits/maintenance/cleanup-archived-location-audits', rbacGuard('a
   }
 });
 
-router.post('/audits/:id/send-approval-email', rbacGuard('admin:hub'), async (c) => {
+router.post('/audits/:id/send-approval-email', requirePolicy('audit.maintenance', auditPatchContextBuilder()), async (c) => {
   const id = c.req.param('id');
   const caller = c.get('user');
   
@@ -355,8 +373,16 @@ router.post('/audits/:id/send-approval-email', rbacGuard('admin:hub'), async (c)
     if (!audit) return c.json({ error: 'Audit not found' }, 404);
     if (audit.status !== 'Awaiting Approval') return c.json({ error: 'Audit is not awaiting approval' }, 400);
 
-    const supervisor = await c.env.DB.prepare('SELECT name, email FROM users WHERE id = ?').bind(audit.supervisor_id).first<{name: string, email: string}>();
-    if (!supervisor || !supervisor.email) return c.json({ error: 'Supervisor has no valid email address' }, 400);
+    const supervisorIds = (audit.supervisor_id || '').split(',').map((s: string) => s.trim()).filter(Boolean);
+    const supervisors: { name: string; email: string }[] = [];
+    for (const sid of supervisorIds) {
+      const u = await c.env.DB.prepare('SELECT name, email FROM users WHERE id = ?').bind(sid).first<{ name: string; email: string }>();
+      if (u?.email) supervisors.push({ name: u.name, email: u.email });
+    }
+    if (supervisors.length === 0) {
+      const locName = (await c.env.DB.prepare('SELECT name FROM locations WHERE id = ?').bind(audit.location_id).first<{name: string}>())?.name || audit.location_id;
+      return c.json({ error: `No supervisor with a valid email found for location "${locName}". Please update emails in User Management.` }, 400);
+    }
 
     const loc = await c.env.DB.prepare('SELECT name FROM locations WHERE id = ?').bind(audit.location_id).first<{name: string}>();
     const dept = await c.env.DB.prepare('SELECT name FROM departments WHERE id = ?').bind(audit.department_id).first<{name: string}>();
@@ -364,23 +390,26 @@ router.post('/audits/:id/send-approval-email', rbacGuard('admin:hub'), async (c)
     const apiKey = c.env.RESEND_API_KEY || await c.env.SETTINGS.get('RESEND_API_KEY');
     if (!apiKey) return c.json({ error: 'Email service not configured' }, 500);
 
-    await sendSupervisorApprovalEmail(
-      apiKey,
-      supervisor.email,
-      supervisor.name,
-      loc?.name || audit.location_id,
-      dept?.name || audit.department_id,
-      audit.date,
-      c.env.APP_URL || 'https://www.inspect-able.com'
-    );
-      
-    await logApprovalReminderActivity(
-      c,
-      id,
-      caller?.id || 'system',
-      supervisor.name,
-      'manual',
-    );
+    for (const supervisor of supervisors) {
+      await sendSupervisorApprovalEmail(
+        apiKey,
+        supervisor.email,
+        supervisor.name,
+        loc?.name || audit.location_id,
+        dept?.name || audit.department_id,
+        audit.date,
+        c.env.APP_URL || 'https://www.inspect-able.com'
+      );
+      await logApprovalReminderActivity(
+        c,
+        id,
+        caller?.id || 'system',
+        supervisor.name,
+        'manual',
+      );
+    }
+
+    return c.json({ success: true, sentTo: supervisors.length });
 
     return c.json({ success: true });
   } catch (err: any) {
@@ -389,7 +418,7 @@ router.post('/audits/:id/send-approval-email', rbacGuard('admin:hub'), async (c)
   }
 });
 
-router.post('/audits/bulk', rbacGuard('assign:others'), async (c) => {
+router.post('/audits/bulk', requirePolicy('audit.create', bodyDeptContextBuilder()), async (c) => {
   const audits = await c.req.json();
   try {
     const statements = [];
@@ -434,7 +463,7 @@ router.post('/audits/bulk', rbacGuard('assign:others'), async (c) => {
 
 // --- USER MANAGEMENT ---
 
-router.post('/users/:id/reset-password', rbacGuard('admin:hub'), async (c) => {
+router.post('/users/:id/reset-password', requirePolicy('user.update', emptyContextBuilder()), async (c) => {
   const id = c.req.param('id');
   try {
     const defaultHash = await hashPassword(DEFAULT_USER_PASSWORD);

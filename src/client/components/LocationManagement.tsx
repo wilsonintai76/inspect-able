@@ -1,9 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import { Location, UserRole, Department, User, AuditPhase, Building, AuditSchedule } from '@shared/types';
 import { useRBAC } from '../contexts/RBACContext';
-import { Network, ChevronDown, MapPin, Landmark, User as UserIcon, Phone, Pencil, Archive, ArchiveRestore, MapPinned, Building2, Layers, Plus, Flame } from 'lucide-react';
+import { Network, ChevronDown, Landmark, User as UserIcon, Phone, Pencil, Archive, ArchiveRestore, MapPinned, Building2, Layers, Plus, Flame } from 'lucide-react';
 import { LocationModal } from './LocationModal';
-import { PageHeader } from './PageHeader';
 import { PurgeConfirmModal } from './PurgeConfirmModal';
 
 interface LocationManagementProps {
@@ -170,12 +169,7 @@ export const LocationManagement: React.FC<LocationManagementProps> = ({
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Location Nodes"
-        icon={MapPin}
-        activePhase={activePhase}
-        description={(isCoordinator && !isAdmin) ? `Managing locations for ${departments.find(d => d.id === userDeptId)?.name || userDeptId}` : 'Institutional site mapping and audit execution points.'}
-      >
+      <div className="flex items-center justify-end gap-2">
         {canManage && (
           <>
             {(() => {
@@ -184,7 +178,7 @@ export const LocationManagement: React.FC<LocationManagementProps> = ({
                 <button
                   onClick={() => setShowArchived(v => !v)}
                   className={`px-3 py-2 rounded-2xl text-[12px] font-bold transition-all flex items-center gap-2 border ${
-                    showArchived ? 'bg-amber-50 border-amber-200 text-amber-700' : 'bg-white/10 border-white/20 text-white hover:bg-white/20'
+                    showArchived ? 'bg-amber-50 border-amber-200 text-amber-700' : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50'
                   }`}
                   title={showArchived ? 'Hide archived locations' : `Show ${archivedCount} archived location${archivedCount > 1 ? 's' : ''}`}
                 >
@@ -206,7 +200,7 @@ export const LocationManagement: React.FC<LocationManagementProps> = ({
             </button>
           </>
         )}
-      </PageHeader>
+      </div>
 
       {/* FILTERS BAR */}
       <div className="flex flex-col sm:flex-row items-center gap-3 bg-white p-2 rounded-[24px] border border-slate-100 shadow-sm sm:w-fit">

@@ -168,7 +168,7 @@ export const authMiddleware = async (
   c.set('user', {
     id: userId,
     email,
-    role: roles[0] || 'Staff',
+    role: roles[0] || 'Guest',
     roles,
     departmentId,
     sessionId,

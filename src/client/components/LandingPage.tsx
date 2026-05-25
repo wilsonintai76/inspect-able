@@ -634,7 +634,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 {authMode === 'login' && (
                   <>
                     <a
-                      href="/api/auth/google"
+                      href={`/api/auth/google?returnTo=${encodeURIComponent(window.location.origin)}`}
                       className="w-full flex items-center justify-center gap-3 py-3 px-4 border border-slate-200 rounded-2xl text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
                     >
                       <svg className="w-5 h-5 shrink-0" viewBox="0 0 48 48" aria-hidden="true">

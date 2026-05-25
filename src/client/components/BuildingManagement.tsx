@@ -2,7 +2,6 @@
 import React, { useState, useRef } from 'react';
 import { Building, Location } from '@shared/types';
 import { Plus, Building2, Pencil, Trash2, MapPin, FileText, Upload, Filter, Loader2 } from 'lucide-react';
-import { PageHeader } from './PageHeader';
 import { BuildingModal } from './BuildingModal';
 import { ConfirmationModal } from './ConfirmationModal';
 import Papa from 'papaparse';
@@ -114,41 +113,35 @@ export const BuildingManagement: React.FC<BuildingManagementProps> = ({
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Building Registry"
-        icon={Building2}
-        description="Manage global building and block definitions for all locations."
-      >
-        <div className="flex gap-2">
-          <input
-            type="file"
-            ref={fileInputRef}
-            onChange={handleImportCSV}
-            accept=".csv"
-            title="Import buildings CSV"
-            className="hidden"
-          />
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            disabled={isImporting}
-            className="px-5 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-2xl text-sm font-bold shadow-sm hover:bg-slate-50 transition-all flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50"
-          >
-            {isImporting ? (
-              <Loader2 className="w-4 h-4 animate-spin text-slate-400" />
-            ) : (
-              <Upload className="w-4 h-4 text-slate-400" />
-            )}
-            Import CSV
-          </button>
-          <button
-            onClick={startAdd}
-            className="px-5 py-2.5 bg-blue-600 text-white rounded-2xl text-sm font-bold shadow-lg shadow-blue-500/20 hover:bg-blue-700 transition-all flex items-center justify-center gap-2 active:scale-95"
-          >
-            <Plus className="w-4 h-4" />
-            Add Building
-          </button>
-        </div>
-      </PageHeader>
+      <div className="flex items-center justify-end gap-2">
+        <input
+          type="file"
+          ref={fileInputRef}
+          onChange={handleImportCSV}
+          accept=".csv"
+          title="Import buildings CSV"
+          className="hidden"
+        />
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          disabled={isImporting}
+          className="px-5 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-2xl text-sm font-bold shadow-sm hover:bg-slate-50 transition-all flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50"
+        >
+          {isImporting ? (
+            <Loader2 className="w-4 h-4 animate-spin text-slate-400" />
+          ) : (
+            <Upload className="w-4 h-4 text-slate-400" />
+          )}
+          Import CSV
+        </button>
+        <button
+          onClick={startAdd}
+          className="px-5 py-2.5 bg-blue-600 text-white rounded-2xl text-sm font-bold shadow-lg shadow-blue-500/20 hover:bg-blue-700 transition-all flex items-center justify-center gap-2 active:scale-95"
+        >
+          <Plus className="w-4 h-4" />
+          Add Building
+        </button>
+      </div>
 
       <div className="bg-white rounded-[32px] border border-slate-200 shadow-sm overflow-hidden">
         <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-200">

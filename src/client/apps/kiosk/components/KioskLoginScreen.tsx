@@ -9,7 +9,7 @@ interface Props {
 }
 
 export const KioskLoginScreen: React.FC<Props> = ({ logoBrand }) => {
-  const googleUrl = `https://auth.inspect-able.com/api/auth/google?returnTo=${encodeURIComponent(window.location.origin)}`;
+  const googleUrl = `/api/auth/google?returnTo=${encodeURIComponent(window.location.origin)}`;
   const displayLogo = logoBrand || BRANDING.logoBrand;
 
   return (

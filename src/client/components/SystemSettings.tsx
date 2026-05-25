@@ -59,7 +59,6 @@ interface SystemSettingsProps {
   onUpdateGroupingMargin: (val: number) => void;
   groupingAuditorMargin: number;
   onUpdateGroupingAuditorMargin: (val: number) => void;
-  onRebalanceSchedule: () => Promise<void>;
   schedules: AuditSchedule[];
   departmentMappings: DepartmentMapping[];
   onAddDepartmentMapping: (mapping: Omit<DepartmentMapping, 'id'>) => Promise<void>;
@@ -151,7 +150,6 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
   onUpdateGroupingMargin,
   groupingAuditorMargin,
   onUpdateGroupingAuditorMargin,
-  onRebalanceSchedule,
   schedules,
   departmentMappings,
   onAddDepartmentMapping,
@@ -442,8 +440,6 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
             openAuditThreshold={openAuditThreshold}
             users={users}
             buildings={buildings}
-            onRebalance={onRebalanceSchedule}
-            isAdmin={isAdmin}
           />
         </div>
       )}

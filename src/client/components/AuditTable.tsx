@@ -1,11 +1,11 @@
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { AuditSchedule, User, UserRole, Department, Location, CrossAuditPermission, AuditPhase, Building as BuildingType, SystemActivity } from '@shared/types';
+import { hasCapability } from '../lib/pbacUtils';
 import { useRBAC } from '../contexts/RBACContext';
 import { AuditReportModal } from './AuditReportModal';
 import { AuditUploadModal } from './AuditUploadModal';
 import { Search, Calendar, Zap, FileSpreadsheet } from 'lucide-react';
-import { PageHeader } from './PageHeader';
 import { PrintButton } from './PrintButton';
 import { printInspectionSchedule, exportInspectionSchedule } from '../lib/printUtils';
 import { CertificationBanner } from './audit-table/CertificationBanner';
@@ -51,7 +51,7 @@ export const AuditTable: React.FC<AuditTableProps> = ({
   assignmentMode = 'cross-audit',
   onSendEmail,
 }) => {
-  const { hasPermission, rbacMatrix } = useRBAC();
+  const { rbacMatrix } = useRBAC();
   const [reportAudit, setReportAudit] = useState<AuditSchedule | null>(null);
   const [uploadAudit, setUploadAudit] = useState<AuditSchedule | null>(null);
   const [selectedBlock, setSelectedBlock] = useState('All');
@@ -59,41 +59,37 @@ export const AuditTable: React.FC<AuditTableProps> = ({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Role Checks
-  const isAdmin = userRoles.includes('Admin');
-  const isCoordinator = userRoles.includes('Coordinator');
-  const isSupervisor = userRoles.includes('Supervisor');
-  const isAuditor = userRoles.includes('Auditor');
-  const isStaff = userRoles.includes('Staff');
-
-  // New Logic: Any of these roles *can* audit if they are certified.
-  const hasFieldRole = isAdmin || isCoordinator || isSupervisor || isAuditor || isStaff;
-
-  // Find Current User Data for Certification Check
+  // ── PBAC Capability Checks ────────────────────────────────────────────────
+  // Build minimal user object for hasCapability
   const currentUser = users.find(u => u.name === currentUserName);
-  const currentUserDept = allDepartments.find(d => d.id === currentUser?.departmentId);
-  const currentUserDeptName = currentUserDept?.name || "N/A";
+  const pbacUser = currentUser ? { roles: currentUser.roles, certificationExpiry: currentUser.certificationExpiry } : { roles: [] as string[], certificationExpiry: null as string | null };
+
+  const isAdmin = hasCapability(pbacUser, 'system:admin');
+  const isCoordinator = hasCapability(pbacUser, 'manage:departments') && !isAdmin;
+  const isSupervisor = hasCapability(pbacUser, 'manage:locations') && !isAdmin && !hasCapability(pbacUser, 'manage:departments');
   
   const isCertified = React.useMemo(() => {
     if (!currentUser?.certificationExpiry) return false;
-    const expiry = new Date(currentUser.certificationExpiry);
-    const now = new Date();
-    return expiry > now;
+    return new Date(currentUser.certificationExpiry) > new Date();
   }, [currentUser]);
 
-  // Self-assign is for Auditor role only — not Coordinators, Supervisors, or Staff
-  const canSelfAssignSelf = isAuditor && isCertified;
+  // PBAC: any role + valid cert = can self-assign
+  const canSelfAssignSelf = isCertified && hasCapability(pbacUser, 'assign:self');
 
-  const hasPerm = (perm: string) => hasPermission(perm, userRoles);
+  // PBAC: assign others = manage:departments (Admin/Coordinator)
+  const canAssignOthers = hasCapability(pbacUser, 'manage:departments');
+  const canAutoAssign = hasCapability(pbacUser, 'system:admin');
+  const canViewAllSchedule = hasCapability(pbacUser, 'schedule:manage_all');
+  const canViewOwnSchedule = hasCapability(pbacUser, 'schedule:manage_dept');
+  const canEditDates = hasCapability(pbacUser, 'manage:departments') || hasCapability(pbacUser, 'system:admin') || hasCapability(pbacUser, 'schedule:manage_dept');
+  const canSendApprovalReminder = hasCapability(pbacUser, 'manage:departments') || hasCapability(pbacUser, 'system:admin');
+  const canViewMatrixSchedule = hasCapability(pbacUser, 'manage:departments') || hasCapability(pbacUser, 'system:admin') || hasCapability(pbacUser, 'manage:locations') || hasCapability(pbacUser, 'asset_inspector');
+  const isAuditor = hasCapability(pbacUser, 'asset_inspector');
 
-  const canEditDates = hasPerm('edit:audit:date');
-  const canSelfAssignPerm = hasPerm('edit:audit:assign');
-  const canAssignOthers = (isAdmin || isCoordinator) && hasPerm('edit:audit:assign:others');
-  const canAutoAssign = hasPerm('edit:audit:auto_assign');
-  const canViewAllSchedule = hasPerm('view:schedule:all');
-  const canViewOwnSchedule = hasPerm('view:schedule:own');
-  const canViewMatrixSchedule = hasPerm('view:schedule:matrix');
-  const canSendApprovalReminder = hasPerm('view:admin:dashboard');
+  const canSelfAssignPerm = canSelfAssignSelf; // PBAC replaces old perm check
+  const hasFieldRole = hasCapability(pbacUser, 'assign:self');
+  const currentUserDept = allDepartments.find(d => d.id === currentUser?.departmentId);
+  const currentUserDeptName = currentUserDept?.name || "N/A";
 
   const hasPhases = auditPhases?.length > 0;
   const todayStr = new Date().toISOString().split('T')[0];

@@ -6,10 +6,10 @@ import { BRANDING } from '../constants';
 // Source of truth: RBAC_ROLE_MATRIX.md
 export const DEFAULT_RBAC_MATRIX: RBACMatrix = {
   // Institutional Overview
-  'view:overview':            ['Admin', 'Coordinator', 'Supervisor', 'Auditor', 'Staff'],
+  'view:overview':            ['Admin', 'Coordinator', 'Supervisor', 'Auditor', 'Guest'],
   // Inspection Schedule
   'view:schedule:all':        ['Admin'],                                          // View All Dept Schedules — Admin only
-  'view:schedule:own':        ['Admin', 'Coordinator', 'Supervisor', 'Auditor', 'Staff'],
+  'view:schedule:own':        ['Admin', 'Coordinator', 'Supervisor', 'Auditor', 'Guest'],
   'view:schedule:matrix':     ['Admin', 'Coordinator', 'Supervisor', 'Auditor'], // Cross-Audit schedules + Audit Matrix
   'edit:audit:date':          ['Admin', 'Coordinator', 'Supervisor'],
   'edit:audit:assign':        ['Admin', 'Supervisor', 'Auditor'],                 // Self-Assign — Coordinator ✗

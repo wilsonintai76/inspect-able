@@ -12,6 +12,8 @@ export default defineConfig((configEnv) => {
     const { mode, ssrBuild } = configEnv as any;
     const env = loadEnv(mode, '.', '');
     const isSSR = ssrBuild || process.env.VITE_SSR_BUILD === 'true' || process.argv.includes('--ssr') || process.argv.includes('src/server/index.ts');
+    // Read fresh on every build (not cached)
+    const pkgVersion = JSON.parse(fs.readFileSync(path.resolve(__dirname, 'package.json'), 'utf-8')).version;
 
     return {
       server: {
@@ -47,8 +49,9 @@ export default defineConfig((configEnv) => {
         {
           name: 'generate-version-json',
           buildStart() {
+            const pkg = JSON.parse(fs.readFileSync(path.resolve(__dirname, 'package.json'), 'utf-8'));
             const versionData = JSON.stringify({ 
-              version: packageJson.version,
+              version: pkg.version,
               buildTime: new Date().toISOString()
             }, null, 2);
             
@@ -60,8 +63,9 @@ export default defineConfig((configEnv) => {
           closeBundle() {
             const clientDist = path.resolve(__dirname, 'dist/client');
             if (fs.existsSync(clientDist)) {
+              const pkg = JSON.parse(fs.readFileSync(path.resolve(__dirname, 'package.json'), 'utf-8'));
               const versionData = { 
-                version: packageJson.version,
+                version: pkg.version,
                 buildTime: new Date().toISOString()
               };
               fs.writeFileSync(path.join(clientDist, 'version.json'), JSON.stringify(versionData, null, 2));
@@ -71,7 +75,7 @@ export default defineConfig((configEnv) => {
         }
       ].filter(Boolean),
       define: {
-        'import.meta.env.VITE_APP_VERSION': JSON.stringify(packageJson.version)
+        'import.meta.env.VITE_APP_VERSION': JSON.stringify(pkgVersion)
       },
       resolve: {
         alias: {

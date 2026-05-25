@@ -156,11 +156,13 @@ router.patch('/locations/:id', rbacGuard('manage:locations'), async (c) => {
     // â”€â”€â”€ Department Transfer: Repair schedules + enforce COI â”€â”€â”€
     if (isDeptTransfer) {
       await handleLocationDepartmentTransfer(c.env.DB, id, updates.departmentId!, oldDeptId!);
+      invalidateScheduleCache(c.env.SETTINGS);
     }
 
-    // â”€â”€â”€ Archive Cleanup: Remove all non-completed audits for archived location â”€â”€â”€
+    // ─── Archive Cleanup: Remove all non-completed audits for archived location ───
     if (updates.status === 'Archived') {
       await cleanupAuditsForArchivedLocation(c.env.DB, id);
+      invalidateScheduleCache(c.env.SETTINGS);
     }
 
     // â”€â”€â”€ Refresh department asset totals after any location change â”€â”€â”€

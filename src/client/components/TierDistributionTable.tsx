@@ -1,7 +1,7 @@
 
 import React, { useMemo } from 'react';
 import { Department, KPITier, AuditPhase, AuditSchedule, KPITierTarget, Location } from '@shared/types';
-import { Boxes, Layers, CheckCircle2, AlertCircle, MinusCircle, HelpCircle, Zap } from 'lucide-react';
+import { Boxes, Layers, CheckCircle2, AlertCircle, MinusCircle, HelpCircle } from 'lucide-react';
 import { PrintButton } from './PrintButton';
 import { printKPIPhasePlan } from '../lib/printUtils';
 
@@ -15,8 +15,6 @@ interface TierDistributionTableProps {
   users?: any[];
   buildings?: any[];
   openAuditThreshold?: number;
-  onRebalance?: () => void;
-  isAdmin?: boolean;
 }
 
 export const TierDistributionTable: React.FC<TierDistributionTableProps> = ({ 
@@ -29,8 +27,6 @@ export const TierDistributionTable: React.FC<TierDistributionTableProps> = ({
   users = [],
   buildings = [],
   openAuditThreshold = 500,
-  onRebalance,
-  isAdmin = false
 }) => {
   const sortedPhases = useMemo(() => [...phases].sort((a, b) => a.startDate.localeCompare(b.startDate)), [phases]);
   const sortedTiers = useMemo(() => [...kpiTiers].sort((a, b) => a.minAssets - b.minAssets), [kpiTiers]);
@@ -109,19 +105,9 @@ export const TierDistributionTable: React.FC<TierDistributionTableProps> = ({
       <div className="p-6 border-b border-slate-100 flex items-center justify-between">
         <div>
           <h3 className="text-lg font-bold text-slate-900">KPI Phase Inspection Plan</h3>
-          <p className="text-xs text-slate-500 mt-1">Required inspection phases per department based on their KPI tier. Click <strong>Rebalance</strong> to auto-assign (Locked audits will be skipped).</p>
+          <p className="text-xs text-slate-500 mt-1">Guideline showing required inspection phases per department based on KPI tier. Phase assignment happens automatically when a slot is locked.</p>
         </div>
         <div className="flex items-center gap-4">
-          {isAdmin && onRebalance && (
-            <button
-              onClick={onRebalance}
-              className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-lg hover:scale-105 active:scale-95 transition-all outline-hidden group"
-              title="Auto-assign audits based on KPI tiers"
-            >
-              <Zap className="w-4 h-4 text-emerald-400 group-hover:animate-pulse" />
-              Rebalance
-            </button>
-          )}
           <PrintButton
             onClick={() => printKPIPhasePlan(tableData, sortedPhases, openAuditThreshold)}
             label="Print"

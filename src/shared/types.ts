@@ -17,8 +17,8 @@ export type AssignmentMode = 'cross-audit' | 'open-audit';
 
 export type Designation = 'Head Of Department' | 'Coordinator' | 'Supervisor' | 'Staff' | 'Developer';
 
-export type UserRole = 'Admin' | 'Coordinator' | 'Supervisor' | 'Auditor' | 'Staff';
-export type AppView = 'overview' | 'schedule' | 'team' | 'settings' | 'departments' | 'locations' | 'profile' | 'knowledge-base' | 'auditor-dashboard' | 'buildings' | 'admin-dashboard';
+export type UserRole = 'Admin' | 'Coordinator' | 'Supervisor' | 'Auditor' | 'Guest';
+export type AppView = 'dashboard' | 'overview' | 'schedule' | 'team' | 'settings' | 'departments' | 'locations' | 'profile' | 'knowledge-base' | 'auditor-dashboard' | 'buildings' | 'admin-dashboard';
 
 export interface User {
   id: string;

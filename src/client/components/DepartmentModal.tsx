@@ -1,13 +1,12 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { Department, User, AuditGroup } from '@shared/types';
-import { X, Building2, User as UserIcon, FileText, Search, ChevronDown, Boxes, Layers, Ban, Check } from 'lucide-react';
+import { X, Building2, User as UserIcon, FileText, Search, ChevronDown, Boxes, Layers, Check } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
@@ -20,6 +19,7 @@ interface DepartmentModalProps {
   initialData?: Department | null;
   users: User[];
   isAdmin: boolean;
+  isCoordinator?: boolean;
   auditGroups?: AuditGroup[];
 }
 
@@ -30,6 +30,7 @@ export const DepartmentModal: React.FC<DepartmentModalProps> = ({
   initialData,
   users,
   isAdmin,
+  isCoordinator = false,
   auditGroups = []
 }) => {
   const [formData, setFormData] = useState({
@@ -39,7 +40,6 @@ export const DepartmentModal: React.FC<DepartmentModalProps> = ({
     description: '',
     totalAssets: 0,
     auditGroupId: '',
-    isExempted: false,
     auditorsRequiredOverride: undefined as number | undefined
   });
 
@@ -55,7 +55,6 @@ export const DepartmentModal: React.FC<DepartmentModalProps> = ({
         description: initialData.description || '',
         totalAssets: initialData.totalAssets || 0,
         auditGroupId: initialData.auditGroupId || '',
-        isExempted: initialData.isExempted || false,
         auditorsRequiredOverride: initialData.auditorsRequiredOverride
       });
     } else {
@@ -66,7 +65,6 @@ export const DepartmentModal: React.FC<DepartmentModalProps> = ({
         description: '',
         totalAssets: 0,
         auditGroupId: '',
-        isExempted: false,
         auditorsRequiredOverride: undefined
       });
     }
@@ -172,10 +170,10 @@ export const DepartmentModal: React.FC<DepartmentModalProps> = ({
               <Popover open={isHeadDropdownOpen} onOpenChange={setIsHeadDropdownOpen}>
                 <PopoverTrigger
                   role="combobox"
-                  disabled={!isAdmin}
+                  disabled={!isAdmin && !isCoordinator}
                   className={cn(
                     "w-full h-12 pl-11 pr-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold flex items-center justify-between hover:bg-slate-50",
-                    (!isAdmin || !formData.headOfDeptId) && "text-slate-400 font-medium"
+                    (!isAdmin && !isCoordinator) || !formData.headOfDeptId ? "text-slate-400 font-medium" : "text-slate-900"
                   )}
                 >
                     <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 w-4 h-4" />
@@ -259,35 +257,13 @@ export const DepartmentModal: React.FC<DepartmentModalProps> = ({
                 <FileText className="absolute left-4 top-3.5 text-slate-300 w-4 h-4" />
                 <Textarea 
                   placeholder="Brief description of the department..."
-                  className="pl-11 min-h-[48px] bg-slate-50 border-slate-200 rounded-2xl text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 resize-none"
+                  className="pl-11 min-h-12 bg-slate-50 border-slate-200 rounded-2xl text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 resize-none"
                   value={formData.description}
                   onChange={e => setFormData({ ...formData, description: e.target.value })}
                 />
               </div>
             </div>
 
-            {isAdmin && (
-              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="text-xs font-bold text-slate-900">Internal Audit Mode</h4>
-                    <p className="text-[10px] text-slate-500">Enable if this unit performs its own internal inspections.</p>
-                  </div>
-                  <Switch 
-                    checked={formData.isExempted}
-                    onCheckedChange={checked => setFormData({ ...formData, isExempted: checked })}
-                  />
-                </div>
-                {formData.isExempted && (
-                   <div className="mt-3 p-3 bg-amber-50 rounded-xl border border-amber-100 flex items-start gap-2">
-                     <Ban className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
-                     <p className="text-[10px] text-amber-700 leading-tight">
-                       This department will be ignored by the cross-audit grouping engine. Use for departments that perform their own internal inspections rather than participating in institutional cross-audits.
-                     </p>
-                   </div>
-                )}
-              </div>
-            )}
           </form>
         </div>
 
@@ -302,7 +278,7 @@ export const DepartmentModal: React.FC<DepartmentModalProps> = ({
           <Button 
             type="submit"
             form="department-form"
-            className="flex-[2] py-6 bg-indigo-600 text-white font-black uppercase tracking-widest text-[10px] rounded-2xl hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-500/20 border-none"
+            className="flex-2 py-6 bg-indigo-600 text-white font-black uppercase tracking-widest text-[10px] rounded-2xl hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-500/20 border-none"
           >
             {initialData ? 'Save Modifications' : 'Initialize Department'}
           </Button>

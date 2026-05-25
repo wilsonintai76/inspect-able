@@ -4,6 +4,18 @@ import { User, AppView, SystemActivity, AppNotification } from '@shared/types';
 import { Sidebar } from './Sidebar';
 import { NotificationCenter } from './NotificationCenter';
 
+const VIEW_TITLES: Record<string, string> = {
+  dashboard: 'Institutional Dashboard',
+  schedule: 'Inspection Schedule',
+  team: 'User Management',
+  departments: 'Department Registry',
+  locations: 'Asset Locations',
+  buildings: 'Building Registry',
+  settings: 'System Settings',
+  profile: 'User Profile',
+  'knowledge-base': 'Knowledge Base',
+};
+
 interface MainAppLayoutProps {
   currentUser: User;
   isSidebarOpen: boolean;
@@ -11,7 +23,6 @@ interface MainAppLayoutProps {
   activeView: AppView;
   handleViewChange: (view: AppView) => void;
   handleLogout: () => void;
-  rbacMatrix: any;
   checkProfileComplete: (u: User) => boolean;
   notifications: AppNotification[];
   setNotifications: React.Dispatch<React.SetStateAction<AppNotification[]>>;
@@ -27,7 +38,6 @@ export const MainAppLayout: React.FC<MainAppLayoutProps> = ({
   activeView,
   handleViewChange,
   handleLogout,
-  rbacMatrix,
   checkProfileComplete,
   notifications,
   setNotifications,
@@ -48,7 +58,6 @@ export const MainAppLayout: React.FC<MainAppLayoutProps> = ({
           isCertified={!!(currentUser.certificationExpiry && new Date(currentUser.certificationExpiry) > new Date())}
           userStatus={currentUser.status}
           isProfileComplete={checkProfileComplete(currentUser)}
-          rbacMatrix={rbacMatrix}
         />
 
         <div className="grow lg:pl-72 flex flex-col h-full min-w-0">
@@ -62,7 +71,7 @@ export const MainAppLayout: React.FC<MainAppLayoutProps> = ({
                 <Menu className="w-5 h-5" />
               </button>
               <div className="flex items-center gap-2">
-                <h1 className="text-base font-bold text-slate-900 capitalize leading-none">{activeView.replace('-', ' ')}</h1>
+                <h1 className="text-base font-bold text-slate-900 capitalize leading-none">{VIEW_TITLES[activeView] || activeView}</h1>
                 <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[8px] font-black uppercase border bg-indigo-50 text-indigo-600 border-indigo-100">
                   <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse"></span>
                   Secure Session

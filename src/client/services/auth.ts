@@ -117,10 +117,10 @@ function mapProfileToUser(profile: any): User {
     try {
       result.roles = JSON.parse(result.roles);
     } catch {
-      result.roles = ['Staff'];
+      result.roles = ['Guest'];
     }
   }
-  result.roles = Array.isArray(result.roles) && result.roles.length > 0 ? result.roles : ['Staff'];
+  result.roles = Array.isArray(result.roles) && result.roles.length > 0 ? result.roles : ['Guest'];
 
   if (result.contact_number) result.contactNumber = result.contact_number;
   if (result.is_verified !== undefined) result.isVerified = !!result.is_verified;

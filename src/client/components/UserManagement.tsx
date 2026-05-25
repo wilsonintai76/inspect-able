@@ -6,7 +6,6 @@ import { useRBAC } from '../contexts/RBACContext';
 import { IssueCertificateModal } from './IssueCertificateModal';
 import { gateway } from '../services/dataGateway';
 import { Filter, Plus, User as UserIcon, Check, X, Award, Stamp, Pencil, Trash2, Key, ChevronDown, Printer } from 'lucide-react';
-import { PageHeader } from './PageHeader';
 import { AuditPhase } from '@shared/types';
 import { printTeamList } from '../lib/printUtils';
 interface UserManagementProps {
@@ -55,7 +54,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({
     name: '',
     email: '',
     departmentId: '',
-    roles: ['Staff'] as string[],
+    roles: ['Guest'] as string[],
     designation: '' as string,
     contactNumber: '',
   });
@@ -116,10 +115,9 @@ export const UserManagement: React.FC<UserManagementProps> = ({
   const handleVerify = async (user: User) => {
       try {
           await gateway.verifyUser(user.id);
-          let autoRoles: UserRole[] = ['Staff'];
+          let autoRoles: UserRole[] = ['Guest'];
           if (user.designation === 'Coordinator') autoRoles = ['Coordinator'];
           else if (user.designation === 'Supervisor') autoRoles = ['Supervisor'];
-          else if (user.designation === 'Head Of Department') autoRoles = ['Staff'];
           
           await gateway.updateUser(user.id, { roles: autoRoles, isVerified: true, status: 'Active' });
           onUpdateMember(user.id, { roles: autoRoles, isVerified: true, status: 'Active' });
@@ -133,10 +131,9 @@ export const UserManagement: React.FC<UserManagementProps> = ({
     for (const user of pendingUsers) {
       try {
         await gateway.verifyUser(user.id);
-        let autoRoles: UserRole[] = ['Staff'];
+        let autoRoles: UserRole[] = ['Guest'];
         if (user.designation === 'Coordinator') autoRoles = ['Coordinator'];
         else if (user.designation === 'Supervisor') autoRoles = ['Supervisor'];
-        else if (user.designation === 'Head Of Department') autoRoles = ['Staff'];
         
         await gateway.updateUser(user.id, { roles: autoRoles, isVerified: true, status: 'Active' });
         onUpdateMember(user.id, { roles: autoRoles, isVerified: true, status: 'Active' });
@@ -174,7 +171,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({
               id,
               name, email,
               departmentId: row['Department'] || row['department'] || '',
-              roles: (row['Role'] || row['role'] || 'Staff').split(',').map((r: string) => r.trim() as UserRole).filter(r => ['Admin', 'Coordinator', 'Supervisor', 'Staff'].includes(r)),
+              roles: [(row['Role'] || row['role'] || 'Guest').split(',')[0].trim()] as UserRole[],
 
               status: 'Active',
               lastActive: new Date().toISOString(),
@@ -232,7 +229,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({
   const resetForm = () => {
     const isAdmin = currentUserRoles.includes('Admin');
     const deptId = (!isAdmin && currentUserData?.departmentId) ? currentUserData.departmentId : '';
-    setFormData({ name: '', email: '', departmentId: deptId, roles: ['Staff'] as string[], designation: '', contactNumber: '' });
+    setFormData({ name: '', email: '', departmentId: deptId, roles: ['Guest'] as string[], designation: '', contactNumber: '' });
     setIsFormOpen(false);
     setEditingId(null);
   };
@@ -244,24 +241,20 @@ export const UserManagement: React.FC<UserManagementProps> = ({
       case 'Admin': return 'bg-purple-50 text-purple-600 border-purple-100';
       case 'Coordinator': return 'bg-amber-50 text-amber-600 border-amber-100';
       case 'Supervisor': return 'bg-indigo-50 text-indigo-600 border-indigo-100';
-      case 'Auditor': return 'bg-emerald-50 text-emerald-600 border-emerald-100';
+      case 'Guest': return 'bg-slate-50 text-slate-500 border-slate-100';
       default: return 'bg-blue-50 text-blue-600 border-blue-100';
     }
   };
 
   const startEdit = (user: User) => {
     setEditingId(user.id);
-    // Cleanup: Staff is mutually exclusive with higher roles
-    let cleanRoles = user.roles || ['Staff'];
-    if (cleanRoles.length > 1) {
-      cleanRoles = cleanRoles.filter(r => r !== 'Staff');
-      if (cleanRoles.length === 0) cleanRoles = ['Staff'];
-    }
+    // Single role only
+    const role = (user.roles && user.roles.length > 0) ? user.roles[0] : 'Guest';
     setFormData({
       name: user.name || '',
       email: user.email || '',
       departmentId: user.departmentId || '',
-      roles: cleanRoles,
+      roles: [role],
       designation: user.designation || '',
       contactNumber: user.contactNumber || '',
     });
@@ -281,12 +274,6 @@ export const UserManagement: React.FC<UserManagementProps> = ({
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="User Management"
-        icon={UserIcon}
-        activePhase={activePhase}
-        description="Manage user access, roles, and institutional certification status."
-      />
       <div className="flex flex-col md:flex-row md:items-start justify-between gap-6 pb-6 border-b border-slate-100">
         <div>
           <h3 className="text-2xl font-black text-slate-900 tracking-tight">Institutional Team</h3>
@@ -358,7 +345,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({
                 <option value="Coordinator">Coordinator</option>
                 <option value="Supervisor">Supervisor</option>
                 <option value="Auditor">Certified Officer</option>
-                <option value="Staff">Staff</option>
+                <option value="Guest">Guest</option>
               </select>
               <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 w-3 h-3 pointer-events-none" />
             </div>
@@ -512,16 +499,14 @@ export const UserManagement: React.FC<UserManagementProps> = ({
                       value={formData.designation} 
                       onChange={e => {
                         const nextDesignation = e.target.value;
-                        let autoRoles: UserRole[] = ['Staff'];
-                        if (nextDesignation === 'Coordinator') autoRoles = ['Coordinator'];
-                        else if (nextDesignation === 'Supervisor') autoRoles = ['Supervisor'];
-                        else if (nextDesignation === 'Head Of Department') autoRoles = ['Staff'];
-                        else if (nextDesignation === 'Staff') autoRoles = ['Staff'];
+                        let autoRole: UserRole = 'Guest';
+                        if (nextDesignation === 'Coordinator') autoRole = 'Coordinator';
+                        else if (nextDesignation === 'Supervisor') autoRole = 'Supervisor';
 
                         setFormData(prev => ({ 
                           ...prev, 
                           designation: nextDesignation,
-                          roles: autoRoles
+                          roles: [autoRole] as UserRole[]
                         }));
                       }}
                     >
@@ -529,50 +514,50 @@ export const UserManagement: React.FC<UserManagementProps> = ({
                       <option value="Head Of Department">Head Of Department</option>
                       <option value="Coordinator">Coordinator</option>
                       <option value="Supervisor">Supervisor</option>
-                      <option value="Staff">Staff</option>
+                      <option value="Guest">Guest</option>
                       {users.find(u => u.id === currentUserId)?.email?.toLowerCase() === 'admin@poliku.edu.my' && (
                         <option value="Developer">Developer</option>
                       )}
                     </select>
                   </div>
                   <div className="space-y-1 md:col-span-2">
-                    <label className="text-[10px] font-black uppercase text-slate-400">Administrative Roles (RBAC)</label>
-                    <div className="flex flex-wrap gap-3 mt-2">
-                      {(['Admin', 'Coordinator', 'Supervisor', 'Staff'] as UserRole[]).map((r) => (
-                        <label key={r} className={`flex items-center gap-2 p-3 rounded-xl border transition-all cursor-pointer whitespace-nowrap ${
-                          formData.roles.includes(r) 
-                          ? 'bg-blue-50 border-blue-200 text-blue-700 shadow-sm' 
-                          : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'
-                        }`}>
-                          <input 
-                            type="checkbox" 
-                            className="w-4 h-4 text-blue-600 focus:ring-blue-500 border-slate-300 rounded"
-                            checked={formData.roles.includes(r)}
-                            onChange={() => {
-                              setFormData(prev => {
-                                let nextRoles = [...prev.roles];
-                                if (nextRoles.includes(r)) {
-                                  nextRoles = nextRoles.filter(x => x !== r);
-                                } else {
-                                  nextRoles.push(r);
-                                }
-                                if (nextRoles.length === 0) {
-                                  nextRoles = ['Staff'];
-                                } else if (nextRoles.length > 1) {
-                                  if (r === 'Staff') {
-                                    nextRoles = ['Staff'];
-                                  } else {
-                                    nextRoles = nextRoles.filter(x => x !== 'Staff');
-                                  }
-                                }
-                                return { ...prev, roles: nextRoles };
-                              });
-                            }}
-                          />
-                          <span className="text-xs font-bold">{r}</span>
-                        </label>
-                      ))}
+                    <label className="text-[10px] font-black uppercase text-slate-400">Role {!isAdmin && <span className="text-amber-500 ml-1">(auto-bound to designation)</span>}</label>
+                    {isAdmin ? (
+                    <div className="mt-2 space-y-2">
+                      <div className="px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-600">
+                        {formData.roles[0] || 'Guest'} <span className="text-[10px] text-slate-400 font-medium">(bound to designation)</span>
+                      </div>
+                      <label className={`flex items-center gap-2 p-3 rounded-xl border transition-all cursor-pointer w-fit ${
+                        formData.roles.includes('Admin')
+                        ? 'bg-purple-50 border-purple-200 text-purple-700 shadow-sm' 
+                        : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'
+                      }`}>
+                        <input 
+                          type="checkbox" 
+                          className="w-4 h-4 text-purple-600 focus:ring-purple-500 border-slate-300 rounded"
+                          checked={formData.roles.includes('Admin')}
+                          onChange={() => {
+                            setFormData(prev => {
+                              if (prev.roles.includes('Admin')) {
+                                // Demote: find designation-bound role based on current designation
+                                let boundRole: UserRole = 'Guest';
+                                if (prev.designation === 'Coordinator') boundRole = 'Coordinator';
+                                else if (prev.designation === 'Supervisor') boundRole = 'Supervisor';
+                                return { ...prev, roles: [boundRole] as UserRole[] };
+                              }
+                              return { ...prev, roles: ['Admin'] as UserRole[] };
+                            });
+                          }}
+                        />
+                        <span className="text-xs font-bold">Promote to Admin</span>
+                        <span className="text-[9px] text-purple-400 font-medium">(overrides designation binding)</span>
+                      </label>
                     </div>
+                    ) : (
+                      <div className="mt-2 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-600">
+                        {formData.roles[0] || 'Guest'}
+                      </div>
+                    )}
                   </div>
                   <div className="space-y-1">
                     <label className="text-[10px] font-black uppercase text-slate-400">Contact</label>

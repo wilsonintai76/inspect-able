@@ -24,10 +24,10 @@ export type RBACPermission =
 
 export const RBAC_POLICY: Record<RBACPermission, UserRole[]> = {
   // Institutional Overview — all roles
-  'view:overview':          ['Admin', 'Coordinator', 'Supervisor', 'Auditor', 'Staff'],
+  'view:overview':          ['Admin', 'Coordinator', 'Supervisor', 'Auditor', 'Guest'],
   // Inspection Schedule
   'view:schedule:all':      ['Admin'],                                          // View All Dept Schedules
-  'view:schedule:own':      ['Admin', 'Coordinator', 'Supervisor', 'Auditor', 'Staff'], // View Own Dept Schedule
+  'view:schedule:own':      ['Admin', 'Coordinator', 'Supervisor', 'Auditor', 'Guest'], // View Own Dept Schedule
   'view:schedule:cross':    ['Admin', 'Coordinator', 'Supervisor', 'Auditor'], // View Cross-Audit Dept Schedules
   'view:matrix':            ['Admin', 'Coordinator', 'Supervisor', 'Auditor'], // View Audit Matrix
   'set:audit:date':         ['Admin', 'Coordinator', 'Supervisor'],             // Set Audit Dates (*priority rules in app)

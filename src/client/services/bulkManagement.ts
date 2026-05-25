@@ -314,7 +314,7 @@ export const bulkManagement = {
    * Processes a batch of staff members for activation.
    * Only requires: Name, Email.
    * Skips existing emails — never overwrites or creates duplicates.
-   * Defaults: Designation='Supervisor', Role='Staff', no department assigned.
+   * Defaults: Designation='Supervisor', Role='Guest', no department assigned.
    */
   async activateStaff(
     entries: { name: string; email: string }[],
@@ -335,7 +335,7 @@ export const bulkManagement = {
         id: crypto.randomUUID(),
         name: entry.name,
         email: emailKey,
-        roles: ['Staff'],
+        roles: ['Guest'],
         designation: 'Supervisor',
         status: 'Active',
         isVerified: true,
@@ -379,7 +379,7 @@ export const bulkManagement = {
             id: tempStaffId,
             name: finalHeadId,
             email: `temp${tempId}@asset-audit.pro`,
-            roles: ['Staff'],
+            roles: ['Guest'],
             designation: 'Head Of Department',
             status: 'Active',
             isVerified: true,

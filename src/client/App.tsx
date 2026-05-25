@@ -11,9 +11,8 @@ import {
 // Components
 import { AuditTable } from './components/AuditTable';
 import { UserManagement } from './components/UserManagement';
-import { OverviewDashboard } from './components/OverviewDashboard';
+import { UnifiedDashboard } from './components/UnifiedDashboard';
 import { BuildingManagement } from './components/BuildingManagement';
-import { AuditorDashboard } from './components/AuditorDashboard';
 import { SystemSettings } from './components/SystemSettings';
 import { DepartmentManagement } from './components/DepartmentManagement';
 import { LocationManagement } from './components/LocationManagement';
@@ -21,7 +20,6 @@ import { UserProfile } from './components/UserProfile';
 import { LandingPage } from './components/LandingPage';
 import { KnowledgeBase } from './components/KnowledgeBase';
 import { AutoUpdater } from './components/AutoUpdater';
-import { AdminDashboard } from './components/AdminDashboard';
 import { MainAppLayout } from './components/MainAppLayout';
 import { GlobalModals } from './components/GlobalModals';
 import { KioskApp } from './apps/kiosk/KioskApp';
@@ -128,7 +126,7 @@ const App: React.FC = () => {
     handleAutoCalculateTierTargets, handleResetLocations,
     handleResetOperationalData, handleResetDepartments,
     handleResetUsers, handleResetPhases, handleResetKPI,
-    handleBulkAddDepts, handleBulkActivateStaff, handleRebalanceSchedule,
+    handleBulkAddDepts, handleBulkActivateStaff,
     handleAddDepartmentMapping, handleDeleteDepartmentMapping,
     handleSyncLocationMappings, handleUpsertLocations,
     handleSetDeptTotalsFromMapping, handleUpdateUninspectedAssetCounts,
@@ -300,7 +298,6 @@ const App: React.FC = () => {
       activeView={activeView}
       handleViewChange={handleViewChange}
       handleLogout={handleLogout}
-      rbacMatrix={rbacMatrix}
       checkProfileComplete={checkProfileComplete}
       notifications={appData.notifications}
       setNotifications={appData.setNotifications}
@@ -308,38 +305,32 @@ const App: React.FC = () => {
       isProcessing={appData.isProcessing}
     >
       <AutoUpdater />
-      {activeView === 'overview' && (
-        <OverviewDashboard
-          schedules={filteredSchedules}
-          phases={auditPhases}
-          kpiTiers={kpiTiers}
-          departments={departmentsWithAssets}
-          locations={locations}
+      {activeView === 'dashboard' && (
+        <UnifiedDashboard
           currentUser={currentUser}
-          activities={activities}
-          maxAssetsPerDay={maxAssetsPerDay}
-          auditGroups={auditGroups}
-          institutionKPIs={institutionKPIs}
-          buildings={buildings}
-          rbacMatrix={rbacMatrix}
-          kpiTierTargets={kpiTierTargets}
-          openAuditThreshold={openAuditThreshold}
-          users={users}
-        />
-      )}
-      {activeView === 'auditor-dashboard' && (
-        <AuditorDashboard
           schedules={appData.schedules}
-          currentUser={currentUser}
           phases={auditPhases}
           kpiTiers={kpiTiers}
           departments={departmentsWithAssets}
           locations={locations}
+          users={users}
+          activities={activities}
+          buildings={buildings}
           institutionKPIs={institutionKPIs}
+          kpiTierTargets={kpiTierTargets}
+          auditGroups={auditGroups}
           openAuditThreshold={openAuditThreshold}
+          dashboardConfig={DEFAULT_DASHBOARD_CONFIG}
+          rbacMatrix={rbacMatrix}
+          maxAssetsPerDay={maxAssetsPerDay}
+          onApproveArchive={handleApproveArchive}
+          onRejectArchive={handleRejectArchive}
+          onApproveCert={appActions.handleApproveCert}
+          onSendEmail={handleSendApprovalEmail}
           onRequestRenewal={appActions.handleRequestRenewal}
           onUpdateDate={handleUpdateAuditDate}
           onUpdateAudit={handleUpdateAudit}
+          setActiveView={(v: string) => setActiveView(v as AppView)}
         />
       )}
       {activeView === 'schedule' && (
@@ -433,22 +424,6 @@ const App: React.FC = () => {
           schedules={appData.schedules}
         />
       )}
-      {activeView === 'admin-dashboard' && (
-        <AdminDashboard
-          users={users}
-          locations={locations}
-          schedules={appData.schedules}
-          activities={activities}
-          departments={departmentsWithAssets}
-          buildings={buildings}
-          phases={auditPhases}
-          onApproveArchive={handleApproveArchive}
-          onRejectArchive={handleRejectArchive}
-          onApproveCert={appActions.handleApproveCert}
-          onSendEmail={handleSendApprovalEmail}
-          coordinatorDeptId={!isAdminUser && currentUser.roles?.includes('Coordinator') ? currentUser.departmentId : undefined}
-        />
-      )}
       {activeView === 'buildings' && (
         <BuildingManagement
           buildings={buildings}
@@ -510,7 +485,6 @@ const App: React.FC = () => {
           onUpdateGroupingMargin={async (val) => { appData.setGroupingMargin(val); await gateway.updateSystemSetting('audit_constraints', { maxAssetsPerDay: appData.maxAssetsPerDay, maxLocationsPerDay: appData.maxLocationsPerDay, minAuditorsPerLocation: appData.minAuditorsPerLocation, dailyInspectionCapacity: appData.dailyInspectionCapacity, standaloneThresholdAssets: appData.standaloneThresholdAssets, groupingMargin: val, groupingAuditorMargin: appData.groupingAuditorMargin }); }}
           groupingAuditorMargin={appData.groupingAuditorMargin}
           onUpdateGroupingAuditorMargin={async (val) => { appData.setGroupingAuditorMargin(val); await gateway.updateSystemSetting('audit_constraints', { maxAssetsPerDay: appData.maxAssetsPerDay, maxLocationsPerDay: appData.maxLocationsPerDay, minAuditorsPerLocation: appData.minAuditorsPerLocation, dailyInspectionCapacity: appData.dailyInspectionCapacity, standaloneThresholdAssets: appData.standaloneThresholdAssets, groupingMargin: appData.groupingMargin, groupingAuditorMargin: val }); }}
-          onRebalanceSchedule={handleRebalanceSchedule}
           schedules={appData.schedules}
           departmentMappings={appData.departmentMappings}
           onAddDepartmentMapping={handleAddDepartmentMapping}

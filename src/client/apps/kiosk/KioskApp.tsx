@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { ShieldCheck, RefreshCw, Download, AlertTriangle, CheckCircle, Info, XCircle, LogOut, UserCircle, X } from 'lucide-react';
+import { ShieldCheck, RefreshCw, Download, AlertTriangle, CheckCircle, Info, XCircle, LogOut, UserCircle, X, ExternalLink } from 'lucide-react';
 
 import { KioskSchedule, KioskUser, KioskPhase, AssignRole } from './components/types';
 import { KioskStatsBar } from './components/KioskStatsBar';
@@ -688,21 +688,20 @@ export const KioskApp: React.FC = () => {
     return <KioskLoginScreen onLogin={setCurrentUser} logoBrand={logoBrand} />;
   }
 
-  // ── Certified-officer gate ─────────────────────────────────────────────────
+  // ── Certified-officer gate (PBAC: any role + valid cert = officer) ────────
   const todayStr = new Date().toISOString().split('T')[0];
-  const isAuditor = currentUser.roles.includes('Auditor');
   const hasCert = !!(currentUser.certificationExpiry && currentUser.certificationExpiry >= todayStr);
 
-  if (!isAuditor || !hasCert) {
+  if (!hasCert) {
     return (
       <div className="min-h-dvh bg-slate-50 flex flex-col items-center justify-center p-4">
         <div className="w-full max-w-xs bg-white rounded-3xl border border-slate-200 shadow-xl overflow-hidden">
-          <div className={`px-8 pt-8 pb-6 text-center ${isAuditor ? 'bg-amber-500' : 'bg-rose-600'}`}>
+          <div className="px-8 pt-8 pb-6 text-center bg-amber-500">
             <div className="w-14 h-14 bg-white/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
               <ShieldCheck className="w-7 h-7 text-white" />
             </div>
-            <h1 className="text-xl font-black text-white mb-1">Access Restricted</h1>
-            <p className="text-white/80 text-xs font-medium">Audit Kiosk · Certified Officers Only</p>
+            <h1 className="text-xl font-black text-white mb-1">Certification Required</h1>
+            <p className="text-white/80 text-xs font-medium">Audit Kiosk · Valid Certification Needed</p>
           </div>
           <div className="p-6 space-y-4">
             <div className="flex flex-col items-center gap-1">
@@ -716,10 +715,8 @@ export const KioskApp: React.FC = () => {
               <p className="font-black text-sm text-slate-800">{currentUser.name}</p>
               <p className="text-[11px] text-slate-400">{currentUser.email}</p>
             </div>
-            <div className={`rounded-2xl px-4 py-3 text-xs text-center font-medium leading-relaxed ${isAuditor ? 'bg-amber-50 text-amber-700 border border-amber-200' : 'bg-rose-50 text-rose-700 border border-rose-200'}`}>
-              {!isAuditor
-                ? 'This kiosk is for certified officers only. Your account does not have the Auditor role. Please contact your administrator.'
-                : 'Your auditor certification has expired or has not been issued. Please renew your certification via the main site.'}
+            <div className="rounded-2xl px-4 py-3 text-xs text-center font-medium leading-relaxed bg-amber-50 text-amber-700 border border-amber-200">
+              Your certification has expired or has not been issued. Please renew your certification via the main site.
             </div>
             <button
               onClick={handleSignOut}
@@ -766,6 +763,15 @@ export const KioskApp: React.FC = () => {
             <div className="rounded-2xl px-4 py-3 text-xs text-center font-medium leading-relaxed bg-amber-50 text-amber-700 border border-amber-200">
               {serverAccessError}
             </div>
+            <a
+              href="https://www.inspect-able.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full flex items-center justify-center gap-2 py-2.5 bg-indigo-50 hover:bg-indigo-100 rounded-2xl text-xs font-black text-indigo-700 transition-colors active:scale-95"
+            >
+              <ExternalLink className="w-3.5 h-3.5" />
+              Go to Main Site
+            </a>
             <button
               onClick={handleSignOut}
               className="w-full flex items-center justify-center gap-2 py-2.5 bg-slate-100 hover:bg-slate-200 rounded-2xl text-xs font-black text-slate-700 transition-colors active:scale-95"
@@ -782,7 +788,7 @@ export const KioskApp: React.FC = () => {
     );
   }
 
-  const primaryRole = currentUser.roles[0] || 'Staff';
+  const primaryRole = currentUser.roles[0] || 'Guest';
   const roleBadgeClass: Record<string, string> = {
     Admin: 'bg-rose-100 text-rose-700',
     Coordinator: 'bg-purple-100 text-purple-700',

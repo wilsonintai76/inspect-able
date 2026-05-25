@@ -55,10 +55,10 @@ export const ScheduleCard: React.FC<Props> = ({
   const roleUsers = (role: AssignRole): KioskUser[] => {
     // Supervisor is handled in main app — not assignable from kiosk
     if (role === 'supervisor') return [];
-    // Certified officers (auditors) cannot audit their own department
+    // PBAC: Certified officers (any role + valid cert) — cannot audit own department
     return users.filter(
       u =>
-        (u.roles.includes('Auditor') || u.roles.includes('Coordinator') || u.roles.includes('Supervisor') || u.roles.includes('Admin')) &&
+        u.certificationExpiry && u.certificationExpiry >= today &&
         u.departmentId !== schedule.departmentId &&
         u.id === currentUserId,
     );

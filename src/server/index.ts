@@ -13,7 +13,8 @@ import { publicRoutes } from './routes/public';
 import { Bindings, Variables } from './types';
 import { authMiddleware } from './middleware/auth';
 import { domainGuard } from './middleware/domainGuard';
-import { backupD1ToR2 } from './services/backupService';
+import { backupD1ToR2, cleanupOldBackups } from './services/backupService';
+import { unassignExpiredAuditors } from './services/auditMaintenanceService';
 
 // The API app (mounted on /api)
 const app = new Hono<{ Bindings: Bindings, Variables: Variables }>();
@@ -288,6 +289,7 @@ export default {
   fetch: baseApp.fetch,
   async scheduled(event: ScheduledEvent, env: Bindings, ctx: ExecutionContext) {
     if (event.cron === '0 2 * * *') {
+      // ── Daily Backup ──────────────────────────────────────────────────
       console.log('[Cron] Starting D1 → R2 backup...');
       ctx.waitUntil(
         backupD1ToR2({ db: env.DB, bucket: env.BACKUP }).then((result) => {
@@ -297,6 +299,27 @@ export default {
           }
         }).catch((err) => {
           console.error('[Cron] Backup failed:', err);
+        })
+      );
+
+      // ── Daily Cert Expiry Cleanup ─────────────────────────────────────
+      console.log('[Cron] Starting cert expiry cleanup...');
+      const today = new Date().toISOString().split('T')[0];
+      ctx.waitUntil(
+        unassignExpiredAuditors(env.DB, today).then(() => {
+          console.log('[Cron] Cert expiry cleanup complete');
+        }).catch((err) => {
+          console.error('[Cron] Cert cleanup failed:', err);
+        })
+      );
+
+      // ── Daily Backup Retention Cleanup (keep last 30 days) ────────────
+      console.log('[Cron] Starting backup retention cleanup...');
+      ctx.waitUntil(
+        cleanupOldBackups(env.BACKUP, 30).then((result) => {
+          console.log(`[Cron] Backup cleanup: ${result.deleted} deleted, ${result.kept} kept`);
+        }).catch((err) => {
+          console.error('[Cron] Backup cleanup failed:', err);
         })
       );
     }

@@ -5,7 +5,7 @@ import { Bindings, Variables } from '../types';
 import { rbacGuard } from '../middleware/rbacGuard';
 import { sendSupervisorApprovalEmail } from '../services/emailService';
 import { hashPassword } from '../services/authService';
-import { backupD1ToR2 } from '../services/backupService';
+import { backupD1ToR2, cleanupOldBackups } from '../services/backupService';
 import { 
   DEFAULT_USER_PASSWORD, getRolesForDesignation, logApprovalReminderActivity, invalidateScheduleCache,
   edgeCache, auditLockGuard, zeroAssetGuard, statusTransitionGuard, patchAuditPermissionGuard,
@@ -774,7 +774,30 @@ router.get('/backups', rbacGuard('system:settings'), async (c) => {
     return c.json({ error: err.message }, 500);
   }
 });
+// DELETE /db/backups?key=backups/... — delete a specific backup file (Admin only)
+router.delete('/backups', rbacGuard('system:settings'), async (c) => {
+  const key = c.req.query('key');
+  if (!key || !key.startsWith('backups/')) {
+    return c.json({ error: 'Invalid key' }, 400);
+  }
+  try {
+    await c.env.BACKUP.delete(key);
+    return c.json({ success: true });
+  } catch (err: any) {
+    return c.json({ error: err.message }, 500);
+  }
+});
 
+// POST /db/backups/cleanup — delete backups older than ?days= (default 30) (Admin only)
+router.post('/backups/cleanup', rbacGuard('system:settings'), async (c) => {
+  try {
+    const days = parseInt(c.req.query('days') || '30', 10) || 30;
+    const result = await cleanupOldBackups(c.env.BACKUP, days);
+    return c.json({ success: true, ...result });
+  } catch (err: any) {
+    return c.json({ error: err.message }, 500);
+  }
+});
 // GET /db/backups/download?key=backups/... â€” stream a backup file as download (Admin only)
 router.get('/backups/download', rbacGuard('system:settings'), async (c) => {
   const key = c.req.query('key');

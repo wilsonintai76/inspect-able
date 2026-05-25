@@ -59,6 +59,7 @@ export const BackupManager: React.FC = () => {
   const [isBacking, setIsBacking] = React.useState(false);
   const [isRestoring, setIsRestoring] = React.useState(false);
   const [downloadingKey, setDownloadingKey] = React.useState<string | null>(null);
+  const [deletingKey, setDeletingKey] = React.useState<string | null>(null);
   const [listError, setListError] = React.useState<string | null>(null);
   const [actionStatus, setActionStatus] = React.useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [showRestorePanel, setShowRestorePanel] = React.useState(false);
@@ -123,6 +124,29 @@ export const BackupManager: React.FC = () => {
       setActionStatus({ type: 'error', message: err.message });
     } finally {
       setDownloadingKey(null);
+    }
+  };
+
+  const handleDelete = async (key: string) => {
+    if (!confirm(`Delete backup "${formatKey(key)}"? This cannot be undone.`)) return;
+    setDeletingKey(key);
+    setActionStatus(null);
+    try {
+      const res = await fetch(`/api/db/backups?key=${encodeURIComponent(key)}`, {
+        method: 'DELETE',
+        headers: await getAuthHeaders(),
+      });
+      const data = await res.json() as any;
+      if (res.ok && data.success) {
+        setActionStatus({ type: 'success', message: `Deleted: ${formatKey(key)}` });
+        await loadBackups();
+      } else {
+        setActionStatus({ type: 'error', message: data.error || 'Delete failed.' });
+      }
+    } catch (err: any) {
+      setActionStatus({ type: 'error', message: err.message });
+    } finally {
+      setDeletingKey(null);
     }
   };
 
@@ -262,17 +286,29 @@ export const BackupManager: React.FC = () => {
                     </div>
                   </div>
                 </div>
-                <button
-                  title="Download backup"
-                  onClick={() => handleDownload(f.key)}
-                  disabled={downloadingKey === f.key}
-                  className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-200 transition-all disabled:opacity-50"
-                >
-                  {downloadingKey === f.key
-                    ? <RefreshCw className="w-3 h-3 animate-spin" />
-                    : <Download className="w-3 h-3" />}
-                  Download
-                </button>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    title="Download backup"
+                    onClick={() => handleDownload(f.key)}
+                    disabled={downloadingKey === f.key}
+                    className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-200 transition-all disabled:opacity-50"
+                  >
+                    {downloadingKey === f.key
+                      ? <RefreshCw className="w-3 h-3 animate-spin" />
+                      : <Download className="w-3 h-3" />}
+                    Download
+                  </button>
+                  <button
+                    title="Delete backup"
+                    onClick={() => handleDelete(f.key)}
+                    disabled={deletingKey === f.key}
+                    className="shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-bold text-red-500 bg-red-50 hover:bg-red-100 border border-red-200 transition-all disabled:opacity-50"
+                  >
+                    {deletingKey === f.key
+                      ? <RefreshCw className="w-3 h-3 animate-spin" />
+                      : <Trash2 className="w-3 h-3" />}
+                  </button>
+                </div>
               </div>
             ))}
           </div>

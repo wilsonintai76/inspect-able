@@ -174,10 +174,31 @@ router.patch('/users/:id', zValidator('json', patchUserSchema), async (c) => {
     }
   }
 
-  // Cleanup: Staff is mutually exclusive â€” remove if other higher roles are present
-  if (updates.roles && Array.isArray(updates.roles) && updates.roles.length > 1) {
-    updates.roles = updates.roles.filter((r: string) => r !== 'Staff');
-    if (updates.roles.length === 0) updates.roles = ['Staff'];
+  // ── Role enforcement: only Admin can promote to Admin, no other manual role changes ──
+  if (updates.roles !== undefined) {
+    const newRole = Array.isArray(updates.roles) ? updates.roles[0] : null; // single role
+    const callerRoles = (c.get('user')?.roles || []) as string[];
+    const isCallerAdmin = callerRoles.includes('Admin');
+
+    if (!newRole || !isCallerAdmin) {
+      return c.json({ error: 'Forbidden: only Admin can manage roles' }, 403);
+    }
+
+    // Allowed: promotion to Admin, or demotion from Admin back to designation-default
+    if (newRole !== 'Admin') {
+      const currentUser = await c.env.DB.prepare('SELECT roles, designation FROM users WHERE id = ?').bind(id).first<{roles: string; designation: string | null}>();
+      const currentRoles = currentUser?.roles ? JSON.parse(currentUser.roles) : [];
+      const isCurrentlyAdmin = Array.isArray(currentRoles) && currentRoles.includes('Admin');
+      
+      if (!isCurrentlyAdmin) {
+        // Non-admin → non-admin change rejected. Only Admin can be freely assigned.
+        return c.json({ error: 'Forbidden: roles are bound to designation. Only Admin can be manually assigned.' }, 403);
+      }
+      // Admin → non-Admin (demotion back to designation-default): allowed
+    }
+    
+    // Normalize to single role
+    updates.roles = [newRole];
   }
 
   if (updates.password !== undefined) { 
@@ -218,6 +239,7 @@ router.patch('/users/:id', zValidator('json', patchUserSchema), async (c) => {
       const isExpired = !updates.certificationExpiry || updates.certificationExpiry < today;
       if (isExpired) {
         await unassignSpecificAuditorFromFutureAudits(c.env.DB, id, today);
+        invalidateScheduleCache(c.env.SETTINGS);
       }
     }
 
@@ -246,6 +268,9 @@ router.patch('/users/:id', zValidator('json', patchUserSchema), async (c) => {
           newLocked,
           audit.id
         ).run();
+      }
+      if (conflictedAudits.results && conflictedAudits.results.length > 0) {
+        invalidateScheduleCache(c.env.SETTINGS);
       }
     }
 

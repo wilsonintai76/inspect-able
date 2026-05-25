@@ -33,7 +33,7 @@ export const useAppData = () => {
     }
     return 'landing';
   });
-  const [activeView, setActiveView] = useState<AppView>('overview');
+  const [activeView, setActiveView] = useState<AppView>('dashboard');
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [connectionErrorMessage, setConnectionErrorMessage] = useState<string | null>(null);
@@ -259,6 +259,7 @@ export const useAppData = () => {
       if (user) {
         setCurrentUser(user);
         setViewState('app');
+        setActiveView('dashboard');
         await loadAllData();
       } else {
         await loadPublicStats();
@@ -312,13 +313,26 @@ export const useAppData = () => {
     return schedules.filter(s => {
       if (selectedDept !== 'All' && s.departmentId !== departments.find(d => d.name === selectedDept)?.id) return false;
       if (selectedStatus !== 'All' && s.status !== selectedStatus) return false;
-      if (selectedPhaseId !== 'All' && s.phaseId !== selectedPhaseId) return false;
+      if (selectedPhaseId !== 'All') {
+        // Always check date ∈ phase range (ignore stale phaseId from old rebalancer)
+        const phase = auditPhases.find(p => p.id === selectedPhaseId);
+        if (!phase) return false;
+        if (!s.date) {
+          // No date: fall back to phaseId match
+          if (s.phaseId !== selectedPhaseId) return false;
+        } else {
+          const d = new Date(s.date); d.setHours(12, 0, 0, 0);
+          const start = new Date(phase.startDate); start.setHours(0, 0, 0, 0);
+          const end = new Date(phase.endDate); end.setHours(23, 59, 59, 999);
+          if (d < start || d > end) return false;
+        }
+      }
       // Exclude audits for archived locations
       const loc = locations.find(l => l.id === s.locationId);
       if (loc && loc.status === 'Archived') return false;
       return true;
     });
-  }, [schedules, selectedDept, selectedStatus, selectedPhaseId, departments, locations]);
+  }, [schedules, selectedDept, selectedStatus, selectedPhaseId, departments, locations, auditPhases]);
 
   const topDepartments = useMemo(() => {
     return departmentsWithAssets
@@ -333,23 +347,24 @@ export const useAppData = () => {
       .slice(0, 5);
   }, [departmentsWithAssets, schedules]);
 
+  // PBAC handles certified officers via certificationExpiry — no need to inject phantom roles
   const enrichedCurrentUser = useMemo(() => {
     if (!currentUser) return null;
-    const today = new Date().toISOString().split('T')[0];
-    const isCertified = currentUser.status === 'Active' && currentUser.certificationExpiry && currentUser.certificationExpiry >= today;
-    if (isCertified && !currentUser.roles.includes('Auditor')) {
-      return { ...currentUser, roles: [...currentUser.roles, 'Auditor'] };
+    // Ensure roles is always a valid array
+    const roles = Array.isArray(currentUser.roles) && currentUser.roles.length > 0
+      ? currentUser.roles
+      : ['Guest'];
+    if (roles !== currentUser.roles) {
+      return { ...currentUser, roles };
     }
     return currentUser;
   }, [currentUser]);
 
+  // PBAC handles certified officers via certificationExpiry — no need to inject phantom roles
   const enrichedUsers = useMemo(() => {
-    const today = new Date().toISOString().split('T')[0];
     return users.map(u => {
-      const isCertified = u.status === 'Active' && u.certificationExpiry && u.certificationExpiry >= today;
-      if (isCertified && !u.roles.includes('Auditor')) {
-        return { ...u, roles: [...u.roles, 'Auditor'] };
-      }
+      const roles = Array.isArray(u.roles) && u.roles.length > 0 ? u.roles : ['Guest'];
+      if (roles !== u.roles) return { ...u, roles };
       return u;
     });
   }, [users]);

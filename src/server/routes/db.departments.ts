@@ -153,8 +153,13 @@ router.delete('/departments/:id/purge', rbacGuard('manage:departments'), async (
     if (row.is_archived !== 1) return c.json({ error: 'Department must be archived before purging' }, 400);
     // Orphan locations (clear dept link) rather than cascade-deleting them
     await c.env.DB.prepare('UPDATE locations SET department_id = NULL WHERE department_id = ?').bind(id).run();
+    // Delete orphaned non-completed audits for the orphaned locations
+    await c.env.DB.prepare(
+      `DELETE FROM audit_schedules WHERE location_id IN (SELECT id FROM locations WHERE department_id IS NULL) AND status != 'Completed'`
+    ).run();
     await c.env.DB.prepare('DELETE FROM departments WHERE id = ?').bind(id).run();
     await refreshDepartmentAssetTotals(c.env.DB);
+    invalidateScheduleCache(c.env.SETTINGS);
     return c.json({ success: true });
   } catch (err: any) {
     return c.json({ error: err.message }, 500);
@@ -164,10 +169,14 @@ router.delete('/departments/:id/purge', rbacGuard('manage:departments'), async (
 router.delete('/departments/:id/force', rbacGuard('admin:hub'), async (c) => {
   const id = c.req.param('id');
   try {
-    // In D1, we might need a stored procedure-like logic or multi-statement
-    // For now, let's just delete dependencies manually if needed, or assume CASCADE if set.
+    // Orphan locations and clean up their non-completed audits
+    await c.env.DB.prepare(
+      `DELETE FROM audit_schedules WHERE location_id IN (SELECT id FROM locations WHERE department_id = ?) AND status != 'Completed'`
+    ).bind(id).run();
+    await c.env.DB.prepare('UPDATE locations SET department_id = NULL WHERE department_id = ?').bind(id).run();
     await c.env.DB.prepare('DELETE FROM departments WHERE id = ?').bind(id).run();
     await refreshDepartmentAssetTotals(c.env.DB);
+    invalidateScheduleCache(c.env.SETTINGS);
     return c.json({ success: true });
   } catch (err: any) {
     return c.json({ error: err.message }, 500);

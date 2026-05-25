@@ -28,17 +28,17 @@ export const invalidateScheduleCache = (kv: KVNamespace) => {
 export const getRolesForDesignation = (designation?: string | null): string[] | null => {
   if (!designation) return null;
   switch (designation) {
-    case 'Head Of Department':
     case 'Coordinator':
-      return ['Coordinator', 'Supervisor', 'Auditor'];
+      return ['Coordinator'];
     case 'Supervisor':
-      return ['Supervisor', 'Auditor'];
+      return ['Supervisor'];
+    case 'Head Of Department':
     case 'Staff':
-      return ['Staff'];
+      return ['Guest'];
     case 'Developer':
-      return ['Admin', 'Coordinator', 'Supervisor', 'Auditor'];
+      return ['Admin'];
     default:
-      return null;
+      return ['Guest'];
   }
 };
 
@@ -217,14 +217,27 @@ export const statusTransitionGuard = async (c: Context<{ Bindings: Bindings; Var
 
 export const patchAuditPermissionGuard = async (c: Context<{ Bindings: Bindings; Variables: Variables }>, next: Next) => {
   const caller = c.get('user')!;
-  const userRoles = caller.roles || [];
-  const isAdmin = userRoles.includes('Admin');
-  const isCoordinator = userRoles.includes('Coordinator');
-  const isSupervisor = userRoles.includes('Supervisor');
-  const isAuditor = userRoles.includes('Auditor');
+  const { deriveCapabilities } = await import('../utils/policyEngine');
+  const caps = deriveCapabilities(caller as any);
+  const isAdmin = caps.has('system:admin');
+  const isCoordinator = caps.has('manage:departments') && !isAdmin;
+  const isSupervisor = caps.has('manage:locations') && !isAdmin && !caps.has('manage:departments');
+  const canAudit = caps.has('asset_inspector') || caps.has('assign:self');
 
-  if (!isAdmin && !isCoordinator && !isSupervisor && !isAuditor) {
+  if (!isAdmin && !isCoordinator && !isSupervisor && !canAudit) {
     return c.json({ error: 'Forbidden: unauthorized role' }, 403);
+  }
+
+  // ── PBAC: Coordinator department scoping ──────────────────────────────
+  if (isCoordinator) {
+    const id = c.req.param('id');
+    const existing = await c.env.DB.prepare(
+      'SELECT department_id FROM audit_schedules WHERE id = ?'
+    ).bind(id).first<{ department_id: string | null }>();
+    
+    if (existing?.department_id && (caller as any).departmentId && existing.department_id !== (caller as any).departmentId) {
+      return c.json({ error: 'Forbidden: Coordinator can only modify audits in their own department', code: 'DEPT_SCOPE_VIOLATION' }, 403);
+    }
   }
 
   if (isAdmin || isCoordinator) return next();

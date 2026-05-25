@@ -39,22 +39,22 @@ async function getKioskSession(c: any): Promise<string | null> {
 }
 
 /**
- * Verify the authenticated user holds the Auditor role and a valid (non-expired)
- * certification. Returns an error message string, or null if the check passes.
+ * Verify the authenticated user is a Certified Officer:
+ * any Active, verified user with a valid (non-expired) certification_expiry.
+ * The "Auditor" role label is NOT required — certification is the sole gate,
+ * matching the client-side hasCert check in KioskApp.tsx.
+ * Returns an error message string, or null if the check passes.
  */
 async function assertCertifiedOfficer(db: D1Database, userId: string): Promise<string | null> {
   const today = new Date().toISOString().split('T')[0];
   const user = await db.prepare(
-    `SELECT status, is_verified, roles, certification_expiry FROM users WHERE id = ?`
-  ).bind(userId).first<{ status: string; is_verified: number; roles: string; certification_expiry: string | null }>();
+    `SELECT status, is_verified, certification_expiry FROM users WHERE id = ?`
+  ).bind(userId).first<{ status: string; is_verified: number; certification_expiry: string | null }>();
   if (!user) return 'User account not found.';
   if (user.status !== 'Active') return 'Your account is not active.';
   if (!user.is_verified) return 'Your account is not verified.';
-  let roles: string[] = [];
-  try { roles = JSON.parse(user.roles || '[]'); } catch { roles = []; }
-  if (!roles.includes('Auditor')) return 'Access restricted: this kiosk is for certified officers only.';
   if (!user.certification_expiry || user.certification_expiry < today) {
-    return 'Your auditor certification has expired or has not been issued. Please renew via the main site.';
+    return 'Access restricted: this kiosk is for certified officers only.';
   }
   return null;
 }

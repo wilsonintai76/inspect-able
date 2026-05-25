@@ -187,8 +187,8 @@ auth.post(
     const shouldBeAdmin = count === 0 || normalizedEmail === 'admin@poliku.edu.my' || normalizedEmail.startsWith('admin@');
     
     const roles = shouldBeAdmin 
-      ? ['Admin', 'Coordinator', 'Supervisor', 'Staff'] 
-      : ['Staff'];
+      ? ['Admin', 'Coordinator', 'Supervisor', 'Guest'] 
+      : ['Guest'];
 
     try {
       if (existing) {
@@ -640,8 +640,8 @@ auth.get('/google/callback', async (c) => {
     await c.env.DB.prepare(
       `INSERT INTO users (id, name, email, picture, roles, status, is_verified)
        VALUES (?, ?, ?, ?, ?, 'Active', 1)`,
-    ).bind(newId, name, email.toLowerCase(), picture, JSON.stringify(['Staff'])).run();
-    dbUser = { id: newId, name, email: email.toLowerCase(), roles: JSON.stringify(['Staff']), status: 'Active' };
+    ).bind(newId, name, email.toLowerCase(), picture, JSON.stringify(['Guest'])).run();
+    dbUser = { id: newId, name, email: email.toLowerCase(), roles: JSON.stringify(['Guest']), status: 'Active' };
   } else if (dbUser.status === 'Suspended') {
     return redirect('account_suspended');
   }

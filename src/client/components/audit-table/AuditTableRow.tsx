@@ -80,6 +80,12 @@ export const AuditTableRow: React.FC<AuditTableRowProps> = ({
 
   const isPast = !!(audit.date && audit.date < todayStr);
   const userCanAudit = canAuditDepartment(audit.departmentId);
+
+  // Date picker constraints from the slot's assigned phase
+  const datePhase = auditPhases.find(p => p.id === audit.phaseId);
+  const dateMin = datePhase?.startDate ?? undefined;
+  const dateMax = datePhase?.endDate ?? undefined;
+
   const isDateValid = !audit.date || auditPhases.some(p => {
     const start = new Date(p.startDate);
     const end = new Date(p.endDate);
@@ -110,8 +116,10 @@ export const AuditTableRow: React.FC<AuditTableRowProps> = ({
               <Calendar className={`absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 pointer-events-none z-10 ${!audit.date ? 'text-amber-500' : 'text-slate-400'}`} />
               <input
                 type="date"
-                title="Audit Date"
+                title={`Audit Date${dateMin ? ` (${dateMin} to ${dateMax})` : ''}`}
                 placeholder="YYYY-MM-DD"
+                min={dateMin}
+                max={dateMax}
                 value={audit.date || ''}
                 disabled={!hasPhases || !canEditThisDate}
                 onChange={(e) => onDateChange(audit.id, e.target.value, audit.phaseId)}

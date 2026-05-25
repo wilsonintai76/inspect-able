@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Department, Location, User, AuditGroup, UserRole } from '@shared/types';
-import { Plus, Layers, UserRound, Boxes, Pencil, Archive, ArchiveRestore, Building2, ShieldOff, ShieldCheck, UserPlus, Printer, Flame } from 'lucide-react';
-import { PageHeader } from './PageHeader';
+import { Plus, Layers, UserRound, Boxes, Pencil, Archive, ArchiveRestore, UserPlus, Printer, Flame } from 'lucide-react';
 import { AuditPhase } from '@shared/types';
 import { useRBAC } from '../contexts/RBACContext';
 import { DepartmentModal } from './DepartmentModal';
@@ -46,6 +45,7 @@ export const DepartmentManagement: React.FC<DepartmentManagementProps> = ({
   buildings = []
 }) => {
   const { rbacMatrix } = useRBAC();
+  const isCoordinator = currentUserRoles.includes('Coordinator') && !currentUserRoles.includes('Admin');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingDept, setEditingDept] = useState<Department | null>(null);
   const [showArchived, setShowArchived] = useState(false);
@@ -95,7 +95,7 @@ export const DepartmentManagement: React.FC<DepartmentManagementProps> = ({
     const printWindow = window.open('', '_blank', 'width=1100,height=800');
     if (!printWindow) return;
 
-    const activeDepts = departments.filter(d => !d.isExempted && !d.isSystemExempted);
+    const activeDepts = departments.filter(d => !d.isArchived);
     const rows = activeDepts.map(dept => {
       const headUser = users.find(u => u.id === dept.headOfDeptId);
       const groupName = auditGroups.find(g => g.id === dept.auditGroupId)?.name || '—';
@@ -111,7 +111,6 @@ export const DepartmentManagement: React.FC<DepartmentManagementProps> = ({
           <td class="center">${(dept.totalAssets || 0).toLocaleString()}</td>
           <td class="center">${locCount || '—'}</td>
           <td>${groupName !== '—' ? `<span class="badge-blue">${groupName}</span>` : '—'}</td>
-          <td class="center">${dept.isExempted ? '<span class="badge-amber">Internal Audit</span>' : '<span class="badge-green">Cross-Audit</span>'}</td>
         </tr>`;
     }).join('');
 
@@ -162,8 +161,7 @@ export const DepartmentManagement: React.FC<DepartmentManagementProps> = ({
   </div>
   <div class="meta">
     <div class="meta-card"><div class="val">${departments.length}</div><div class="lbl">Total Departments</div></div>
-    <div class="meta-card"><div class="val">${departments.filter(d => !d.isExempted).length}</div><div class="lbl">Cross-Audit Pool</div></div>
-    <div class="meta-card"><div class="val">${departments.filter(d => d.isExempted).length}</div><div class="lbl">Internal Audit Mode</div></div>
+    <div class="meta-card"><div class="val">${departments.filter(d => !d.isArchived).length}</div><div class="lbl">Active Departments</div></div>
     <div class="meta-card"><div class="val">${departments.reduce((s, d) => s + (d.totalAssets || 0), 0).toLocaleString()}</div><div class="lbl">Total Assets</div></div>
   </div>
   <table>
@@ -175,7 +173,6 @@ export const DepartmentManagement: React.FC<DepartmentManagementProps> = ({
         <th class="center">Total Assets</th>
         <th class="center">Locations</th>
         <th>Audit Group</th>
-        <th class="center">Audit Type</th>
       </tr>
     </thead>
     <tbody>${rows}</tbody>
@@ -214,12 +211,7 @@ export const DepartmentManagement: React.FC<DepartmentManagementProps> = ({
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Departments & Units"
-        icon={Building2}
-        activePhase={activePhase}
-        description="Configure institutional structure, departments, and unit heads."
-      >
+      <div className="flex items-center justify-end gap-2">
         {canManage && (
           <button
             onClick={startAdd}
@@ -244,7 +236,7 @@ export const DepartmentManagement: React.FC<DepartmentManagementProps> = ({
           <Printer className="w-4 h-4" />
           Print
         </button>
-      </PageHeader>
+      </div>
 
       <div className="bg-white rounded-[32px] border border-slate-200 shadow-sm overflow-hidden">
         <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-200">
@@ -350,16 +342,6 @@ export const DepartmentManagement: React.FC<DepartmentManagementProps> = ({
                     <td className="px-6 py-4 text-left align-middle">
                       {canManage && (
                         <div className="flex gap-1 justify-start">
-                          <button
-                            onClick={() => onUpdate(dept.id, { isExempted: !dept.isExempted })}
-                            title={dept.isExempted ? 'Switch to Cross-Audit Pool' : 'Switch to Internal Audit Mode'}
-                            className={`w-9 h-9 flex items-center justify-center border rounded-xl transition-all active:scale-90 ${dept.isExempted
-                                ? 'bg-amber-50 border-amber-200 text-amber-500 hover:bg-amber-100 shadow-sm'
-                                : 'bg-emerald-50 border-emerald-200 text-emerald-600 hover:bg-emerald-100 shadow-sm'
-                              }`}
-                          >
-                            {dept.isExempted ? <ShieldOff className="w-4 h-4" /> : <ShieldCheck className="w-4 h-4" />}
-                          </button>
                           <button title="Edit department" onClick={() => startEdit(dept)} className="w-9 h-9 flex items-center justify-center bg-white border border-slate-200 text-slate-400 hover:text-blue-600 hover:border-blue-200 rounded-xl transition-colors"><Pencil className="w-4 h-4" /></button>
                           {isArchived ? (
                             <>
@@ -392,6 +374,7 @@ export const DepartmentManagement: React.FC<DepartmentManagementProps> = ({
         initialData={editingDept}
         users={users}
         isAdmin={isAdmin}
+        isCoordinator={isCoordinator}
         auditGroups={auditGroups}
       />
 

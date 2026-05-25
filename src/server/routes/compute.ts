@@ -8,6 +8,17 @@ const compute = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
+/** Check if a schedule belongs to a phase by date range (ignores stale phase_id). */
+function isInPhase(s: any, phase: any): boolean {
+  if (s.date) {
+    const d = new Date(s.date); d.setHours(12, 0, 0, 0);
+    const start = new Date(phase.start_date); start.setHours(0, 0, 0, 0);
+    const end = new Date(phase.end_date); end.setHours(23, 59, 59, 999);
+    return d >= start && d <= end;
+  }
+  return s.phase_id === phase.id;
+}
+
 const stripFences = (text: string) => text.trim().replace(/^```json\n?|\n?```$/g, '').trim();
 
 /** Resolves the KPI tier for a department by its % share of institution total assets. */
@@ -92,7 +103,7 @@ compute.get('/kpi', async (c) => {
     const deptDetails = deptsInTier.map((d: any) => {
       const total = deptEffective(d);
       const completedLocIds = schedules
-        .filter((s: any) => s.department_id === d.id && s.phase_id === activePhase.id && s.status === 'Completed')
+        .filter((s: any) => s.department_id === d.id && isInPhase(s, activePhase) && s.status === 'Completed')
         .map((s: any) => s.location_id);
       const inspected = completedLocIds.reduce((sum: number, lid: string) => sum + (locAssets[lid] || 0), 0);
       const isZero = total === 0;
@@ -129,7 +140,7 @@ compute.get('/kpi', async (c) => {
   const instTarget = instKPIs.find((k: any) => k.phase_id === activePhase.id)?.target_percentage ?? 0;
   const targetAssets = Math.ceil(institutionTotalAssets * instTarget / 100);
   const completedLocIds = new Set(
-    schedules.filter((s: any) => s.phase_id === activePhase.id && s.status === 'Completed').map((s: any) => s.location_id),
+    schedules.filter((s: any) => isInPhase(s, activePhase) && s.status === 'Completed').map((s: any) => s.location_id),
   );
   const inspectedAssets = locs
     .filter((l: any) => completedLocIds.has(l.id))
@@ -1495,8 +1506,8 @@ compute.post(
     const institutionTotalAssets = depts.reduce((sum, d) => sum + (d.total_assets || 0), 0);
 
     const historicalProgress = phases.map(p => {
-      const completed = schedules.find(s => s.phase_id === p.id && s.status === 'Completed')?.count || 0;
-      const total = schedules.filter(s => s.phase_id === p.id).reduce((sum, s) => sum + (s.count || 0), 0);
+      const completed = schedules.find(s => isInPhase(s, p) && s.status === 'Completed')?.count || 0;
+      const total = schedules.filter(s => isInPhase(s, p)).reduce((sum, s) => sum + (s.count || 0), 0);
       return { name: p.name, completed, total };
     });
     

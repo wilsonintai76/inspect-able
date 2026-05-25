@@ -53,11 +53,24 @@ export const KPIStatsWidget: React.FC<KPIStatsWidgetProps> = ({ phases, kpiTiers
     }) || phases.sort((a,b) => a.startDate.localeCompare(b.startDate))[0]; // Default to first phase if none active
   }, [phases, today]);
 
-  // 2. Compute Stats per Tier (asset-based)
+  // ── Helpers ────────────────────────────────────────────────────────────
+  const isInActivePhase = (s: AuditSchedule): boolean => {
+    if (!activePhase) return false;
+    if (s.date) {
+      const d = new Date(s.date); d.setHours(12, 0, 0, 0);
+      const start = new Date(activePhase.startDate); start.setHours(0, 0, 0, 0);
+      const end = new Date(activePhase.endDate); end.setHours(23, 59, 59, 999);
+      return d >= start && d <= end;
+    }
+    return s.phaseId === activePhase.id;
+  };
+
+  // 2. Compute Stats per Tier (asset-based) — with projected completion
   const tierStats = useMemo(() => {
     if (!activePhase || !kpiTiers || kpiTiers.length === 0) return [];
 
     const institutionTotalAssets = departments.reduce((sum, d) => sum + (d.totalAssets || 0), 0);
+    const phaseEnd = new Date(activePhase.endDate);
 
     // Build location asset lookup
     const locAssets: Record<string, number> = {};
@@ -77,28 +90,52 @@ export const KPIStatsWidget: React.FC<KPIStatsWidgetProps> = ({ phases, kpiTiers
       // Use relational kpiTierTargets table
       const targetPercentage = kpiTierTargets.find(kt => kt.tierId === tier.id && kt.phaseId === activePhase.id)?.targetPercentage ?? 0;
 
-      // Asset-based per-department progress for the active phase
+      // Asset-based per-department progress for the active phase (with projection)
       const deptDetails = deptsInTier.map(d => {
         const totalDeptAssets = d.totalAssets || 0;
-        const completedLocIds = schedules
-          .filter(s => s.departmentId === d.id && s.phaseId === activePhase.id && s.status === 'Completed')
+        const isZeroAsset = totalDeptAssets === 0;
+
+        // Completed: any schedule in this phase + dept with status=Completed
+        const completedLocIds: string[] = schedules
+          .filter(s => s.departmentId === d.id && isInActivePhase(s) && s.status === 'Completed')
           .map(s => s.locationId);
         const inspectedAssets = completedLocIds.reduce((sum, locId) => sum + (locAssets[locId] || 0), 0);
-        const isZeroAsset = totalDeptAssets === 0;
+
+        // Projected: schedules with a future date (within phase) that aren't completed yet
+        const projectedLocIds: string[] = schedules
+          .filter(s =>
+            s.departmentId === d.id &&
+            isInActivePhase(s) &&
+            s.status !== 'Completed' &&
+            s.date && new Date(s.date) <= phaseEnd
+          )
+          .map(s => s.locationId);
+        // Only count locations not already completed
+        const uniqueProjected = [...new Set(projectedLocIds.filter(lid => !completedLocIds.includes(lid)))];
+        const projectedAssets = uniqueProjected.reduce((sum, locId) => sum + (locAssets[locId] || 0), 0);
+
+        const combinedAssets = inspectedAssets + projectedAssets;
         const percentage = isZeroAsset ? 100 : Math.round((inspectedAssets / totalDeptAssets) * 100);
+        const projectedPercentage = isZeroAsset ? 100 : Math.round((combinedAssets / totalDeptAssets) * 100);
+
         return {
           id: d.id,
           name: d.name,
           assets: totalDeptAssets,
           inspectedAssets,
+          projectedAssets,
           percentage,
-          status: (isZeroAsset || percentage >= targetPercentage) ? 'On Track' : 'At Risk'
+          projectedPercentage,
+          status: (isZeroAsset || projectedPercentage >= targetPercentage) ? 'On Track' : 'At Risk'
         };
       }).sort((a, b) => a.percentage - b.percentage);
 
       const totalTierAssets = deptsInTier.reduce((sum, d) => sum + (d.totalAssets || 0), 0);
       const inspectedTierAssets = deptDetails.reduce((sum, d) => sum + d.inspectedAssets, 0);
+      const projectedTierAssets = deptDetails.reduce((sum, d) => sum + d.projectedAssets, 0);
+      const combinedTierAssets = inspectedTierAssets + projectedTierAssets;
       const actualPercentage = totalTierAssets > 0 ? Math.round((inspectedTierAssets / totalTierAssets) * 100) : 0;
+      const projectedPercentage = totalTierAssets > 0 ? Math.round((combinedTierAssets / totalTierAssets) * 100) : 0;
 
       return {
         ...tier,
@@ -107,32 +144,54 @@ export const KPIStatsWidget: React.FC<KPIStatsWidgetProps> = ({ phases, kpiTiers
         departments: deptDetails,
         deptCount: deptsInTier.length,
         actualPercentage,
+        projectedPercentage,
         targetPercentage,
-        status: actualPercentage >= targetPercentage ? 'On Track' : 'At Risk'
+        status: projectedPercentage >= targetPercentage ? 'On Track' : 'At Risk'
       };
     }).sort((a,b) => a.minAssets - b.minAssets);
   }, [kpiTiers, kpiTierTargets, departments, locations, schedules, activePhase]);
 
-  // Global Institutional Progress — asset-based (Global KPI % × institution total assets)
+  // Global Institutional Progress — asset-based with projection
   const globalStats = useMemo(() => {
     if (!activePhase) return null;
+    const phaseEnd = new Date(activePhase.endDate);
     const totalInstitutionAssets = departments.reduce((sum, d) => sum + (d.totalAssets || 0), 0);
     const targetPercentage = institutionKPIs.find(k => k.phaseId === activePhase.id)?.targetPercentage ?? 0;
     const targetAssets = Math.ceil(totalInstitutionAssets * targetPercentage / 100);
+
+    // Completed
     const completedLocIds = new Set(
-      schedules.filter(s => s.phaseId === activePhase.id && s.status === 'Completed').map(s => s.locationId)
+      schedules.filter(s => isInActivePhase(s) && s.status === 'Completed').map(s => s.locationId)
     );
     const inspectedAssets = locations
       .filter(l => completedLocIds.has(l.id))
       .reduce((sum, l) => sum + (l.totalAssets || 0), 0);
+
+    // Projected (dated but not yet completed, within phase)
+    const projectedLocIds = new Set(
+      schedules.filter(s =>
+        isInActivePhase(s) &&
+        s.status !== 'Completed' &&
+        s.date && new Date(s.date) <= phaseEnd
+      ).map(s => s.locationId)
+    );
+    const projectedAssets = locations
+      .filter(l => projectedLocIds.has(l.id) && !completedLocIds.has(l.id))
+      .reduce((sum, l) => sum + (l.totalAssets || 0), 0);
+
+    const combinedAssets = inspectedAssets + projectedAssets;
     const actualPercentage = totalInstitutionAssets > 0 ? Math.round((inspectedAssets / totalInstitutionAssets) * 100) : 0;
+    const projectedPercentage = totalInstitutionAssets > 0 ? Math.round((combinedAssets / totalInstitutionAssets) * 100) : 0;
+
     return {
       totalInstitutionAssets,
       inspectedAssets,
+      projectedAssets,
       targetAssets,
       actualPercentage,
+      projectedPercentage,
       targetPercentage,
-      isOnTrack: actualPercentage >= targetPercentage
+      isOnTrack: projectedPercentage >= targetPercentage
     };
   }, [schedules, locations, departments, institutionKPIs, activePhase]);
 
@@ -146,8 +205,8 @@ export const KPIStatsWidget: React.FC<KPIStatsWidgetProps> = ({ phases, kpiTiers
   if (!activePhase) return null;
 
   return (
-    <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
-      <div className="flex items-center justify-between mb-8">
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
         <div>
           <h3 className="text-xl font-bold text-slate-900">{t('dashboard.performance')}</h3>
           <p className="text-sm font-bold text-blue-600 uppercase tracking-widest mt-1">
@@ -168,39 +227,39 @@ export const KPIStatsWidget: React.FC<KPIStatsWidgetProps> = ({ phases, kpiTiers
       </div>
 
       {globalStats && (
-        <div className="mb-10 bg-slate-900 rounded-[32px] p-8 text-white relative overflow-hidden shadow-2xl shadow-blue-900/10 group">
-           <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/10 blur-[80px] rounded-full -mr-20 -mt-20"></div>
-           <div className="absolute bottom-0 left-0 w-48 h-48 bg-emerald-500/5 blur-[60px] rounded-full -ml-20 -mb-20"></div>
+        <div className="bg-slate-900 rounded-[24px] p-5 text-white relative overflow-hidden shadow-lg shadow-blue-900/10">
+           <div className="absolute top-0 right-0 w-48 h-48 bg-blue-500/10 blur-[60px] rounded-full -mr-16 -mt-16"></div>
+           <div className="absolute bottom-0 left-0 w-36 h-36 bg-emerald-500/5 blur-2xl rounded-full -ml-16 -mb-16"></div>
            
-           <div className="relative flex flex-col md:flex-row md:items-center gap-8">
+           <div className="relative flex flex-col md:flex-row md:items-center gap-5">
               <div className="grow">
-                 <div className="flex items-center gap-3 mb-4">
-                    <div className="w-10 h-10 bg-white/10 text-blue-400 rounded-xl flex items-center justify-center border border-white/10">
-                       <Building2 className="w-5 h-5" />
+                 <div className="flex items-center gap-2 mb-3">
+                    <div className="w-8 h-8 bg-white/10 text-blue-400 rounded-lg flex items-center justify-center border border-white/10">
+                       <Building2 className="w-4 h-4" />
                     </div>
-                    <h4 className="text-lg font-black uppercase tracking-tight">{t('dashboard.progress')}</h4>
+                    <h4 className="text-sm font-black uppercase tracking-tight">{t('dashboard.progress')}</h4>
                  </div>
                  
-                 <div className="flex items-baseline gap-2 mb-4">
-                    <span className="text-6xl font-black">{globalStats.actualPercentage}%</span>
-                    <span className="text-xl font-bold text-white/40">Overall Completion</span>
+                 <div className="flex items-baseline gap-2 mb-3">
+                    <span className="text-4xl font-black">{globalStats.actualPercentage}%</span>
+                    <span className="text-sm font-bold text-white/40">→ {globalStats.projectedPercentage}% incl. scheduled</span>
                  </div>
 
-                 <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-white/5 border border-white/10 rounded-2xl p-3">
-                       <p className="text-[10px] font-black uppercase tracking-widest text-white/40 mb-1">Phase Goal</p>
-                       <p className="text-lg font-bold">{globalStats.targetPercentage}%</p>
-                       <p className="text-[10px] text-white/50 mt-0.5">{globalStats.targetAssets.toLocaleString()} assets</p>
+                 <div className="grid grid-cols-2 gap-3">
+                    <div className="bg-white/5 border border-white/10 rounded-xl p-2.5">
+                       <p className="text-[10px] font-black uppercase tracking-widest text-white/40 mb-0.5">Phase Goal</p>
+                       <p className="text-base font-bold">{globalStats.targetPercentage}%</p>
+                       <p className="text-[9px] text-white/50 mt-0.5">{globalStats.targetAssets.toLocaleString()} assets</p>
                     </div>
-                    <div className="bg-white/5 border border-white/10 rounded-2xl p-3">
-                       <p className="text-[10px] font-black uppercase tracking-widest text-white/40 mb-1">Status</p>
+                    <div className="bg-white/5 border border-white/10 rounded-xl p-2.5">
+                       <p className="text-[10px] font-black uppercase tracking-widest text-white/40 mb-0.5">Status</p>
                        <div className="flex items-center gap-1.5">
                           {globalStats.isOnTrack ? (
                              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
                           ) : (
                              <AlertCircle className="w-4 h-4 text-amber-400" />
                           )}
-                          <p className={`text-sm font-bold ${globalStats.isOnTrack ? 'text-emerald-400' : 'text-amber-400'}`}>
+                          <p className={`text-xs font-bold ${globalStats.isOnTrack ? 'text-emerald-400' : 'text-amber-400'}`}>
                              {globalStats.isOnTrack ? 'On Track' : 'At Risk'}
                           </p>
                        </div>
@@ -208,15 +267,16 @@ export const KPIStatsWidget: React.FC<KPIStatsWidgetProps> = ({ phases, kpiTiers
                  </div>
               </div>
 
-              <div className="w-full md:w-48 shrink-0 flex flex-col items-center justify-center p-6 bg-white/5 rounded-[24px] border border-white/10">
-                 <TrendingUp className={`w-8 h-8 mb-3 ${globalStats.isOnTrack ? 'text-emerald-400' : 'text-amber-400'}`} />
-                 <p className="text-[10px] font-black uppercase tracking-widest text-white/40 text-center mb-1">Assets Inspected</p>
-                 <p className="text-2xl font-black">{globalStats.inspectedAssets.toLocaleString()}</p>
-                 <p className="text-[10px] text-white/40 font-medium">of {globalStats.targetAssets.toLocaleString()} target</p>
+              <div className="w-full md:w-40 shrink-0 flex flex-col items-center justify-center p-4 bg-white/5 rounded-[20px] border border-white/10">
+                 <TrendingUp className={`w-6 h-6 mb-2 ${globalStats.isOnTrack ? 'text-emerald-400' : 'text-amber-400'}`} />
+                 <p className="text-[9px] font-black uppercase tracking-widest text-white/40 text-center mb-0.5">Inspected + Scheduled</p>
+                 <p className="text-xl font-black">{globalStats.inspectedAssets.toLocaleString()}</p>
+                 <p className="text-[10px] text-emerald-400/80 font-bold">+{globalStats.projectedAssets.toLocaleString()} scheduled</p>
+                 <p className="text-[9px] text-white/40 font-medium mt-0.5">of {globalStats.targetAssets.toLocaleString()} target</p>
               </div>
            </div>
 
-           <div className="h-2 w-full bg-white/10 rounded-full mt-8 relative overflow-hidden">
+           <div className="h-2 w-full bg-white/10 rounded-full mt-5 relative overflow-hidden">
               <div 
                  ref={globalTargetRef}
                  className="absolute top-0 bottom-0 w-1 bg-white z-10 left-(--mark)" 

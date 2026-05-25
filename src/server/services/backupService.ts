@@ -65,3 +65,48 @@ export async function backupD1ToR2({ db, bucket }: R2BackupOptions): Promise<Bac
   console.log(`[Backup] 📦 Snapshot saved to R2: ${key}`);
   return result;
 }
+
+/**
+ * Delete backups older than `retentionDays` from R2.
+ * Keeps the most recent backup per day within the retention window.
+ * Returns the number of deleted objects.
+ */
+export async function cleanupOldBackups(
+  bucket: R2Bucket,
+  retentionDays: number = 30,
+): Promise<{ deleted: number; kept: number; errors: string[] }> {
+  const result = { deleted: 0, kept: 0, errors: [] as string[] };
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - retentionDays);
+  const cutoffStr = cutoff.toISOString();
+
+  try {
+    const listed = await bucket.list({ prefix: 'backups/' });
+    const objects = listed.objects || [];
+
+    for (const obj of objects) {
+      try {
+        const uploaded = obj.uploaded instanceof Date
+          ? obj.uploaded.toISOString()
+          : String(obj.uploaded || '');
+
+        if (uploaded < cutoffStr) {
+          await bucket.delete(obj.key);
+          result.deleted++;
+          console.log(`[Backup] 🗑️ Deleted old backup: ${obj.key}`);
+        } else {
+          result.kept++;
+        }
+      } catch (err: any) {
+        result.errors.push(`${obj.key}: ${err.message}`);
+      }
+    }
+
+    console.log(`[Backup] 🧹 Cleanup complete: ${result.deleted} deleted, ${result.kept} kept (retention: ${retentionDays} days)`);
+  } catch (err: any) {
+    result.errors.push(`List failed: ${err.message}`);
+    console.error('[Backup] Cleanup failed:', err);
+  }
+
+  return result;
+}

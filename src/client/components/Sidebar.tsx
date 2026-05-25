@@ -1,12 +1,11 @@
 
 import React from 'react';
 import { UserRole, AppView } from '@shared/types';
-import { useRBAC } from '../contexts/RBACContext';
+import { hasCapability } from '../lib/pbacUtils';
 import { BRAND, BRANDING } from '../constants';
 import { 
   ShieldCheck, 
   X, 
-  PieChart, 
   CalendarDays, 
   Users, 
   Network, 
@@ -17,8 +16,7 @@ import {
   LogOut,
   Building2,
   LayoutDashboard,
-  Languages,
-  ShieldAlert
+  Languages
 } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 
@@ -32,7 +30,6 @@ interface SidebarProps {
   isCertified?: boolean;
   isProfileComplete?: boolean;
   userStatus?: string;
-  rbacMatrix?: unknown;
 }
 
 interface NavItemProps {
@@ -59,25 +56,17 @@ const NavItem: React.FC<NavItemProps> = ({ icon: Icon, label, active, onClick })
 export const Sidebar: React.FC<SidebarProps> = ({ 
   isOpen, onClose, activeView, onViewChange, onLogout, userRoles, isCertified, isProfileComplete 
 }) => {
-  const { hasPermission } = useRBAC();
   const { locale, setLocale, t } = useLanguage();
-  const isAdmin = userRoles.includes('Admin');
-  const isCoordinator = userRoles.includes('Coordinator');
-  const isSupervisor = userRoles.includes('Supervisor');
-  const isAuditor = userRoles.includes('Auditor');
-  const isStaff = userRoles.includes('Staff');
 
-  const hasPerm = (perm: string) => hasPermission(perm, userRoles);
+  // Build a minimal user object for PBAC capability checks
+  const clientUser = { roles: userRoles, certificationExpiry: isCertified ? '2099-12-31' : null };
 
-  // Show Auditor Dashboard if user is certified, regardless of role.
-  const showAuditorDashboard = isCertified && hasPerm('view:audit:assigned');
-  
-  const canAccessSchedule = hasPerm('view:schedule:all') || hasPerm('view:schedule:own');
-  const canAccessLocations = hasPerm('manage:locations');
-  const canAccessTeam = hasPerm('view:team:all') || hasPerm('view:team:own');
-  const canAccessDepartments = hasPerm('manage:departments');
-  const canAccessAdminSettings = hasPerm('manage:system');
-  const showMainDashboard = hasPerm('view:overview');
+  const canAccessSchedule = hasCapability(clientUser, 'schedule:manage_dept') || hasCapability(clientUser, 'schedule:manage_all') || hasCapability(clientUser, 'asset_inspector');
+  const canAccessLocations = hasCapability(clientUser, 'manage:locations');
+  const canAccessTeam = hasCapability(clientUser, 'manage:users');
+  const canAccessDepartments = hasCapability(clientUser, 'manage:departments');
+  const canAccessAdminSettings = hasCapability(clientUser, 'manage:settings') || hasCapability(clientUser, 'system:admin');
+  // Dashboard is always accessible — widgets inside are PBAC-gated per role
 
   return (
     <>
@@ -118,32 +107,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
           <nav className="grow space-y-2 overflow-y-auto pr-1">
             <div className="px-2 pb-2 text-[10px] font-black uppercase tracking-widest text-slate-400">{t('ui.main_menu')}</div>
-            {showMainDashboard && (
-              <NavItem 
-                icon={PieChart} 
-                label={t('nav.overview')} 
-                active={activeView === 'overview'} 
-                onClick={() => { onViewChange('overview'); onClose(); }} 
-              />
-            )}
-            
-            {hasPerm('view:admin:dashboard') && (
-              <NavItem 
-                icon={ShieldAlert} 
-                label="Admin Hub" 
-                active={activeView === 'admin-dashboard'} 
-                onClick={() => { onViewChange('admin-dashboard'); onClose(); }} 
-              />
-            )}
-            
-            {showAuditorDashboard && (
-              <NavItem 
-                icon={LayoutDashboard} 
-                label="Officer Hub" 
-                active={activeView === 'auditor-dashboard'} 
-                onClick={() => { onViewChange('auditor-dashboard'); onClose(); }} 
-              />
-            )}
+            <NavItem 
+              icon={LayoutDashboard} 
+              label="Dashboard" 
+              active={activeView === 'dashboard'} 
+              onClick={() => { onViewChange('dashboard'); onClose(); }} 
+            />
             
             {canAccessSchedule && (
               <NavItem 
