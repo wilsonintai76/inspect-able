@@ -11,8 +11,8 @@ export const AuditFlow: React.FC = () => {
       roleIcon: Shield,
       color: "blue",
       icon: CalendarCheck,
-      desc: "The lifecycle begins with the definition of temporal 'Audit Phases'. This creates a bounded timeframe (e.g., 'Q1 2026') used to validate all subsequent scheduling actions.",
-      logic: "System locks all date pickers to the defined start/end range. Audits cannot be created outside an active phase."
+      desc: "The lifecycle begins with the definition of temporal 'Inspection Phases'. This creates a bounded timeframe (e.g., 'Q1 2026') used to validate all subsequent scheduling actions.",
+      logic: "System locks all date pickers to the defined start/end range. Inspections cannot be created outside an active phase."
     },
     {
       id: 2,
@@ -21,18 +21,18 @@ export const AuditFlow: React.FC = () => {
       roleIcon: Bot,
       color: "indigo",
       icon: Network,
-      desc: "The intelligent Pairing Engine calculates Audit load mathematically based on '2-Person Teams'. It drafts a conflict-free projected matrix to hit Institutional KPI percentages.",
-      logic: "Teams = Floor(Auditors/2) -> Matches high-asset targets to available teams -> Stops exactly at KPI % -> Admin visualizes and refines -> Commits Draft."
+      desc: "The intelligent Pairing Engine calculates Inspection load mathematically based on '2-Person Teams'. It drafts a conflict-free projected matrix to hit Institutional KPI percentages.",
+      logic: "Teams = Floor(Inspectors/2) -> Matches high-asset targets to available teams -> Stops exactly at KPI % -> Admin visualizes and refines -> Commits Draft."
     },
     {
       id: 3,
-      title: "Auditor Self-Assignment",
-      role: "Auditor Action",
+      title: "Inspector Self-Assignment",
+      role: "Inspector Action",
       roleIcon: UserRoundPen,
       color: "emerald",
       icon: MousePointer2,
-      desc: "Certified staff log in to view open slots. They use the 'Department', 'Block', and 'Level' filters to quickly locate specific audit targets authorized by the Matrix.",
-      logic: "Validates User Role + Certification Expiry + Matrix Permission before allowing a write to the 'AuditSchedule' table."
+      desc: "Certified staff log in to view open slots. They use the 'Department', 'Block', and 'Level' filters to quickly locate specific inspection targets authorized by the Matrix.",
+      logic: "Validates User Role + Certification Expiry + Matrix Permission before allowing a write to the 'InspectionSchedule' table."
     },
     {
       id: 4,
@@ -41,7 +41,7 @@ export const AuditFlow: React.FC = () => {
       roleIcon: PieChart,
       color: "rose",
       icon: ClipboardCheck,
-      desc: "As audits are marked 'Completed', the system updates live dashboards. Progress is tracked against specific 'Asset Tiers' defined for the phase.",
+      desc: "As inspections are marked 'Completed', the system updates live dashboards. Progress is tracked against specific 'Asset Tiers' defined for the phase.",
       logic: "Aggregates completion status -> Updates 'KPIStatsWidget' -> Calculates percentage vs. Tier Target."
     }
   ];

@@ -4,11 +4,11 @@ import { CheckCircle2, XCircle } from 'lucide-react';
 
 export const AccessMatrix: React.FC = () => {
   const rows = [
-    { feature: 'Define Audit Phases', admin: true, coord: true, auditor: false },
+    { feature: 'Define Inspection Phases', admin: true, coord: true, auditor: false },
     { feature: 'Issue Staff Certificates', admin: true, coord: false, auditor: false },
-    { feature: 'Generate Audit Matrix', admin: true, coord: false, auditor: false },
+    { feature: 'Generate Inspection Matrix', admin: true, coord: false, auditor: false },
     { feature: 'Self-Assign (Requires Valid Cert)', admin: true, coord: true, auditor: true },
-    { feature: 'Complete Audit Status', admin: true, coord: true, auditor: true },
+    { feature: 'Complete Inspection Status', admin: true, coord: true, auditor: true },
     { feature: 'Manage Site Locations', admin: true, coord: true, auditor: false },
     { feature: 'View KPI Trends', admin: true, coord: true, auditor: true }
   ];
@@ -22,7 +22,7 @@ export const AccessMatrix: React.FC = () => {
               <th className="px-8 py-6 text-[10px] font-black uppercase text-slate-400 tracking-widest">Core Functionality</th>
               <th className="px-8 py-6 text-[10px] font-black uppercase text-slate-400 tracking-widest text-center">Admin</th>
               <th className="px-8 py-6 text-[10px] font-black uppercase text-slate-400 tracking-widest text-center">Coordinator</th>
-              <th className="px-8 py-6 text-[10px] font-black uppercase text-slate-400 tracking-widest text-center">Auditor</th>
+              <th className="px-8 py-6 text-[10px] font-black uppercase text-slate-400 tracking-widest text-center">Inspector</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-50">

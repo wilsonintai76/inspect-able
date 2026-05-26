@@ -10,8 +10,8 @@ import { StatusBadge } from './StatusBadge';
 
 const ROLE_LABELS: Record<AssignRole, string> = {
   supervisor: 'Supervisor',
-  auditor1: 'Auditor 1',
-  auditor2: 'Auditor 2',
+  auditor1: 'Inspector 1',
+  auditor2: 'Inspector 2',
 };
 
 interface Props {
@@ -134,7 +134,7 @@ export const ScheduleCard: React.FC<Props> = ({
               <Input
                 type="date"
                 value={schedule.date ?? ''}
-                title="Set audit date"
+                title="Set inspection date"
                 onChange={e => onDateChange(schedule.id, e.target.value)}
                 size="xs"
                 fontSize="xs"
@@ -212,19 +212,19 @@ export const ScheduleCard: React.FC<Props> = ({
                 ) : (
                   (() => {
                     const eligible = roleUsers(role);
-                    const auditIsPast = !!(schedule.date && schedule.date < today);
+                    const inspectionIsPast = !!(schedule.date && schedule.date < today);
                     const noDate = !schedule.date;
-                    const canAssign = eligible.length > 0 && !auditIsPast;
+                    const canAssign = eligible.length > 0 && !inspectionIsPast;
                     return (
                       <Button
                         onClick={() => {
                           if (noDate) {
-                            onShowToast('Please set the audit date for this schedule before assigning yourself.', 'warning');
+                            onShowToast('Please set the inspection date for this schedule before assigning yourself.', 'warning');
                             return;
                           }
                           if (canAssign) onAssign(schedule.id, currentUserId, role);
                         }}
-                        disabled={isSaving || eligible.length === 0 || auditIsPast}
+                        disabled={isSaving || eligible.length === 0 || inspectionIsPast}
                         variant="solid"
                         colorPalette={noDate ? 'orange' : canAssign ? 'indigo' : 'gray'}
                         size="sm"
@@ -232,7 +232,7 @@ export const ScheduleCard: React.FC<Props> = ({
                         fontWeight="bold"
                         textTransform="uppercase"
                         fontSize="xs"
-                        title={eligible.length === 0 ? 'You are not eligible for this slot' : auditIsPast ? 'Audit date has passed' : noDate ? 'Tap to see what to do first' : ''}
+                        title={eligible.length === 0 ? 'You are not eligible for this slot' : inspectionIsPast ? 'Inspection date has passed' : noDate ? 'Tap to see what to do first' : ''}
                       >
                         <Plus size={14} />
                         Assign Myself

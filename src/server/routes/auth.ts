@@ -6,6 +6,7 @@ import { Bindings, Variables } from '../types';
 import { verifyNativeJwt } from '../middleware/auth';
 import { deriveCapabilities } from '../utils/policyEngine';
 import { hashPassword, generateToken } from '../services/authService';
+import { DEFAULT_USER_PASSWORD } from './db.shared';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const SESSION_TTL  = 86_400; // 24 hours
@@ -424,7 +425,7 @@ auth.patch('/me', async (c) => {
 
 /**
  * POST /api/auth/request-reset
- * Public reset request (Forgot Password).
+ * Public self-service password reset. Immediately resets to default password.
  */
 auth.post(
   '/request-reset',
@@ -439,23 +440,32 @@ auth.post(
 
       if (!user) {
         // Don't leak exists status
-        return c.json({ success: true, message: 'If account exists, admin will be notified.' });
+        return c.json({ success: true, message: 'If the account exists, your password has been reset to the default. Please try logging in with the default password.' });
       }
 
-      // Create a password reset request activity
+      // Immediately reset password to default
+      const defaultHash = await hashPassword(DEFAULT_USER_PASSWORD);
+      await c.env.DB.prepare(
+        'UPDATE users SET password_hash = ?, must_change_pin = 0 WHERE id = ?'
+      ).bind(defaultHash, user.id).run();
+
+      // Evict user cache
+      await c.env.SETTINGS.delete(`ucache:${user.id}`).catch(() => {});
+
+      // Log activity
       const activityId = crypto.randomUUID();
       await c.env.DB.prepare(
         'INSERT INTO system_activities (id, type, user_id, message, timestamp, metadata) VALUES (?, ?, ?, ?, ?, ?)'
       ).bind(
         activityId,
-        'PASSWORD_RESET_REQUEST',
+        'PASSWORD_RESET',
         user.id,
-        `${user.name} requested a password reset.`,
+        `${user.name} reset their password to default via self-service.`,
         new Date().toISOString(),
         JSON.stringify({ email: email.toLowerCase() })
       ).run();
 
-      return c.json({ success: true, message: 'Notification sent to administrators.' });
+      return c.json({ success: true, message: 'Password has been reset to default. Please login using the default password.' });
     } catch (err: any) {
       return c.json({ error: err.message }, 500);
     }

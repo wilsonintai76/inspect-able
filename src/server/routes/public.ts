@@ -643,6 +643,94 @@ pub.get('/stats', async (c) => {
   }
 });
 
+/**
+ * GET /api/public/kiosk-dashboard
+ *
+ * PUBLIC endpoint — no auth required. Returns full institutional dashboard
+ * data for the kiosk display (kiosk.inspect-able.com).
+ * Edge-cached for 60 seconds (matches kiosk polling interval).
+ */
+pub.get('/kiosk-dashboard', async (c) => {
+  try {
+    const db = c.env.DB;
+    const [
+      schedulesResult, usersResult, deptsResult, locsResult,
+      phasesResult, buildingsResult, kpiTiersResult, kpiTargetsResult,
+      instKpisResult,
+    ] = await db.batch([
+      db.prepare(`SELECT id, department_id, location_id, supervisor_id, auditor1_id, auditor2_id, date, status, phase_id, report_path, is_locked FROM audit_schedules ORDER BY date ASC`),
+      db.prepare(`SELECT id, name, email, designation, department_id, roles, status, is_verified, certification_issued, certification_expiry, contact_number FROM users WHERE status = 'Active' ORDER BY name ASC`),
+      db.prepare(`SELECT id, name, abbr, head_of_dept_id, description, audit_group_id, is_exempted, is_archived, tier, is_task_force FROM departments ORDER BY name ASC`),
+      db.prepare(`SELECT id, name, abbr, department_id, building_id, level, description, supervisor_id, contact, total_assets, status FROM locations ORDER BY name ASC`),
+      db.prepare(`SELECT id, name, start_date, end_date, description, status FROM audit_phases ORDER BY start_date ASC`),
+      db.prepare(`SELECT id, name, abbr, description, type FROM buildings ORDER BY name ASC`),
+      db.prepare(`SELECT id, name, min_assets FROM kpi_tiers ORDER BY name ASC`),
+      db.prepare(`SELECT id, tier_id, phase_id, target_percentage FROM kpi_tier_targets`),
+      db.prepare(`SELECT phase_id, target_percentage FROM institution_kpi_targets`),
+    ]);
+
+    // Map helpers
+    const mapSchedule = (r: any) => ({
+      id: r.id, departmentId: r.department_id, locationId: r.location_id,
+      supervisorId: r.supervisor_id, auditor1Id: r.auditor1_id, auditor2Id: r.auditor2_id,
+      date: r.date, status: r.status, phaseId: r.phase_id,
+      reportPath: r.report_path, isLocked: r.is_locked === null ? undefined : (r.is_locked === 1),
+    });
+
+    const mapUser = (r: any) => ({
+      id: r.id, name: r.name, email: r.email, designation: r.designation,
+      departmentId: r.department_id, roles: typeof r.roles === 'string' ? JSON.parse(r.roles) : (r.roles || ['Staff']),
+      status: r.status, isVerified: r.is_verified === 1,
+      certificationIssued: r.certification_issued, certificationExpiry: r.certification_expiry,
+      contactNumber: r.contact_number,
+    });
+
+    const mapDept = (r: any) => ({
+      id: r.id, name: r.name, abbr: r.abbr, headOfDeptId: r.head_of_dept_id,
+      description: r.description || '', auditGroupId: r.audit_group_id,
+      isExempted: r.is_exempted === 1, isArchived: r.is_archived === 1,
+      tier: r.tier, isTaskForce: r.is_task_force === 1,
+    });
+
+    const mapLoc = (r: any) => ({
+      id: r.id, name: r.name, abbr: r.abbr, departmentId: r.department_id,
+      buildingId: r.building_id, building: '', level: r.level,
+      description: r.description || '', supervisorId: r.supervisor_id,
+      contact: r.contact || '', totalAssets: r.total_assets, status: r.status,
+    });
+
+    const mapPhase = (r: any) => ({
+      id: r.id, name: r.name, startDate: r.start_date, endDate: r.end_date,
+      description: r.description, status: r.status,
+    });
+
+    const mapBuilding = (r: any) => ({
+      id: r.id, name: r.name, abbr: r.abbr, description: r.description, type: r.type,
+    });
+
+    const mapKPITier = (r: any) => ({ id: r.id, name: r.name, minAssets: r.min_assets });
+    const mapKPITierTarget = (r: any) => ({ id: r.id, tierId: r.tier_id, phaseId: r.phase_id, targetPercentage: r.target_percentage });
+    const mapInstKPI = (r: any) => ({ id: r.phase_id, phaseId: r.phase_id, targetPercentage: r.target_percentage });
+
+    c.header('Cache-Control', 'public, max-age=60, s-maxage=60');
+    return c.json({
+      schedules: (schedulesResult.results ?? []).map(mapSchedule),
+      users: (usersResult.results ?? []).map(mapUser),
+      departments: (deptsResult.results ?? []).map(mapDept),
+      locations: (locsResult.results ?? []).map(mapLoc),
+      phases: (phasesResult.results ?? []).map(mapPhase),
+      buildings: (buildingsResult.results ?? []).map(mapBuilding),
+      kpiTiers: (kpiTiersResult.results ?? []).map(mapKPITier),
+      kpiTierTargets: (kpiTargetsResult.results ?? []).map(mapKPITierTarget),
+      institutionKPIs: (instKpisResult.results ?? []).map(mapInstKPI),
+      activities: [], // removed from kiosk — system_activities query dropped
+    });
+  } catch (err: any) {
+    console.error('[Kiosk Dashboard] Error:', err);
+    return c.json({ error: 'Failed to load dashboard data' }, 500);
+  }
+});
+
 pub.get('/branding', async (c) => {
   try {
     let brandingVal = await c.env.SETTINGS.get('branding');

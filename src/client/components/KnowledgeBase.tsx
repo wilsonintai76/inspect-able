@@ -41,7 +41,7 @@ export const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ phases = [] }) => 
           <div className="sticky top-24 space-y-2">
             <h4 className="px-4 mb-4 text-[10px] font-black uppercase text-slate-400 tracking-widest">Knowledge Nav</h4>
             {[
-              { id: 'workflow', label: 'Audit Workflow', icon: Network },
+              { id: 'workflow', label: 'Inspection Workflow', icon: Network },
               { id: 'permissions', label: 'Access Matrix', icon: Shield },
               { id: 'setup', label: 'System Setup', icon: Rocket }
             ].map((item) => (
@@ -78,7 +78,7 @@ export const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ phases = [] }) => 
               <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center text-xl shadow-inner">
                 <Route className="w-6 h-6" />
               </div>
-              <h3 className="text-2xl font-black text-slate-900">Audit Lifecycle Workflow</h3>
+              <h3 className="text-2xl font-black text-slate-900">Inspection Lifecycle Workflow</h3>
             </div>
             <AuditFlow />
           </section>
@@ -173,7 +173,7 @@ export const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ phases = [] }) => 
                   <UserCog className="w-4 h-4" /> Admin <span className="text-[10px] text-purple-400 font-medium">(system:admin)</span>
                 </h5>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-1.5 text-[11px]">
-                  {['Full dashboard + Institutional widgets','Officer workload roster','Dept staffing gaps','Manage all schedules','Assign officers (any dept)','Create/delete audits (all)','Manage users (all depts)','Manage departments','Manage locations & buildings','Manage audit groups','Manage mappings','System settings','Backup & restore','Reset operations','Manage permissions'].map(c => (
+                  {['Full dashboard + Institutional widgets','Officer workload roster','Dept staffing gaps','Manage all schedules','Assign officers (any dept)','Create/delete inspections (all)','Manage users (all depts)','Manage departments','Manage locations & buildings','Manage inspection groups','Manage mappings','System settings','Backup & restore','Reset operations','Manage permissions'].map(c => (
                     <div key={c} className="flex items-start gap-1.5"><Check className="w-3 h-3 text-emerald-500 mt-0.5 shrink-0" /><span className="text-slate-700">{c}</span></div>
                   ))}
                 </div>
@@ -185,7 +185,7 @@ export const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ phases = [] }) => 
                   <UserCog className="w-4 h-4" /> Coordinator <span className="text-[10px] text-amber-400 font-medium">(manage:departments, own dept only)</span>
                 </h5>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-1.5 text-[11px]">
-                  {['Dashboard (dept-scoped)','View all schedules (own dept)','Assign officers (own dept)','Create/delete audits (own dept)','Manage users (own dept)','Manage own department','Manage locations (own dept)','Manage audit groups','Manage mappings'].map(c => (
+                  {['Dashboard (dept-scoped)','View all schedules (own dept)','Assign officers (own dept)','Create/delete inspections (own dept)','Manage users (own dept)','Manage own department','Manage locations (own dept)','Manage inspection groups','Manage mappings'].map(c => (
                     <div key={c} className="flex items-start gap-1.5"><Check className="w-3 h-3 text-emerald-500 mt-0.5 shrink-0" /><span className="text-slate-700">{c}</span></div>
                   ))}
                 </div>
@@ -221,16 +221,16 @@ export const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ phases = [] }) => 
                 </div>
               </div>
 
-              {/* Certified Officer (cross-cutting) */}
+              {/* Certified Inspector (cross-cutting) */}
               <div className="bg-white rounded-2xl border border-emerald-200 p-5">
                 <h5 className="text-sm font-black text-emerald-700 mb-2 flex items-center gap-2">
-                  <ShieldCheck className="w-4 h-4" /> Certified Officer <span className="text-[10px] text-emerald-400 font-medium">(cross-cutting — any role + valid cert)</span>
+                  <ShieldCheck className="w-4 h-4" /> Certified Inspector <span className="text-[10px] text-emerald-400 font-medium">(cross-cutting — any role + valid cert)</span>
                 </h5>
                 <p className="text-xs text-slate-500 mb-2">
-                  Not a role — a <strong>capability overlay</strong>. Any user with a valid <code>certificationExpiry</code> date automatically gains officer capabilities regardless of their base role.
+                  Not a role — a <strong>capability overlay</strong>. Any user with a valid <code>certificationExpiry</code> date automatically gains inspector capabilities regardless of their base role.
                 </p>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-1.5 text-[11px]">
-                  {['Self-assign to audit slots','Access Personal Dashboard','Use Audit Kiosk','Upload inspection reports','Toggle audit status'].map(c => (
+                  {['Self-assign to inspection slots','Access Personal Dashboard','Use Inspection Kiosk','Upload inspection reports','Toggle inspection status'].map(c => (
                     <div key={c} className="flex items-start gap-1.5"><Check className="w-3 h-3 text-emerald-500 mt-0.5 shrink-0" /><span className="text-slate-700">{c}</span></div>
                   ))}
                 </div>

@@ -166,7 +166,7 @@ class DataGateway {
   }
 
   async requestPasswordReset(email: string) {
-    await this.rpc<unknown>(h => (api as any).auth['request-reset'].$post({ json: { email } }, { headers: h }));
+    return await this.rpc<{ success: boolean; message: string }>(h => (api as any).auth['request-reset'].$post({ json: { email } }, { headers: h }));
   }
 
   async resetUserPassword(userId: string) {

@@ -1,6 +1,7 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { ConfigProvider, App as AntApp } from 'antd';
+import { LanguageProvider } from './contexts/LanguageContext';
 import { KioskApp } from './apps/kiosk/KioskApp';
 import './index.css';
 
@@ -13,13 +14,15 @@ if (container) {
         theme={{
           token: {
             colorPrimary: '#4f46e5',
-            borderRadius: 8,
+            borderRadius: 10,
             fontFamily: 'system-ui, -apple-system, sans-serif',
           },
         }}
       >
         <AntApp>
-          <KioskApp />
+          <LanguageProvider>
+            <KioskApp />
+          </LanguageProvider>
         </AntApp>
       </ConfigProvider>
     </React.StrictMode>

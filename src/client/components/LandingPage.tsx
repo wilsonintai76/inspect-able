@@ -89,7 +89,7 @@ const formatActivityMessage = (msg: string) => {
       return 'LOCATION GEOMETRY AND THRESHOLDS SYNCHRONIZED';
     }
     if (upper.startsWith('ADDED LOCATION') || upper.startsWith('CREATED LOCATION')) {
-      return 'NEW AUDITING LOCATION CONFIGURED';
+      return 'NEW INSPECTION LOCATION CONFIGURED';
     }
     if (upper.startsWith('DELETED')) {
       return `${upper} REGISTER CLEARED`;
@@ -181,11 +181,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({
     if (authMode === 'forgot-password') {
       try {
         const { gateway } = await import('../services/dataGateway');
-        await gateway.requestPasswordReset(email);
+        const result = await gateway.requestPasswordReset(email);
         setAuthError(null);
         setAuthMode('login');
-        // We use a temporary hack to show success in error box or just a toast if we had access to props
-        alert("Reset Request Sent. If your email is registered, the institutional admin will be notified to reset your password.");
+        alert(result?.message || 'Password has been reset. Please login using the default password.');
       } catch (err: any) {
         setAuthError(err.message || 'Request failed.');
       } finally {
@@ -218,15 +217,15 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
   const faqs = [
     {
-      q: "How do I get my Auditor Certification?",
-      a: "Certification ensures you remain compliant with JKE and Kamsis institutional inspection standards. Certifications are issued by the Institutional Admin after you complete the mandatory audit training module. Once issued, your Staff ID will be unlocked for audit assignments."
+      q: "How do I get my Inspector Certification?",
+      a: "Certification ensures you remain compliant with JKE and Kamsis institutional inspection standards. Certifications are issued by the Institutional Admin after you complete the mandatory inspector training module. Once issued, your Staff ID will be unlocked for inspection assignments."
     },
     {
       q: "What is the Conflict-of-Interest (COI) Engine?",
-      a: "Our system automatically prevents staff from auditing assets within their own department. It uses a neutral pairing matrix to ensure maximum objectivity during every audit phase."
+      a: "Our system automatically prevents staff from inspecting assets within their own department. It uses a neutral pairing matrix to ensure maximum objectivity during every inspection phase."
     },
     {
-      q: "Can I perform audits outside the active phase?",
+      q: "Can I perform inspections outside the active phase?",
       a: "No. The system only permits data entry and scheduling within the authorized window for Phase 1, 2, or 3. All other periods are read-only to maintain data integrity."
     }
   ];
@@ -239,25 +238,25 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   const tourSteps = [
     {
       title: "Strategic Phase Planning",
-      desc: "Audit operations are locked to institutional phases. No date can be selected outside of an authorized window.",
+      desc: "Inspection operations are locked to institutional phases. No date can be selected outside of an authorized window.",
       icon: CalendarCheck,
       color: "text-blue-500"
     },
     {
       title: "Conflict-of-Interest Engine",
-      desc: "Our Matrix Engine ensures JKE staff never audit JKE assets. It automatically pairs departments based on asset counts and staff strength.",
+      desc: "Our Matrix Engine ensures JKE staff never inspect JKE assets. It automatically pairs departments based on asset counts and staff strength.",
       icon: Network,
       color: "text-indigo-500"
     },
     {
-      title: "Auditor Certification Lock",
-      desc: "Only staff with an active, Admin-issued certificate can self-assign to audits. If your cert expires, you are automatically locked out.",
+      title: "Inspector Certification Lock",
+      desc: "Only staff with an active, Admin-issued certificate can self-assign to inspections. If your cert expires, you are automatically locked out.",
       icon: Stamp,
       color: "text-emerald-500"
     },
     {
       title: "Self-Assignment Slots",
-      desc: "Auditors pick their own slots from the available pool, reducing administrative workload for coordinators.",
+      desc: "Inspectors pick their own slots from the available pool, reducing administrative workload for coordinators.",
       icon: UserPlus,
       color: "text-amber-500"
     },
@@ -351,10 +350,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               </div>
             </div>
             <h1 className="text-5xl md:text-7xl font-black text-slate-900 leading-[1.1] mb-6 tracking-tight">
-              Eliminate <span className="text-transparent bg-clip-text bg-linear-to-r from-blue-600 to-indigo-600">Bias</span> in Auditing.
+              Open <span className="text-transparent bg-clip-text bg-linear-to-r from-blue-600 to-indigo-600">Inspection</span> · Zero Bias.
             </h1>
             <p className="text-lg text-slate-500 mb-10 leading-relaxed max-w-lg font-medium">
-              The central source of truth for Inspect-able operations. Understand how our anti-bias pairing works and how to manage institutional compliance.
+              The central source of truth for Inspect-able operations. Understand how our Conflict-of-Interest (COI) matrix and neutral pairing eliminate bias from inspections.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4">
@@ -519,7 +518,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                     {authMode === 'login' ? 'Official Email Login' : authMode === 'register' ? 'Staff Registration' : 'Recover Access'}
                   </h3>
                   <p className="text-slate-500 text-sm">
-                    {authMode === 'login' ? 'Welcome back, Auditor.' : authMode === 'register' ? 'Request your digital identity.' : 'Notify admin to reset your credentials.'}
+                    {authMode === 'login' ? 'Welcome back, Inspector.' : authMode === 'register' ? 'Request your digital identity.' : 'Reset to default password and login.'}
                   </p>
                 </div>
                 <button title="Close" onClick={() => setIsAuthModalOpen(false)} className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-400">
@@ -623,7 +622,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                     <Loader2 className="w-5 h-5 animate-spin" />
                   ) : (
                     <>
-                      {authMode === 'login' ? 'Authenticate' : authMode === 'register' ? 'Request Access' : 'Send Reset Request'}
+                      {authMode === 'login' ? 'Authenticate' : authMode === 'register' ? 'Request Access' : 'Reset to Default Password'}
                       <ArrowRight className="w-5 h-5" />
                     </>
                   )}

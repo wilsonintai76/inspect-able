@@ -11,17 +11,17 @@ export const SetupGuide: React.FC = () => {
     },
     { 
       title: "02. Map Physical Locations", 
-      desc: "Identify labs, workshop blocks, and classrooms. Crucially, assign a 'Block' and 'Level' to each location to enable the granular filtering system for auditors.",
+      desc: "Identify labs, workshop blocks, and classrooms. Crucially, assign a 'Block' and 'Level' to each location to enable the granular filtering system for inspectors.",
       tip: "Locations must be linked to a parent department."
     },
     { 
-      title: "03. Authorize Audit Teams", 
-      desc: "Go to User Management and issue 'Auditor Certificates'. Staff cannot self-assign to audits if their certificate is expired or missing.",
+      title: "03. Authorize Inspection Teams", 
+      desc: "Go to User Management and issue 'Inspector Certificates'. Staff cannot self-assign to inspections if their certificate is expired or missing.",
       tip: "Admin signature is required for certificate validity."
     },
     { 
       title: "04. Activate Planning Phases", 
-      desc: "Set the official audit window in System Settings. This unlocks the calendar for all staff and enables date selection.",
+      desc: "Set the official inspection window in System Settings. This unlocks the calendar for all staff and enables date selection.",
       tip: "Phase dates should not overlap for clear KPI tracking."
     },
     { 

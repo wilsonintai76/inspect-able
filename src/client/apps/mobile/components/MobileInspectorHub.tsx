@@ -29,7 +29,7 @@ interface Props {
   onLocate: (locationName: string) => void;
 }
 
-export const MobileOfficerHub: React.FC<Props> = ({
+export const MobileInspectorHub: React.FC<Props> = ({
   currentUser,
   mySchedules,
   myStats,
@@ -50,7 +50,7 @@ export const MobileOfficerHub: React.FC<Props> = ({
             <Box>
               <Heading size="xl" fontWeight="bold" color="fg" display="flex" alignItems="center" gap={2}>
                 <ShieldCheck size={24} color="var(--chakra-colors-indigo-600)" />
-                Personal Officer Dashboard
+                Personal Inspector Dashboard
               </Heading>
               <Text color="fg.muted" fontSize="sm" mt={1}>
                 Welcome back, <Text as="span" fontWeight="bold" color="fg">{currentUser.name}</Text>. Manage your assigned inspections below.
@@ -197,8 +197,8 @@ export const MobileOfficerHub: React.FC<Props> = ({
                   </Badge>
                 </Flex>
                 <Text color="white/90" fontSize="xs">
-                  {certInfo.status === 'safe' && `Your inspecting officer certificate is valid. It will expire on ${new Date(certInfo.expiryDate).toLocaleDateString()}.`}
-                  {certInfo.status === 'warning' && `Your inspecting officer certificate is expiring soon on ${new Date(certInfo.expiryDate).toLocaleDateString()}. Please renew soon.`}
+                  {certInfo.status === 'safe' && `Your inspector certificate is valid. It will expire on ${new Date(certInfo.expiryDate).toLocaleDateString()}.`}
+                  {certInfo.status === 'warning' && `Your inspector certificate is expiring soon on ${new Date(certInfo.expiryDate).toLocaleDateString()}. Please renew soon.`}
                   {certInfo.status === 'expired' && `Your certificate expired on ${new Date(certInfo.expiryDate).toLocaleDateString()}. Access to inspection forms is suspended.`}
                 </Text>
               </Box>

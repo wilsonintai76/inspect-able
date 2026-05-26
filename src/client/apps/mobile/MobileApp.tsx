@@ -10,11 +10,11 @@ import { MobileStatsBar } from './components/MobileStatsBar';
 import { MobileSidebar } from './components/MobileSidebar';
 import { MobileGrid } from './components/MobileGrid';
 import { MobileTabs, MobileTab } from './components/MobileTabs';
-import { MobileAuditorStats } from './components/MobileAuditorStats';
+import { MobileInspectorStats } from './components/MobileInspectorStats';
 import { MobileLoginScreen } from './components/MobileLoginScreen';
 import { MobileIOSBanner } from './components/MobileIOSBanner';
 import { MobileProfilePanel } from './components/MobileProfilePanel';
-import { MobileOfficerHub } from './components/MobileOfficerHub';
+import { MobileInspectorHub } from './components/MobileInspectorHub';
 import { AutoUpdater } from '../../components/AutoUpdater';
 import { authService } from '../../services/auth';
 import { getAuthToken } from '../../services/honoClient';
@@ -334,13 +334,13 @@ export const MobileApp: React.FC = () => {
   const handleAssign = async (scheduleId: string, userId: string, role: AssignRole) => {
     const roleLabels: Record<AssignRole, string> = {
       supervisor: 'Supervisor',
-      auditor1: 'Auditor 1',
-      auditor2: 'Auditor 2',
+      auditor1: 'Inspector 1',
+      auditor2: 'Inspector 2',
     };
 
     if (role === 'supervisor') {
       const userObj = users.find(u => u.id === userId);
-      const userName = userObj?.name || 'Officer';
+      const userName = userObj?.name || 'Inspector';
       const confirmed = window.confirm(
         `Are you sure you want to assign ${userName} as the Supervisor for this location?\n\nOnce confirmed, the supervisor assignment will be permanently saved and locked in the schedule card.`
       );
@@ -385,7 +385,7 @@ export const MobileApp: React.FC = () => {
         if (snapshot) setSchedules(prev => prev.map(s => s.id === scheduleId ? snapshot : s));
         const err = await res.json() as { error?: string };
         if (res.status === 403) {
-          alert("ACCESS DENIED: This audit is locked on the mobile app. Only the assigned Supervisor for this location or the Department Coordinator is allowed to modify or unlock it from the main site.");
+          alert("ACCESS DENIED: This inspection is locked on the mobile app. Only the assigned Supervisor for this location or the Department Coordinator is allowed to modify or unlock it from the main site.");
         } else {
           showToast(err.error || 'Failed to assign.', 'error');
         }
@@ -403,8 +403,8 @@ export const MobileApp: React.FC = () => {
   const handleUnassign = async (scheduleId: string, role: AssignRole) => {
     const roleLabels: Record<AssignRole, string> = {
       supervisor: 'Supervisor',
-      auditor1: 'Auditor 1',
-      auditor2: 'Auditor 2',
+      auditor1: 'Inspector 1',
+      auditor2: 'Inspector 2',
     };
 
     // Snapshot for rollback on error
@@ -443,7 +443,7 @@ export const MobileApp: React.FC = () => {
         if (snapshot) setSchedules(prev => prev.map(s => s.id === scheduleId ? snapshot : s));
         const err = await res.json() as { error?: string };
         if (res.status === 403) {
-          alert("ACCESS DENIED: This audit is locked on the mobile app. Only the assigned Supervisor for this location or the Department Coordinator is allowed to modify or unlock it from the main site.");
+          alert("ACCESS DENIED: This inspection is locked on the mobile app. Only the assigned Supervisor for this location or the Department Coordinator is allowed to modify or unlock it from the main site.");
         } else {
           showToast(err.error || 'Failed to unassign.', 'error');
         }
@@ -496,7 +496,7 @@ showToast(`Plan Overwritten: Inspection reassigned from ${targetSchedule.phaseNa
         if (!res.ok) {
           const err = await res.json() as { error?: string };
           if (res.status === 403) {
-            alert("ACCESS DENIED: This audit is locked on the mobile app. Only the assigned Supervisor for this location or the Department Coordinator is allowed to modify or unlock it from the main site.");
+            alert("ACCESS DENIED: This inspection is locked on the mobile app. Only the assigned Supervisor for this location or the Department Coordinator is allowed to modify or unlock it from the main site.");
           } else {
             showToast(err.error || 'Failed to update date.', 'error');
           }
@@ -551,7 +551,7 @@ showToast(`Plan Overwritten: Inspection reassigned from ${targetSchedule.phaseNa
       if (!res.ok) {
         const err = await res.json() as { error?: string };
         if (res.status === 403) {
-          alert("ACCESS DENIED: This audit is locked on the mobile app. Only the assigned Supervisor for this location or the Department Coordinator is allowed to modify or unlock it from the main site.");
+          alert("ACCESS DENIED: This inspection is locked on the mobile app. Only the assigned Supervisor for this location or the Department Coordinator is allowed to modify or unlock it from the main site.");
         } else {
           showToast(err.error || 'Failed to update date.', 'error');
         }
@@ -1034,7 +1034,7 @@ showToast(`Plan Overwritten: Inspection reassigned from ${targetSchedule.phaseNa
             {/* Stats Tab / Desktop Stats Bar */}
             <div className={`${activeTab === 'stats' ? 'block animate-in fade-in slide-in-from-bottom-4 duration-300' : 'hidden'} lg:block mb-6`}>
               <MobileStatsBar {...stats} />
-              <MobileAuditorStats stats={auditorStats} threshold={maxAssets} />
+              <MobileInspectorStats stats={auditorStats} threshold={maxAssets} />
             </div>
 
             <div className="flex flex-col lg:grid lg:grid-cols-4 gap-6">
@@ -1100,7 +1100,7 @@ showToast(`Plan Overwritten: Inspection reassigned from ${targetSchedule.phaseNa
             </div>
           </>
         ) : (
-          <MobileOfficerHub
+          <MobileInspectorHub
             currentUser={currentUser}
             mySchedules={mySchedules}
             myStats={myStats}

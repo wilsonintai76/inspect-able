@@ -56,8 +56,8 @@ export const PurgeConfirmModal: React.FC<PurgeConfirmModalProps> = ({
               <p className="font-bold">All data will be permanently erased.</p>
               <p className="text-red-600 text-xs">
                 {itemType === 'department'
-                  ? 'Any locations belonging to this department will be unlinked. Associated audit schedules are not removed.'
-                  : 'All audit schedule entries for this location will also be deleted.'}
+                  ? 'Any locations belonging to this department will be unlinked. Associated inspection schedules are not removed.'
+                  : 'All inspection schedule entries for this location will also be deleted.'}
               </p>
             </div>
           </div>
