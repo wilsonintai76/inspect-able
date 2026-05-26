@@ -38,7 +38,7 @@ export const KioskApp: React.FC = () => {
           />
           <Title level={2}>Welcome to the Institutional Hub</Title>
           <Text type="secondary" style={{ fontSize: 16 }}>
-            Centralized institutional dashboard for audit oversight and
+            Centralized institutional dashboard for asset inspection oversight and
             compliance monitoring.
           </Text>
         </div>
@@ -65,9 +65,9 @@ export const KioskApp: React.FC = () => {
             </Text>
           </Card>
 
-          <Card title="Auditor Performance" bordered={false}>
+          <Card title="Inspector Performance" bordered={false}>
             <Text type="secondary">
-              Cross-institution auditor workload and performance dashboards.
+              Cross-institution inspector workload and performance dashboards.
             </Text>
           </Card>
         </div>

@@ -26,6 +26,39 @@ import { CrossAuditPermission, AssignmentMode } from '@shared/types';
 import { SOFTWARE_DEV_DEPT_NAME, BRANDING } from '../constants';
 
 export const useAppData = () => {
+    // Inactivity auto-logout (15 min)
+    const INACTIVITY_LIMIT_MS = 15 * 60 * 1000;
+    const inactivityTimerRef = useRef<NodeJS.Timeout | null>(null);
+    const lastActivityRef = useRef<number>(Date.now());
+
+    // Helper: logout and show toast
+    const stopPollingRef = useRef<() => void>(() => {});
+    const handleAutoLogout = useCallback(async () => {
+      if (stopPollingRef.current) stopPollingRef.current();
+      await authService.logout();
+      setCurrentUser(null);
+      setViewState('landing');
+      setToasts((toasts) => [
+        ...toasts,
+        {
+          id: 'auto-logout',
+          type: 'warning',
+          message: 'You have been logged out due to inactivity.',
+          duration: 6000,
+        },
+      ]);
+    }, []);
+
+    // Reset inactivity timer on user activity
+    const resetInactivityTimer = useCallback(() => {
+      lastActivityRef.current = Date.now();
+      if (inactivityTimerRef.current) {
+        clearTimeout(inactivityTimerRef.current);
+      }
+      inactivityTimerRef.current = setTimeout(() => {
+        handleAutoLogout();
+      }, INACTIVITY_LIMIT_MS);
+    }, [handleAutoLogout]);
   const [viewState, setViewState] = useState<'landing' | 'app' | 'docs' | 'mobile'>(() => {
     // If the user visits mobile.domain.com, instantly route to the mobile view.
     if (typeof window !== 'undefined' && window.location.hostname.startsWith('mobile.')) {
@@ -173,7 +206,7 @@ export const useAppData = () => {
     }
   }, []);
 
-  // Real-time background sync and tab-focus refetching for the main site
+  // Real-time background sync, tab-focus refetching, and inactivity auto-logout
   useEffect(() => {
     if (viewState !== 'app' || !currentUser) return;
 
@@ -196,34 +229,52 @@ export const useAppData = () => {
         pollInterval = null;
       }
     };
+    stopPollingRef.current = stopPolling;
+
+    // Inactivity timer setup
+    const activityEvents = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll'];
+    const activityListener = () => resetInactivityTimer();
+
+    // Start polling and inactivity timer
+    if (document.visibilityState === 'visible') {
+      startPolling();
+    }
+    resetInactivityTimer();
+
+    // Listen for user activity
+    activityEvents.forEach(evt => window.addEventListener(evt, activityListener));
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
         performSync();
         startPolling();
+        resetInactivityTimer();
       } else {
         stopPolling();
+        if (inactivityTimerRef.current) {
+          clearTimeout(inactivityTimerRef.current);
+        }
       }
     };
 
     const handleWindowFocus = () => {
       performSync();
+      resetInactivityTimer();
     };
-
-    // Initialize visibility-aware polling
-    if (document.visibilityState === 'visible') {
-      startPolling();
-    }
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('focus', handleWindowFocus);
 
     return () => {
       stopPolling();
+      if (inactivityTimerRef.current) {
+        clearTimeout(inactivityTimerRef.current);
+      }
+      activityEvents.forEach(evt => window.removeEventListener(evt, activityListener));
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('focus', handleWindowFocus);
     };
-  }, [viewState, currentUser, syncSchedulesOnly]);
+  }, [viewState, currentUser, syncSchedulesOnly, resetInactivityTimer]);
 
   const initSession = useCallback(async () => {
     try {

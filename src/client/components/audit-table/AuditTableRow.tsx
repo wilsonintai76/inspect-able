@@ -370,23 +370,36 @@ export const AuditTableRow: React.FC<AuditTableRowProps> = ({
                   ) : (
                     <div className="flex items-center gap-1 px-2 py-1 bg-amber-50 text-amber-600 border border-amber-100 rounded-lg text-[9px] font-bold whitespace-nowrap">
                       <Lock className="w-2.5 h-2.5 shrink-0" />
-                      <span>Awaiting supervisor/coordinator lock</span>
+                      <span>Awaiting supervisor approval</span>
                     </div>
                   )}
 
                   {canSendApprovalReminder && (
-                    <button
-                      onClick={() => {
-                        const actionLabel = hasSentApprovalReminder ? 'resend' : 'send';
-                        if (!window.confirm(`${actionLabel.charAt(0).toUpperCase()}${actionLabel.slice(1)} an approval reminder email to the supervisor for "${loc?.name || audit.locationId}"?`)) return;
-                        onSendEmail(audit.id);
-                      }}
-                      className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 text-slate-600 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200 transition-all active:scale-95 whitespace-nowrap"
-                      title="Send approval reminder email to supervisor"
-                    >
-                      <Mail className="w-3 h-3" />
-                      {hasSentApprovalReminder ? 'Resend Reminder' : 'Send Reminder'}
-                    </button>
+                    (() => {
+                      const daysUntilDate = audit.date
+                        ? Math.ceil((new Date(audit.date + 'T00:00:00').getTime() - new Date(todayStr + 'T00:00:00').getTime()) / (1000 * 60 * 60 * 24))
+                        : 999;
+                      const isLastDay = daysUntilDate <= 1;
+                      return (
+                        <button
+                          onClick={() => {
+                            if (!isLastDay) return;
+                            if (!window.confirm(`Send an approval reminder email to the supervisor for "${loc?.name || audit.locationId}"?`)) return;
+                            onSendEmail(audit.id);
+                          }}
+                          disabled={!isLastDay}
+                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
+                            isLastDay
+                              ? 'bg-white border border-slate-200 text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200 active:scale-95'
+                              : 'bg-slate-50 border border-slate-100 text-slate-300 cursor-not-allowed'
+                          }`}
+                          title={isLastDay ? 'Send approval reminder email to supervisor' : `Reminder available 1 day before schedule (${audit.date || 'date not set'})`}
+                        >
+                          <Mail className="w-3 h-3" />
+                          {isLastDay ? 'Send Reminder' : 'Reminder Later'}
+                        </button>
+                      );
+                    })()
                   )}
                 </>
               )}

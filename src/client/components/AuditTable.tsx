@@ -203,7 +203,13 @@ export const AuditTable: React.FC<AuditTableProps> = ({
           return d >= start && d <= end;
         });
 
-        if (matchingPhase && matchingPhase.id !== phaseId) {
+        if (!matchingPhase) {
+          alert("Warning: Selected date falls outside of all configured audit phases!");
+          onUpdateDate(id, ''); // Reset to empty — consistent with mobile behavior
+          return;
+        }
+
+        if (matchingPhase.id !== phaseId) {
           onUpdateAudit(id, { date: newDate, phaseId: matchingPhase.id });
           return;
         }

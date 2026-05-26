@@ -58,7 +58,7 @@ export const MobileSidebar: React.FC<Props> = ({
       {/* Search */}
       <InputGroup flex="1" startElement={<Search size={14} />}>
         <Input
-          placeholder="Search location, officer..."
+          placeholder="Search location, inspector..."
           value={search}
           onChange={e => onSearchChange(e.target.value)}
           size="sm"

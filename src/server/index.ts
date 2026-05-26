@@ -15,6 +15,7 @@ import { authMiddleware } from './middleware/auth';
 import { domainGuard } from './middleware/domainGuard';
 import { backupD1ToR2, cleanupOldBackups } from './services/backupService';
 import { unassignExpiredAuditors } from './services/auditMaintenanceService';
+import { sendPreDateReminderEmail, sendSupervisorApprovalEmail } from './services/emailService';
 
 // The API app (mounted on /api)
 const app = new Hono<{ Bindings: Bindings, Variables: Variables }>();
@@ -324,6 +325,79 @@ export default {
           console.error('[Cron] Backup cleanup failed:', err);
         })
       );
+
+      // ── Pre-Date Reminder: 2 days before scheduled audits ────────────
+      if (env.RESEND_API_KEY) {
+        console.log('[Cron] Checking for pre-date reminders...');
+        ctx.waitUntil(
+          (async () => {
+            try {
+              const twoDaysFromNow = new Date();
+              twoDaysFromNow.setDate(twoDaysFromNow.getDate() + 2);
+              const targetDate = twoDaysFromNow.toISOString().split('T')[0];
+
+              const pending = await env.DB.prepare(
+                `SELECT a.id, a.date, a.supervisor_id, a.location_id, a.department_id
+                 FROM audit_schedules a
+                 WHERE a.status = 'Awaiting Approval' AND a.date = ?`
+              ).bind(targetDate).all<{ id: string; date: string; supervisor_id: string | null; location_id: string | null; department_id: string | null }>();
+
+              for (const audit of pending.results || []) {
+                // Check if a pre-date reminder was already sent for this audit
+                const existingReminder = await env.DB.prepare(
+                  `SELECT id FROM system_activities
+                   WHERE json_extract(metadata, '$.auditId') = ?
+                   AND json_extract(metadata, '$.category') = 'pre_date_reminder'
+                   LIMIT 1`
+                ).bind(audit.id).first();
+
+                if (existingReminder) continue;
+
+                const supervisorIds = (audit.supervisor_id || '').split(',').map((s: string) => s.trim()).filter(Boolean);
+                for (const sid of supervisorIds) {
+                  const user = await env.DB.prepare('SELECT name, email FROM users WHERE id = ?').bind(sid).first<{ name: string; email: string }>();
+                  if (!user?.email) continue;
+
+                  const loc = audit.location_id
+                    ? await env.DB.prepare('SELECT name FROM locations WHERE id = ?').bind(audit.location_id).first<{ name: string }>()
+                    : null;
+                  const dept = audit.department_id
+                    ? await env.DB.prepare('SELECT name FROM departments WHERE id = ?').bind(audit.department_id).first<{ name: string }>()
+                    : null;
+
+                  await sendPreDateReminderEmail(
+                    env.RESEND_API_KEY!,
+                    user.email,
+                    user.name,
+                    loc?.name ?? 'Unknown Location',
+                    dept?.name ?? 'Unknown Department',
+                    audit.date,
+                    env.APP_URL,
+                  );
+
+                  // Log the reminder activity
+                  await env.DB.prepare(
+                    `INSERT INTO system_activities (id, user_id, type, message, metadata, created_at)
+                     VALUES (?, ?, ?, ?, ?, ?)`
+                  ).bind(
+                    crypto.randomUUID(),
+                    'system',
+                    'PRE_DATE_REMINDER',
+                    `Automatic pre-date reminder sent to ${user.name} for audit ${audit.id}`,
+                    JSON.stringify({ auditId: audit.id, category: 'pre_date_reminder', supervisorName: user.name, mode: 'automatic' }),
+                    new Date().toISOString(),
+                  ).run();
+
+                  console.log(`[Cron] Pre-date reminder sent to ${user.email} for audit ${audit.id} (date: ${audit.date})`);
+                }
+              }
+              console.log(`[Cron] Pre-date reminders complete`);
+            } catch (err) {
+              console.error('[Cron] Pre-date reminder check failed:', err);
+            }
+          })()
+        );
+      }
     }
   },
 };

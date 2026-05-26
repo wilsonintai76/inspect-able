@@ -148,7 +148,7 @@ export const MainAppLayout: React.FC<MainAppLayoutProps> = ({
             <div className="flex items-center gap-2">
               <ShieldCheck className="w-3.5 h-3.5 text-blue-400" />
               <span className="font-semibold text-slate-500">Inspect-<span className="text-blue-500">able</span></span>
-              <span className="hidden sm:inline">— Institutional Asset Audit Platform</span>
+              <span className="hidden sm:inline">— Institutional Asset Inspection Platform</span>
             </div>
             <div className="flex items-center gap-4">
               <span className="font-mono">v{import.meta.env.VITE_APP_VERSION || '1.0.0'}</span>

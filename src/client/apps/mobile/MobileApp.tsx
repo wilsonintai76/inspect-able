@@ -391,7 +391,7 @@ export const MobileApp: React.FC = () => {
         }
         return;
       }
-      showToast(`Assigned ${user?.name || 'Officer'} as ${roleLabels[role]} successfully!`, 'success');
+      showToast(`Assigned ${user?.name || 'Inspector'} as ${roleLabels[role]} successfully!`, 'success');
       // Optimistic state already applied — no further setSchedules needed
     } catch (err) {
       // Roll back the optimistic update on network error
@@ -466,6 +466,76 @@ export const MobileApp: React.FC = () => {
     const targetSchedule = schedules.find(s => s.id === scheduleId);
     if (!targetSchedule) return;
 
+    // ── Immediate phase validation for instant feedback ──────────────────
+    const matchingPhase = phases.find(p => p.startDate <= date && date <= p.endDate);
+
+    if (!matchingPhase) {
+      showToast("Warning: Selected date falls outside of all configured inspection phases!", "warning");
+      // Explicitly reset the date to empty — don't call the API
+      setSchedules(prev => prev.map(s => s.id === scheduleId ? { ...s, date: '' } : s));
+      return;
+    }
+
+    if (targetSchedule.phaseId && targetSchedule.phaseId !== matchingPhase.id) {
+      // Cross-phase change — flag for filter update after API succeeds
+      const crossPhase = true;
+showToast(`Plan Overwritten: Inspection reassigned from ${targetSchedule.phaseName} to ${matchingPhase.name}!`, "warning");
+
+      setSaving(scheduleId);
+      try {
+        const dateToken = getAuthToken();
+        const res = await fetch(`/api/public/kiosk/schedules/${scheduleId}/date`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(dateToken ? { Authorization: `Bearer ${dateToken}` } : {}),
+          },
+          credentials: 'include',
+          body: JSON.stringify({ date }),
+        });
+        if (!res.ok) {
+          const err = await res.json() as { error?: string };
+          if (res.status === 403) {
+            alert("ACCESS DENIED: This audit is locked on the mobile app. Only the assigned Supervisor for this location or the Department Coordinator is allowed to modify or unlock it from the main site.");
+          } else {
+            showToast(err.error || 'Failed to update date.', 'error');
+          }
+          return;
+        }
+
+        // Auto-update phase filter so the card stays visible in its new phase
+        setPhaseFilter(matchingPhase.id);
+        setSearch(''); // Clear search to ensure visibility
+
+        setSchedules(prev => prev.map(s => {
+          if (s.id !== scheduleId) return s;
+          const updated = {
+            ...s,
+            date,
+            phaseId: matchingPhase.id,
+            phaseName: matchingPhase.name,
+            phaseStart: matchingPhase.startDate,
+            phaseEnd: matchingPhase.endDate
+          };
+          const hasAll = updated.date && updated.supervisorId && updated.auditor1Id && updated.auditor2Id;
+          if (hasAll && updated.status === 'Pending') {
+            updated.status = 'In Progress';
+          } else if (!hasAll && updated.status === 'In Progress') {
+            updated.status = 'Pending';
+          }
+          return updated;
+        }));
+      } catch (err) {
+        showToast('A connection error occurred. Please try again.', 'error');
+      } finally { setSaving(null); }
+      return; // Early return — handled cross-phase case above
+    }
+
+    // Same-phase or no-phase change — proceed with normal flow
+    if (matchingPhase && (!targetSchedule.phaseId || targetSchedule.phaseId === matchingPhase.id)) {
+      showToast(`Date assigned to ${date} successfully!`, "success");
+    }
+
     setSaving(scheduleId);
     try {
       const dateToken = getAuthToken();
@@ -486,16 +556,6 @@ export const MobileApp: React.FC = () => {
           showToast(err.error || 'Failed to update date.', 'error');
         }
         return;
-      }
-      
-      const matchingPhase = phases.find(p => p.startDate <= date && date <= p.endDate);
-      
-      if (!matchingPhase) {
-        showToast("Warning: Selected date falls outside of all configured audit phases!", "warning");
-      } else if (targetSchedule.phaseId && targetSchedule.phaseId !== matchingPhase.id) {
-        showToast(`Plan Overwritten: Audit reassigned from ${targetSchedule.phaseName} to ${matchingPhase.name}!`, "warning");
-      } else {
-        showToast(`Date assigned to ${date} successfully!`, "success");
       }
 
       setSchedules(prev => prev.map(s => {
@@ -732,7 +792,7 @@ export const MobileApp: React.FC = () => {
           </CardBody>
         </CardRoot>
         <Text mt={6} fontSize="2xs" color="fg.muted" fontWeight="medium" textAlign="center">
-          Politeknik Kuching Sarawak · Asset Audit System
+          Politeknik Kuching Sarawak · Asset Inspection System
         </Text>
       </Flex>
     );
@@ -748,7 +808,7 @@ export const MobileApp: React.FC = () => {
               <ShieldCheck size={28} color="white" />
             </Flex>
             <Heading size="xl" color="white" mb={1}>Access Restricted</Heading>
-            <Text color="white/80" fontSize="xs" fontWeight="medium">Audit Mobile · Certified Officers Only</Text>
+            <Text color="white/80" fontSize="xs" fontWeight="medium">Inspection Mobile · Certified Inspectors Only</Text>
           </Box>
           <CardBody gap={4}>
             <VStack gap={1}>
@@ -781,7 +841,7 @@ export const MobileApp: React.FC = () => {
           </CardBody>
         </CardRoot>
         <Text mt={6} fontSize="2xs" color="fg.muted" fontWeight="medium" textAlign="center">
-          Politeknik Kuching Sarawak · Asset Audit System
+          Politeknik Kuching Sarawak · Asset Inspection System
         </Text>
       </Flex>
     );
@@ -1057,7 +1117,7 @@ export const MobileApp: React.FC = () => {
       </Container>
 
       {/* Sleek Glassmorphic Toasts Container */}
-      <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-3 max-w-sm w-full pointer-events-none">
+      <div className="fixed bottom-20 right-6 z-110 flex flex-col gap-3 max-w-sm w-full pointer-events-none">
         {toasts.map(t => {
           let bgClass = 'bg-emerald-600/95 text-white shadow-emerald-500/20';
           let borderClass = 'border-emerald-500/30';

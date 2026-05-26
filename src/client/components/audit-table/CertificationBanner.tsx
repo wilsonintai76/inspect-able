@@ -15,7 +15,7 @@ export const CertificationBanner: React.FC<CertificationBannerProps> = ({ isSupe
       <div>
         <h4 className="font-black text-sm uppercase tracking-widest">Self-Assignment Locked</h4>
         <p className="text-xs text-rose-100 font-medium">
-          {isSupervisor || isCoordinator ? 'Management override disabled.' : 'Authorization revoked.'} Your inspecting officer certification is expired.
+          {isSupervisor || isCoordinator ? 'Management override disabled.' : 'Authorization revoked.'} Your inspector certification is expired.
         </p>
       </div>
     </div>
