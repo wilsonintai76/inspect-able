@@ -168,7 +168,7 @@ export const DepartmentManagement: React.FC<DepartmentManagementProps> = ({
       <tr>
         <th>Department</th>
         <th>Head of Department</th>
-        <th class="center">Required Auditors</th>
+        <th class="center">Required Inspectors</th>
         <th class="center">Total Assets</th>
         <th class="center">Locations</th>
         <th>Audit Group</th>
@@ -245,7 +245,7 @@ export const DepartmentManagement: React.FC<DepartmentManagementProps> = ({
                 <th className="px-6 py-5 text-[10px] font-black uppercase text-slate-400 tracking-widest">Department</th>
                 <th className="px-6 py-5 text-[10px] font-black uppercase text-slate-400 tracking-widest">Head of Department</th>
                 <th className="px-6 py-5 text-[10px] font-black uppercase text-slate-400 tracking-widest text-center">Certified Officers</th>
-                <th className="px-6 py-5 text-[10px] font-black uppercase text-slate-400 tracking-widest text-center">Required Auditors</th>
+                <th className="px-6 py-5 text-[10px] font-black uppercase text-slate-400 tracking-widest text-center">Required Inspectors</th>
                 <th className="px-6 py-5 text-[10px] font-black uppercase text-slate-400 tracking-widest">Total Asset</th>
                 <th className="px-6 py-5 text-[10px] font-black uppercase text-slate-400 tracking-widest text-center">Locations</th>
                 <th className="px-6 py-5 text-[10px] font-black uppercase text-slate-400 tracking-widest">Tier & Group</th>
@@ -269,7 +269,7 @@ export const DepartmentManagement: React.FC<DepartmentManagementProps> = ({
                           <div className="font-bold text-slate-900 text-sm flex items-center gap-2">
                             {dept.name}
                             {dept.isExempted && <span className="px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 text-[9px] font-black border border-amber-100 uppercase tracking-widest" title="This unit performs its own internal audits and is excluded from institutional cross-audit grouping.">Internal Audit Mode</span>}
-                            {dept.isSystemExempted && <span className="px-1.5 py-0.5 rounded bg-slate-50 text-slate-400 text-[9px] font-black border border-slate-100 uppercase tracking-widest" title="Automatically exempted: Unit has 0 Assets and 0 Auditors">System Exempted (Empty)</span>}
+                            {dept.isSystemExempted && <span className="px-1.5 py-0.5 rounded bg-slate-50 text-slate-400 text-[9px] font-black border border-slate-100 uppercase tracking-widest" title="Automatically exempted: Unit has 0 Assets and 0 Inspectors">System Exempted (Empty)</span>}
                             {isArchived && <span className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-400 text-[9px] font-black border border-slate-200 uppercase tracking-widest">Archived</span>}
                           </div>
                           {isArchived && (dept.archivedBy || dept.archivedAt) && (

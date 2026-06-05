@@ -92,12 +92,12 @@ export const AuditConstraints: React.FC<AuditConstraintsProps> = ({
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
         <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-8">
           <div className="space-y-4">
-            <label className="text-xs font-black uppercase text-slate-400 tracking-widest block">Min Auditors Per Location</label>
+            <label className="text-xs font-black uppercase text-slate-400 tracking-widest block">Min Inspectors Per Location</label>
             <div className="relative">
               <input 
                 type="number"
                 readOnly
-                title="Minimum auditors per location (fixed policy)"
+                title="Minimum inspectors per location (fixed policy)"
                 className="w-full px-4 py-4 bg-slate-100/50 border-2 border-slate-200 rounded-2xl text-base font-black text-slate-400 cursor-not-allowed outline-none"
                 value={policyMinAuditors}
               />

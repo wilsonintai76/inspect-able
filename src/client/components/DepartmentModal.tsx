@@ -235,7 +235,7 @@ export const DepartmentModal: React.FC<DepartmentModalProps> = ({
                 <p className="text-[10px] text-slate-400 ml-1">Auto-calculated from location totals.</p>
               </div>
               <div className="space-y-1.5">
-                <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Manual Auditor Target</Label>
+                <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Manual Inspector Target</Label>
                 <div className="relative">
                   <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 w-4 h-4" />
                   <Input 

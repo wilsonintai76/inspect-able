@@ -65,6 +65,13 @@ const PRINT_CSS_LANDSCAPE = `
   @page { margin: 1.2cm; size: A4 landscape; }
 `;
 
+/** Format YYYY-MM-DD → DD/MM/YYYY (Malaysia standard) */
+function fmtDate(d: string | null | undefined): string {
+  if (!d) return '';
+  const [y, m, day] = d.split('-');
+  return `${day}/${m}/${y}`;
+}
+
 function openPrint(title: string, bodyHtml: string, landscape = false): void {
   const w = window.open('', '_blank', 'width=900,height=700');
   if (!w) { alert('Please allow pop-ups to print reports.'); return; }
@@ -143,7 +150,7 @@ export function printKPICompletionTarget(
       : `<span class="badge badge-amber">${s}</span>`;
 
   const phaseLabel = activePhase
-    ? `${activePhase.name} (${activePhase.startDate} – ${activePhase.endDate})`
+    ? `${activePhase.name} (${fmtDate(activePhase.startDate)} – ${fmtDate(activePhase.endDate)})`
     : 'All Phases';
 
   const tierRows = tierStats.map(tier => {
@@ -254,7 +261,7 @@ export function printKPIPhasePlan(
   openAuditThreshold: number = 500
 ): void {
   const phaseHeaders = sortedPhases.map(p =>
-    `<th class="center">${p.name}<br><span style="font-weight:400;font-size:7pt;color:#64748b;text-transform:none;">${p.startDate}</span></th>`
+    `<th class="center">${p.name}<br><span style="font-weight:400;font-size:7pt;color:#64748b;text-transform:none;">${fmtDate(p.startDate)}</span></th>`
   ).join('');
 
   const bodyRows = tableData.map(row => {
@@ -341,7 +348,7 @@ export function printKPIPhasePlan(
     <tr>
       <th>Department</th>
       <th class="center" style="width:70pt;">Certified Officers</th>
-      <th class="center" style="width:70pt;">Required Auditors</th>
+      <th class="center" style="width:70pt;">Required Inspectors</th>
       <th style="width:80pt;">Assets / Tier</th>
       ${phaseHeaders}
       <th class="right" style="width:80pt;">Status</th>
@@ -710,7 +717,7 @@ export function printInspectionSchedule(
       const officers = [a1?.name, a2?.name].filter(Boolean).join(', ') || '—';
 
       return `<tr>
-        <td>${s.date || '<span style="color:#f59e0b;">Unset</span>'}</td>
+        <td>${s.date ? fmtDate(s.date) : '<span style="color:#f59e0b;">Unset</span>'}</td>
         <td>${loc?.name || s.locationId}</td>
         <td>${getBuildingDisplay(loc?.buildingId, loc?.building)}</td>
         <td>${loc?.level || '—'}</td>
@@ -828,7 +835,7 @@ export function exportInspectionSchedule(
       };
 
       return [
-        s.date || '',
+        fmtDate(s.date) || '',
         loc?.name || s.locationId,
         getBuildingDisplay(loc?.buildingId, loc?.building),
         loc?.level || '',
@@ -1135,7 +1142,7 @@ export function generateStrategicInspectionPlanHTML(
         <th>Group / Department</th>
         <th style="width:60pt;" class="center">Abbr.</th>
         <th style="width:80pt;" class="right">Assets</th>
-        <th style="width:80pt;" class="right">Auditors</th>
+        <th style="width:80pt;" class="right">Inspectors</th>
       </tr>
     </thead>
     <tbody>
@@ -1392,7 +1399,7 @@ export function printTeamList(
   };
 
   const bodyRows = users.map((u, i) => {
-    const rolesStr = u.roles.map(r => r === 'Auditor' ? 'Certified Officer' : r).join(', ');
+    const rolesStr = u.roles.map(r => r === 'Auditor' ? 'Inspector' : r).join(', ');
     return `<tr>
       <td class="center">${i + 1}</td>
       <td><strong>${u.name}</strong><br><span style="font-size:7.5pt;color:#666;">${u.email}</span></td>

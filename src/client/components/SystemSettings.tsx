@@ -361,7 +361,7 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
                 />
               </div>
               <p className="text-[10px] text-slate-400 font-medium px-2">
-                Targets {openAuditThreshold.toLocaleString()} assets per officer. Used to calculate "Recommended Auditor Coverage".
+                Targets {openAuditThreshold.toLocaleString()} assets per officer. Used to calculate "Recommended Inspector Coverage".
               </p>
             </div>
           </div>
@@ -600,7 +600,7 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
             <div className="bg-white/60 border border-slate-200 rounded-2xl p-4 mb-6 flex items-start gap-3">
               <AlertCircle className="w-5 h-5 text-slate-400 mt-0.5" />
               <p className="text-xs font-medium text-slate-600 leading-relaxed">
-                Reset features are disabled because some audit schedules are already active (Supervisor has set a date and an Auditor has assigned themselves). Please unassign the audits if you truly need to reset.
+                Reset features are disabled because some audit schedules are already active (Supervisor has set a date and an Inspector has assigned themselves). Please unassign the audits if you truly need to reset.
               </p>
             </div>
           )}
