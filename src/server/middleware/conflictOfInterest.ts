@@ -99,7 +99,7 @@ export const auditAssignmentGuard = async (
   // (previously fetched inside the loop — wasted one D1 round-trip per auditor)
   let assignmentMode = 'open-audit';
   try {
-    const [strategyRow, auditorRows] = await c.env.DB.batch([
+    const [strategyRow, ...auditorRows] = await c.env.DB.batch([
       c.env.DB.prepare('SELECT value FROM system_settings WHERE id = ?').bind('audit_strategy'),
       // Fetch all auditor records in one batch call alongside the strategy query
       ...incomingAuditorIds.map(id =>
