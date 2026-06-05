@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   AuditSchedule, User, Department, Location, AuditPhase, Building as BuildingType,
 } from '@shared/types';
@@ -64,10 +64,36 @@ export const AuditTableRow: React.FC<AuditTableRowProps> = ({
   const isCurrentUserAssigned = audit.auditor1Id === currentUser?.id || audit.auditor2Id === currentUser?.id;
   const isDesignatedSupervisor = audit.supervisorId ? audit.supervisorId.split(',').map(id => id.trim()).includes(currentUser?.id || '') : false;
 
-  // Per-row date permission: user can edit date if they are Admin/Coordinator, designated supervisor, or assigned auditor
-  const canEditThisDate = canEditDates && (
-    isAdmin || isCoordinator || isDesignatedSupervisor || isCurrentUserAssigned
-  );
+  const isLocked = isAuditLocked(audit);
+  const isEffectivelyLocked = isLocked || audit.status === 'In Progress' || audit.status === 'Completed';
+
+  // Per-row date permission: any user who can view the matrix may pick dates;
+  // only locked / In-Progress / Completed rows are blocked (matches mobile behaviour)
+  const canEditThisDate = canEditDates && !isEffectivelyLocked;
+
+  // ── Date display format (DD/MM/YYYY – Malaysia standard) ──────────────
+  const formatDateDisplay = (dateStr: string | null | undefined): string => {
+    if (!dateStr) return '';
+    try {
+      const [y, m, d] = dateStr.split('-');
+      return `${d}/${m}/${y}`;
+    } catch { return dateStr; }
+  };
+
+  // Toggle between display text and native date input
+  const [editingDate, setEditingDate] = useState(false);
+  const dateInputRef = React.useRef<HTMLInputElement>(null);
+
+  const startDateEdit = () => {
+    if (!canEditThisDate || !hasPhases) return;
+    setEditingDate(true);
+    setTimeout(() => dateInputRef.current?.focus(), 0);
+  };
+
+  const commitDateEdit = (newDate: string) => {
+    onDateChange(audit.id, newDate, audit.phaseId);
+    setEditingDate(false);
+  };
 
   const auditsOnDate = schedules.filter(
     s => s.date === audit.date && (s.auditor1Id === currentUser?.id || s.auditor2Id === currentUser?.id)
@@ -81,10 +107,14 @@ export const AuditTableRow: React.FC<AuditTableRowProps> = ({
   const isPast = !!(audit.date && audit.date < todayStr);
   const userCanAudit = canAuditDepartment(audit.departmentId);
 
-  // Date picker constraints from the slot's assigned phase
-  const datePhase = auditPhases.find(p => p.id === audit.phaseId);
-  const dateMin = datePhase?.startDate ?? undefined;
-  const dateMax = datePhase?.endDate ?? undefined;
+  // Date picker constraints: global range across ALL phases (matches mobile behaviour —
+  // handleDateChange auto-reassigns the phaseId when the picked date falls in a different phase)
+  const dateMin = auditPhases.length > 0
+    ? auditPhases.reduce((min, p) => p.startDate < min ? p.startDate : min, auditPhases[0].startDate)
+    : undefined;
+  const dateMax = auditPhases.length > 0
+    ? auditPhases.reduce((max, p) => p.endDate > max ? p.endDate : max, auditPhases[0].endDate)
+    : undefined;
 
   const isDateValid = !audit.date || auditPhases.some(p => {
     const start = new Date(p.startDate);
@@ -95,10 +125,6 @@ export const AuditTableRow: React.FC<AuditTableRowProps> = ({
     return d >= start && d <= end;
   });
   const locationLevel = loc?.level;
-  const isLocked = isAuditLocked(audit);
-  // Treat "In Progress" and "Completed" as visually locked even for legacy rows
-  // where isLocked may still be false (data predates the lock mechanism).
-  const isEffectivelyLocked = isLocked || audit.status === 'In Progress' || audit.status === 'Completed';
   const canLock = isAdmin || isCoordinator || isSupervisor; // Admin, Coordinator & Supervisor can lock/unlock (main site only)
   const allFieldsSet = !!(audit.date && audit.supervisorId && audit.auditor1Id && audit.auditor2Id);
   // Allow toggling if: already effectively locked (any privileged role can unlock),
@@ -114,25 +140,37 @@ export const AuditTableRow: React.FC<AuditTableRowProps> = ({
           <div className="relative group flex items-center gap-1.5">
             <div className="relative flex-1 min-w-32.5">
               <Calendar className={`absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 pointer-events-none z-10 ${!audit.date ? 'text-amber-500' : 'text-slate-400'}`} />
-              <input
-                type="date"
-                title={`Audit Date${dateMin ? ` (${dateMin} to ${dateMax})` : ''}`}
-                placeholder="YYYY-MM-DD"
-                min={dateMin}
-                max={dateMax}
-                value={audit.date || ''}
-                disabled={!hasPhases || !canEditThisDate}
-                onChange={(e) => onDateChange(audit.id, e.target.value, audit.phaseId)}
-                className={`w-full pl-8 pr-2 py-1.5 rounded-lg text-xs font-bold border outline-none transition-all ${
-                  !canEditThisDate
-                    ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed'
-                    : !hasPhases
-                    ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed'
-                    : !audit.date
-                    ? 'bg-amber-50 border-amber-100 text-amber-600 focus:ring-amber-500/20'
-                    : 'bg-slate-50 border-slate-200 text-slate-900 focus:ring-blue-500/20 group-hover:bg-white'
-                }`}
-              />
+              {editingDate ? (
+                <input
+                  ref={dateInputRef}
+                  type="date"
+                  title={`Audit Date${dateMin ? ` (${dateMin} to ${dateMax})` : ''}`}
+                  min={dateMin}
+                  max={dateMax}
+                  defaultValue={audit.date || ''}
+                  onBlur={() => setEditingDate(false)}
+                  onChange={(e) => commitDateEdit(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Escape') setEditingDate(false); }}
+                  className="w-full pl-8 pr-2 py-1.5 rounded-lg text-xs font-bold border-2 border-blue-400 bg-blue-50/30 text-slate-900 outline-none ring-4 ring-blue-500/10"
+                />
+              ) : (
+                <button
+                  onClick={startDateEdit}
+                  disabled={!canEditThisDate || !hasPhases}
+                  title={canEditThisDate && hasPhases ? 'Click to edit date' : undefined}
+                  className={`w-full pl-8 pr-2 py-1.5 rounded-lg text-xs font-bold border text-left transition-all ${
+                    !canEditThisDate || !hasPhases
+                      ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed'
+                      : !audit.date
+                      ? 'bg-amber-50 border-amber-100 text-amber-600 hover:border-amber-300 cursor-pointer'
+                      : 'bg-slate-50 border-slate-200 text-slate-900 hover:bg-white hover:border-blue-300 cursor-pointer'
+                  }`}
+                >
+                  {audit.date ? formatDateDisplay(audit.date) : (
+                    <span className="text-slate-400">DD/MM/YYYY</span>
+                  )}
+                </button>
+              )}
               {isLocked && (
                 <div className="absolute -top-3 right-0 z-20">
                   <div className="px-1.5 py-0.5 bg-slate-800 text-white text-[8px] font-black uppercase rounded flex items-center gap-1 shadow-sm">
