@@ -115,8 +115,8 @@ export const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ phases = [] }) => 
                     {[
                       ['Coordinator', 'Coordinator', 'Admin'],
                       ['Supervisor', 'Supervisor', 'Admin'],
-                      ['Head Of Department', 'Guest', 'Admin'],
-                      ['Staff', 'Guest', 'Admin'],
+                      ['Head Of Department', 'Staff', 'Admin'],
+                      ['Staff', 'Staff', 'Admin'],
                     ].map(([des, role, promote]) => (
                       <tr key={des} className="hover:bg-slate-50/30">
                         <td className="px-4 py-2.5 font-bold text-slate-800">{des}</td>
@@ -129,7 +129,7 @@ export const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ phases = [] }) => 
                 </table>
               </div>
               <p className="mt-3 text-[10px] text-amber-600 bg-amber-50 rounded-lg px-3 py-2 border border-amber-100">
-                ⚠️ Role changes between Guest/Supervisor/Coordinator are NOT allowed — roles are bound to designation. Only promotion to Admin (or demotion from Admin) is permitted.
+                ⚠️ Role changes between Staff/Supervisor/Coordinator are NOT allowed — roles are bound to designation. Only promotion to Admin (or demotion from Admin) is permitted.
               </p>
             </div>
 
@@ -147,7 +147,7 @@ export const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ phases = [] }) => 
                   { role: 'Admin', color: 'bg-purple-600', desc: 'Full system access' },
                   { role: 'Coordinator', color: 'bg-amber-500', desc: 'Department admin' },
                   { role: 'Supervisor', color: 'bg-indigo-500', desc: 'Location oversight' },
-                  { role: 'Guest', color: 'bg-slate-400', desc: 'View only' },
+                  { role: 'Staff', color: 'bg-slate-400', desc: 'View only' },
                 ].map((r, i) => (
                   <React.Fragment key={r.role}>
                     <div className={`${r.color} text-white rounded-xl px-4 py-3 text-center min-w-25`}>
@@ -209,10 +209,10 @@ export const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ phases = [] }) => 
                 </div>
               </div>
 
-              {/* Guest */}
+              {/* Staff */}
               <div className="bg-white rounded-2xl border border-slate-200 p-5">
                 <h5 className="text-sm font-black text-slate-700 mb-2 flex items-center gap-2">
-                  <User className="w-4 h-4" /> Guest <span className="text-[10px] text-slate-400 font-medium">(view:dashboard only)</span>
+                  <User className="w-4 h-4" /> Staff <span className="text-[10px] text-slate-400 font-medium">(view:dashboard only)</span>
                 </h5>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-1.5 text-[11px]">
                   {['View dashboard'].map(c => (

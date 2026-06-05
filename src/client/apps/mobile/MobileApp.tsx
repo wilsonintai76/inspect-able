@@ -985,7 +985,7 @@ showToast(`Plan Overwritten: Inspection reassigned from ${targetSchedule.phaseNa
                       {currentUser.name.split(' ')[0]}
                     </Text>
                     <Badge colorPalette={primaryRole === 'Admin' ? 'red' : primaryRole === 'Coordinator' ? 'purple' : primaryRole === 'Supervisor' ? 'blue' : primaryRole === 'Auditor' ? 'green' : 'gray'} variant="subtle" size="xs" fontWeight="bold">
-                      {primaryRole.toUpperCase()}
+                      {(primaryRole === 'Guest' ? 'Staff' : primaryRole).toUpperCase()}
                     </Badge>
                   </VStack>
                 </Button>
