@@ -225,7 +225,7 @@ const NO_DOUBLE_BOOKING: PolicyDefinition = {
  * REQUIRE_INSPECTOR — Capability Gate
  *
  * DENY if the user lacks the 'asset_inspector' capability
- * (i.e. no valid certification or no Auditor role).
+ * (i.e. no valid certificationExpiry date, or cert is expired).
  */
 const REQUIRE_INSPECTOR: PolicyDefinition = {
   name: 'REQUIRE_INSPECTOR',

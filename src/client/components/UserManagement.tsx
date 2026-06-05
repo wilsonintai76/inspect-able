@@ -614,8 +614,8 @@ export const UserManagement: React.FC<UserManagementProps> = ({
                              {/* Single role badge — bound to designation, or Admin if promoted */}
                              {(() => {
                                const role = (user.roles && user.roles.length > 0) ? user.roles[0] : 'Guest';
-                               // Map legacy roles: Guest→Staff, Auditor→Inspector
-                               const displayRole = role === 'Guest' ? 'Staff' : role === 'Auditor' ? 'Inspector' : role;
+                               // Map legacy Guest role to display as Staff
+                               const displayRole = role === 'Guest' ? 'Staff' : role;
                                return (
                                  <span key={displayRole} className={`px-2 py-0.5 rounded text-[8px] font-black uppercase border ${getRoleBadgeStyle(displayRole)}`}>
                                    {displayRole}

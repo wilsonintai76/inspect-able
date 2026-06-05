@@ -1399,7 +1399,7 @@ export function printTeamList(
   };
 
   const bodyRows = users.map((u, i) => {
-    const rolesStr = u.roles.map(r => r === 'Auditor' ? 'Inspector' : r).join(', ');
+    const rolesStr = u.roles.join(', ');
     return `<tr>
       <td class="center">${i + 1}</td>
       <td><strong>${u.name}</strong><br><span style="font-size:7.5pt;color:#666;">${u.email}</span></td>
