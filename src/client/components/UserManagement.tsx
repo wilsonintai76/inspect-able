@@ -512,7 +512,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({
                       <option value="Head Of Department">Head Of Department</option>
                       <option value="Coordinator">Coordinator</option>
                       <option value="Supervisor">Supervisor</option>
-                      <option value="Guest">Guest</option>
+                      <option value="Staff">Staff</option>
                       {users.find(u => u.id === currentUserId)?.email?.toLowerCase() === 'admin@poliku.edu.my' && (
                         <option value="Developer">Developer</option>
                       )}
@@ -649,6 +649,12 @@ export const UserManagement: React.FC<UserManagementProps> = ({
                           </div>
                           {user.certificationIssued && (
                             <span className="text-[8px] text-slate-400 font-bold ml-1">Issued: {user.certificationIssued}</span>
+                          )}
+                          {user.certificationExpiry && (
+                            <span className="text-[8px] text-slate-400 font-bold ml-1">Expires: {user.certificationExpiry}</span>
+                          )}
+                          {user.certificationIssued && !user.certificationExpiry && (
+                            <span className="text-[8px] text-rose-500 font-bold ml-1">⚠ No expiry — re-issue cert</span>
                           )}
                        </div>
                     </td>
