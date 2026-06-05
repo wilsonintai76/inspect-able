@@ -259,7 +259,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ user, departments, onU
                     <p className="text-[10px] text-blue-700/70 leading-relaxed font-medium">
                       Assigned Department: <strong>{departments.find(d => d.id === user.departmentId)?.name || 'General'}</strong><br/>
                       Designation: <strong>{(user.designation as string) === 'Guest' ? 'Staff' : (user.designation || 'Staff')}</strong><br/>
-                      Roles: <strong>{user.roles.join(', ')}</strong><br/>
+                      Roles: <strong>{user.roles.map(r => r === 'Guest' ? 'Staff' : r).join(', ')}</strong><br/>
                       Last Login: <strong>{user.lastActive}</strong>
                     </p>
                   </div>

@@ -240,6 +240,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({
       case 'Admin': return 'bg-purple-50 text-purple-600 border-purple-100';
       case 'Coordinator': return 'bg-amber-50 text-amber-600 border-amber-100';
       case 'Supervisor': return 'bg-indigo-50 text-indigo-600 border-indigo-100';
+      case 'Staff':
       case 'Guest': return 'bg-slate-50 text-slate-500 border-slate-100';
       default: return 'bg-blue-50 text-blue-600 border-blue-100';
     }
@@ -343,7 +344,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({
                 <option value="Admin">Admin</option>
                 <option value="Coordinator">Coordinator</option>
                 <option value="Supervisor">Supervisor</option>
-                <option value="Guest">Guest</option>
+                <option value="Guest">Staff</option>
               </select>
               <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 w-3 h-3 pointer-events-none" />
             </div>
@@ -523,7 +524,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({
                     {isAdmin ? (
                     <div className="mt-2 space-y-2">
                       <div className="px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-600">
-                        {formData.roles[0] || 'Guest'} <span className="text-[10px] text-slate-400 font-medium">(bound to designation)</span>
+                        {(formData.roles[0] === 'Guest' ? 'Staff' : formData.roles[0]) || 'Staff'} <span className="text-[10px] text-slate-400 font-medium">(bound to designation)</span>
                       </div>
                       <label className={`flex items-center gap-2 p-3 rounded-xl border transition-all cursor-pointer w-fit ${
                         formData.roles.includes('Admin')
@@ -553,7 +554,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({
                     </div>
                     ) : (
                       <div className="mt-2 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-600">
-                        {formData.roles[0] || 'Guest'}
+                        {(formData.roles[0] === 'Guest' ? 'Staff' : formData.roles[0]) || 'Staff'}
                       </div>
                     )}
                   </div>
@@ -613,8 +614,8 @@ export const UserManagement: React.FC<UserManagementProps> = ({
                              {/* Single role badge — bound to designation, or Admin if promoted */}
                              {(() => {
                                const role = (user.roles && user.roles.length > 0) ? user.roles[0] : 'Guest';
-                               // Map legacy Auditor role to display as certification, not a role
-                               const displayRole = role === 'Auditor' ? 'Guest' : role;
+                               // Map legacy Auditor/Guest roles to display as Staff
+                               const displayRole = (role === 'Auditor' || role === 'Guest') ? 'Staff' : role;
                                return (
                                  <span key={displayRole} className={`px-2 py-0.5 rounded text-[8px] font-black uppercase border ${getRoleBadgeStyle(displayRole)}`}>
                                    {displayRole}
