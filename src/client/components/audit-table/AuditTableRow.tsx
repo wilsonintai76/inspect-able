@@ -68,8 +68,9 @@ export const AuditTableRow: React.FC<AuditTableRowProps> = ({
   const isEffectivelyLocked = isLocked || audit.status === 'In Progress' || audit.status === 'Completed';
 
   // Per-row date permission: any user who can view the matrix may pick dates;
-  // only locked / In-Progress / Completed rows are blocked (matches mobile behaviour)
-  const canEditThisDate = canEditDates && !isEffectivelyLocked;
+  // Privileged roles (Admin/Coordinator/Supervisor) can always edit dates even on locked rows;
+  // other users are blocked when the row is locked / In-Progress / Completed.
+  const canEditThisDate = canEditDates && (!isEffectivelyLocked || isAdmin || isCoordinator || isSupervisor);
 
   // ── Date display format (DD/MM/YYYY – Malaysia standard) ──────────────
   const formatDateDisplay = (dateStr: string | null | undefined): string => {

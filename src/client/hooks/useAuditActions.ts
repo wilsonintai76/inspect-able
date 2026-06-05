@@ -86,8 +86,9 @@ export const useAuditActions = (props: UseAuditActionsProps) => {
   };
 
   const handleUpdateAudit = async (id: string, updates: Partial<AuditSchedule>) => {
+    const snapshot = schedules.find(s => s.id === id);
     try {
-      const audit = schedules.find(s => s.id === id);
+      const audit = snapshot;
       if (audit) {
         if (updates.date !== undefined) {
           const resolvedPhaseId = updates.date
@@ -105,14 +106,20 @@ export const useAuditActions = (props: UseAuditActionsProps) => {
         else if ((currentStatus === 'In Progress' || currentStatus === 'Awaiting Approval') && (!finalDate || !finalSupervisor || !finalAuditor1 || !finalAuditor2))
           updates.status = 'Pending';
       }
-      await gateway.updateAudit(id, updates);
+      // Optimistic update — reflect change immediately so UI feels instant
       setSchedules(prev => prev.map(s => s.id === id ? { ...s, ...updates } : s));
-    } catch (e) { showError(e); }
+      await gateway.updateAudit(id, updates);
+    } catch (e) {
+      // Roll back optimistic update on failure
+      if (snapshot) setSchedules(prev => prev.map(s => s.id === id ? snapshot : s));
+      showError(e);
+    }
   };
 
   const handleUpdateAuditDate = async (id: string, date: string) => {
+    const snapshot = schedules.find(s => s.id === id);
     try {
-      const audit = schedules.find(s => s.id === id);
+      const audit = snapshot;
       const resolvedPhaseId = date
         ? (auditPhases.find(p => p.startDate <= date && date <= p.endDate)?.id ?? null)
         : null;
@@ -124,9 +131,14 @@ export const useAuditActions = (props: UseAuditActionsProps) => {
         else if ((currentStatus === 'In Progress' || currentStatus === 'Awaiting Approval') && (!date || !audit.supervisorId || !audit.auditor1Id || !audit.auditor2Id))
           updates.status = 'Pending';
       }
-      await gateway.updateAudit(id, updates);
+      // Optimistic update — reflect the date immediately so UI feels instant
       setSchedules(prev => prev.map(s => s.id === id ? { ...s, ...updates } : s));
-    } catch (e) { showError(e); }
+      await gateway.updateAudit(id, updates);
+    } catch (e) {
+      // Roll back optimistic update on failure
+      if (snapshot) setSchedules(prev => prev.map(s => s.id === id ? snapshot : s));
+      showError(e);
+    }
   };
 
   const handleSendApprovalEmail = async (id: string) => {
