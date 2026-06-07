@@ -22,7 +22,7 @@ function setSessionCookie(c: any, sessionId: string): void {
   setCookie(c, 'session', sessionId, {
     domain: '.inspect-able.com',
     path: '/',
-    maxAge: SESSION_TTL,
+    // No maxAge → browser-session cookie, auto-clears when browser closes
     secure: true,
     httpOnly: true,
     sameSite: 'Lax',

@@ -22,7 +22,7 @@ interface DepartmentManagementProps {
   onAddGroup?: (group: Omit<AuditGroup, 'id'>) => Promise<AuditGroup | void>;
   onUpdateGroup?: (id: string, group: Partial<AuditGroup>) => void;
   onDeleteGroup?: (id: string) => void;
-  onAddAuditor: (deptId: string) => void;
+  onAddInspector: (deptId: string) => void;
   currentUserRoles?: string[];
   openAuditThreshold?: number;
   buildings?: any[];
@@ -38,7 +38,7 @@ export const DepartmentManagement: React.FC<DepartmentManagementProps> = ({
   users,
   phases = [],
   auditGroups = [],
-  onAddAuditor,
+  onAddInspector,
   currentUserRoles = [],
   openAuditThreshold = 500,
   buildings = []

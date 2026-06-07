@@ -12,16 +12,18 @@ const getBaseUrl = () => {
 const TOKEN_KEY = 'asset_audit_pro_token';
 
 // ─── Token Management ────────────────────────────────────────────────────────
+// sessionStorage auto-clears when the tab/browser is closed, preventing
+// unintended auto-login on reopen without a proper logout.
 export const setAuthToken = (token: string) => {
-  localStorage.setItem(TOKEN_KEY, token);
+  sessionStorage.setItem(TOKEN_KEY, token);
 };
 
 const clearAuthToken = () => {
-  localStorage.removeItem(TOKEN_KEY);
+  sessionStorage.removeItem(TOKEN_KEY);
 };
 
 export const getAuthToken = () => {
-  return localStorage.getItem(TOKEN_KEY);
+  return sessionStorage.getItem(TOKEN_KEY);
 };
 
 // ─── Single-Session Registration ─────────────────────────────────────────────

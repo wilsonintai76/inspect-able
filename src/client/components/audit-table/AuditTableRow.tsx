@@ -27,7 +27,7 @@ export interface AuditTableRowProps {
   isAdmin: boolean;
   isCoordinator: boolean;
   isSupervisor: boolean;
-  isAuditor: boolean;
+  isInspector: boolean;
   hasFieldRole: boolean;
   isCertified: boolean;
   assignmentMode: 'cross-audit' | 'open-audit';
@@ -54,7 +54,7 @@ export interface AuditTableRowProps {
 export const AuditTableRow: React.FC<AuditTableRowProps> = ({
   audit, users, currentUser, allDepartments, allLocations, buildings, schedules,
   todayStr, canEditDates, canSelfAssignPerm, canAssignOthers, hasPhases, auditPhases,
-  maxAssetsPerDay, canSelfAssignSelf, isAdmin, isCoordinator, isSupervisor, isAuditor,
+  maxAssetsPerDay, canSelfAssignSelf, isAdmin, isCoordinator, isSupervisor, isInspector,
   hasFieldRole, isCertified, assignmentMode, canSendApprovalReminder, hasSentApprovalReminder,
   isAuditLocked, isDateInValidPhase, getBuildingAbbr, getEntityName, getUserContact,
   canAuditDepartment, getStatusBadgeStyles,
@@ -367,7 +367,7 @@ export const AuditTableRow: React.FC<AuditTableRowProps> = ({
               isCertified={isCertified}
               isSupervisor={isSupervisor}
               isCoordinator={isCoordinator}
-              isAuditor={isAuditor}
+              isInspector={isInspector}
               onAssign={onAssign}
               onUnassign={onUnassign}
               getUserContact={getUserContact}
@@ -382,7 +382,7 @@ export const AuditTableRow: React.FC<AuditTableRowProps> = ({
       {/* ── Status Cell ── */}
       <td className="px-5 py-4 align-top text-center w-44">
         {(() => {
-          const canComplete = isCertified && (isAdmin || isCoordinator || (isCurrentUserAssigned && isAuditor));
+          const canComplete = isCertified && (isAdmin || isCoordinator || (isCurrentUserAssigned && isInspector));
           const canApprove = isAdmin || isCoordinator || isSupervisor; // Admin, Coordinator & Supervisor can lock/approve (main site only)
           return (
             <div className="flex flex-col items-center gap-2">

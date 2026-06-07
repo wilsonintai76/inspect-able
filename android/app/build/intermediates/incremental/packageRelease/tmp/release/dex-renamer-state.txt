@@ -1,0 +1,4 @@
+#Thu May 28 00:03:51 MYT 2026
+base.0=/home/wilson/https-github.com-wilsonintai76-asset-audit-pro/android/app/build/intermediates/dex/release/minifyReleaseWithR8/classes.dex
+renamed.0=classes.dex
+path.0=classes.dex

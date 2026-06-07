@@ -23,6 +23,15 @@ dist-ssr
 *.sln
 *.sw?
 
+# Local databases and backups
+*.db
+backup-*.sql
+
+# Lint/compiler output dumps
+lint_errors*.txt
+lint_results.txt
+tsc_*.txt
+
 # wrangler files
 .wrangler
 .dev.vars*

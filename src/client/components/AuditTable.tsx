@@ -84,7 +84,7 @@ export const AuditTable: React.FC<AuditTableProps> = ({
   const canEditDates = hasCapability(pbacUser, 'manage:departments') || hasCapability(pbacUser, 'system:admin') || hasCapability(pbacUser, 'manage:locations') || hasCapability(pbacUser, 'asset_inspector') || isCertified;
   const canSendApprovalReminder = hasCapability(pbacUser, 'manage:departments') || hasCapability(pbacUser, 'system:admin');
   const canViewMatrixSchedule = hasCapability(pbacUser, 'manage:departments') || hasCapability(pbacUser, 'system:admin') || hasCapability(pbacUser, 'manage:locations') || hasCapability(pbacUser, 'asset_inspector');
-  const isAuditor = hasCapability(pbacUser, 'asset_inspector');
+  const isInspector = hasCapability(pbacUser, 'asset_inspector');
 
   const canSelfAssignPerm = canSelfAssignSelf; // PBAC replaces old perm check
   const hasFieldRole = hasCapability(pbacUser, 'assign:self');
@@ -542,7 +542,7 @@ export const AuditTable: React.FC<AuditTableProps> = ({
                   isAdmin={isAdmin}
                   isCoordinator={isCoordinator}
                   isSupervisor={isSupervisor}
-                  isAuditor={isAuditor}
+                  isInspector={isInspector}
                   hasFieldRole={hasFieldRole}
                   isCertified={isCertified}
                   assignmentMode={assignmentMode}

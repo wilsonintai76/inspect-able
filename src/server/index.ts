@@ -60,6 +60,20 @@ app.notFound((c) => c.json({ success: false, error: 'Route not found' }, 404));
 // Public routes (no auth required)
 app.get('/health', (c) => c.json({ status: 'ok', time: new Date().toISOString() }));
 
+// Digital Asset Links — required for Android Trusted Web Activity verification
+app.get('/.well-known/assetlinks.json', (c) => {
+  return c.json([{
+    relation: ['delegate_permission/common.handle_all_urls'],
+    target: {
+      namespace: 'android_app',
+      package_name: 'com.inspectable.auditmobile',
+      sha256_cert_fingerprints: [
+        '97:8A:04:F5:7C:E8:18:C2:7E:A9:BC:D9:10:31:E8:A1:7F:8F:E5:4D:1D:6D:8B:61:58:8C:36:24:05:77:50:B6'
+      ]
+    }
+  }]);
+});
+
 // ─── Performance Indexes (applied once per cold start, idempotent) ──────────
 app.use('*', async (c, next) => {
   try {

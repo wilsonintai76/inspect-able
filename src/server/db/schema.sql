@@ -35,8 +35,10 @@ CREATE TABLE IF NOT EXISTS departments (
   uninspected_asset_count INTEGER DEFAULT 0,
   tier TEXT,
   is_task_force INTEGER DEFAULT 0,
-  auditors_required_override INTEGER,
+  auditors_required INTEGER DEFAULT 2,
   is_archived INTEGER DEFAULT 0,
+  archived_by TEXT,
+  archived_at TEXT,
   created_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -69,6 +71,8 @@ CREATE TABLE IF NOT EXISTS locations (
   uninspected_asset_count INTEGER DEFAULT 0,
   is_active INTEGER DEFAULT 1,
   status TEXT DEFAULT 'Active', -- Active, Archived, Pending_Delete
+  archived_by TEXT,
+  archived_at TEXT,
   created_at TEXT DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (department_id) REFERENCES departments(id),
   FOREIGN KEY (building_id) REFERENCES buildings(id)
@@ -211,6 +215,28 @@ CREATE TABLE IF NOT EXISTS strategic_memos (
   FOREIGN KEY (approved_by) REFERENCES users(id)
 );
 
+-- OAuth Accounts Table (Google login identities)
+CREATE TABLE IF NOT EXISTS accounts (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  provider TEXT NOT NULL,                   -- e.g. 'google'
+  provider_account_id TEXT NOT NULL,        -- Google's stable `sub` claim
+  provider_email TEXT NOT NULL,
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- Sessions Table (server-side session tracking)
+CREATE TABLE IF NOT EXISTS sessions (
+  id TEXT PRIMARY KEY,                      -- matches KV sess:{userId}.sessionId
+  user_id TEXT NOT NULL,
+  expires_at TEXT NOT NULL,                 -- ISO 8601
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  ip_address TEXT,
+  user_agent TEXT,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
 -- Indices for performance
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 CREATE INDEX IF NOT EXISTS idx_users_status ON users(status);
@@ -226,6 +252,11 @@ CREATE INDEX IF NOT EXISTS idx_deptmapping_source ON department_mappings(source_
 CREATE INDEX IF NOT EXISTS idx_cross_audit_auditor ON cross_audit_permissions(auditor_dept_id);
 CREATE INDEX IF NOT EXISTS idx_cross_audit_target ON cross_audit_permissions(target_dept_id);
 CREATE INDEX IF NOT EXISTS idx_memos_year ON strategic_memos(year);
+CREATE INDEX IF NOT EXISTS idx_schedules_supervisor ON audit_schedules(supervisor_id);
+CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_users_cert_expiry ON users(certification_expiry);
+CREATE INDEX IF NOT EXISTS idx_users_department ON users(department_id);
+CREATE INDEX IF NOT EXISTS idx_users_status_verified ON users(status, is_verified);
 
 -- ─── Migration: remove denormalized `building` column from locations ──────────
 -- Run once against existing databases with:

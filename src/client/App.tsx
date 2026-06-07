@@ -377,7 +377,7 @@ const App: React.FC = () => {
           onAddGroup={handleAddAuditGroup}
           onUpdateGroup={handleUpdateAuditGroup}
           onDeleteGroup={handleDeleteAuditGroup}
-          onAddAuditor={(deptId) => { setSelectedDept(deptId); setActiveView('team'); }}
+          onAddInspector={(deptId) => { setSelectedDept(deptId); setActiveView('team'); }}
           currentUserRoles={currentUser.roles}
           openAuditThreshold={openAuditThreshold}
           buildings={buildings}

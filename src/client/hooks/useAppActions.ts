@@ -131,7 +131,7 @@ export const useAppActions = (props: AppActionsProps) => {
 
   const handleLoginSuccess = useCallback(async (userProfile: User) => {
     setCurrentUser(userProfile); setViewState('app'); setActiveView('dashboard');
-    localStorage.setItem('audit_pro_session', JSON.stringify(userProfile));
+    sessionStorage.setItem('audit_pro_session', JSON.stringify(userProfile));
     if ((userProfile.roles || []).some(r => r === 'Admin' || r === 'Coordinator')) await gateway.initializeDefaults();
     loadAllData();
   }, [setCurrentUser, setViewState, setActiveView, loadAllData]);
@@ -187,7 +187,7 @@ export const useAppActions = (props: AppActionsProps) => {
   const handleUpdateDashboardConfig = (newConfig: DashboardConfig) => {
     if (!currentUser) return;
     const updated = { ...currentUser, dashboardConfig: newConfig };
-    setCurrentUser(updated); localStorage.setItem('audit_pro_session', JSON.stringify(updated));
+    setCurrentUser(updated); sessionStorage.setItem('audit_pro_session', JSON.stringify(updated));
     showToast('Preferences saved');
   };
 
