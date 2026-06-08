@@ -44,7 +44,7 @@ export const useAuditActions = (props: UseAuditActionsProps) => {
       const audit = schedules.find(s => s.id === id);
       if (!audit) return;
       const u = users.find(user => user.id === userId);
-      if (!(u?.certificationExpiry && new Date(u.certificationExpiry) > new Date())) throw new Error("Cert required.");
+      if (!(u?.certificationExpiry && u.certificationExpiry >= new Date().toISOString().split('T')[0])) throw new Error("Cert required.");
       const slotUpdate: Partial<AuditSchedule> = slot === 1 ? { auditor1Id: userId } : { auditor2Id: userId };
       await gateway.updateAudit(id, slotUpdate);
       setSchedules(prev => prev.map(s => {

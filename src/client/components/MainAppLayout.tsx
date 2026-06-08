@@ -55,7 +55,7 @@ export const MainAppLayout: React.FC<MainAppLayoutProps> = ({
           onViewChange={handleViewChange}
           onLogout={handleLogout}
           userRoles={currentUser.roles}
-          isCertified={!!(currentUser.certificationExpiry && new Date(currentUser.certificationExpiry) > new Date())}
+          isCertified={!!(currentUser.certificationExpiry && currentUser.certificationExpiry >= new Date().toISOString().split('T')[0])}
           userStatus={currentUser.status}
           isProfileComplete={checkProfileComplete(currentUser)}
         />

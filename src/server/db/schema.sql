@@ -151,6 +151,8 @@ CREATE TABLE IF NOT EXISTS audit_schedules (
   FOREIGN KEY (phase_id) REFERENCES audit_phases(id)
 );
 
+CREATE UNIQUE INDEX IF NOT EXISTS idx_audit_schedules_unique_location_phase ON audit_schedules(location_id, phase_id);
+
 -- System Activities Table
 CREATE TABLE IF NOT EXISTS system_activities (
   id TEXT PRIMARY KEY,

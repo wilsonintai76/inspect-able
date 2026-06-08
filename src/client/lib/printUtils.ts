@@ -1413,7 +1413,7 @@ export function printTeamList(
 
   const activeCount = users.filter(u => u.status === 'Active').length;
   const pendingCount = users.filter(u => u.status === 'Pending').length;
-  const certifiedCount = users.filter(u => u.certificationExpiry && new Date(u.certificationExpiry) > new Date()).length;
+  const certifiedCount = users.filter(u => u.certificationExpiry && u.certificationExpiry >= new Date().toISOString().split('T')[0]).length;
 
   const html = `
 <div class="header">

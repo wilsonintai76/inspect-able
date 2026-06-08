@@ -69,7 +69,7 @@ export const AuditTable: React.FC<AuditTableProps> = ({
   
   const isCertified = React.useMemo(() => {
     if (!currentUser?.certificationExpiry) return false;
-    return new Date(currentUser.certificationExpiry) > new Date();
+    return currentUser.certificationExpiry >= new Date().toISOString().split('T')[0];
   }, [currentUser]);
 
   // PBAC: any role + valid cert = can self-assign
@@ -236,7 +236,7 @@ export const AuditTable: React.FC<AuditTableProps> = ({
     }
 
     const certExpiry = assignUser?.certificationExpiry;
-    const isUserCertified = certExpiry && new Date(certExpiry) > new Date();
+    const isUserCertified = certExpiry && certExpiry >= new Date().toISOString().split('T')[0];
 
     if (!isUserCertified) {
       alert(`ACTION BLOCKED: Certification Required. ${isSelf ? 'Your' : 'The selected officer\'s'} certificate is expired or invalid.`);
@@ -308,7 +308,7 @@ export const AuditTable: React.FC<AuditTableProps> = ({
 
     const eligibleOfficers = users.filter(u => {
       // Include any user that is certified, regardless of role (Admin decides via RBAC)
-      return u.certificationExpiry && new Date(u.certificationExpiry) > new Date();
+      return u.certificationExpiry && u.certificationExpiry >= new Date().toISOString().split('T')[0];
     });
 
     if (eligibleOfficers.length === 0) {

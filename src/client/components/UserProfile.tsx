@@ -109,9 +109,8 @@ export const UserProfile: React.FC<UserProfileProps> = ({ user, departments, onU
 
   const certStatus = useMemo(() => {
     if (!user.certificationExpiry) return 'Uncertified';
-    const expiry = new Date(user.certificationExpiry);
-    const today = new Date();
-    return expiry > today ? 'Valid' : 'Expired';
+    const today = new Date().toISOString().split('T')[0];
+    return user.certificationExpiry >= today ? 'Valid' : 'Expired';
   }, [user.certificationExpiry]);
 
   return (

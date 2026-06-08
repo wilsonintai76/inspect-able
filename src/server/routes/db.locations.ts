@@ -88,6 +88,18 @@ router.post('/locations', requirePolicy('location.manage', emptyContextBuilder()
       loc.isActive !== undefined ? (loc.isActive ? 1 : 0) : 1,
       loc.status ?? 'Active'
     ).run();
+    // Auto-generate audit schedule for the new location
+    const activePhase = await c.env.DB.prepare(
+      "SELECT id FROM audit_phases WHERE status = 'Active' ORDER BY start_date DESC LIMIT 1"
+    ).first<{ id: string }>();
+    
+    if (loc.departmentId) {
+      await c.env.DB.prepare(
+        `INSERT OR IGNORE INTO audit_schedules (id, department_id, location_id, supervisor_id, status, phase_id) VALUES (?, ?, ?, ?, 'Pending', ?)`
+      ).bind(crypto.randomUUID(), loc.departmentId, id, loc.supervisorId || null, activePhase?.id || null).run();
+      invalidateScheduleCache(c.env.SETTINGS);
+    }
+
     // Refresh department asset totals after adding a new location
     await refreshDepartmentAssetTotals(c.env.DB);
     return c.json({ id, ...loc });
@@ -353,9 +365,13 @@ router.post('/locations/bulk', requirePolicy('location.manage', emptyContextBuil
     }
 
     // 4. Batch Insert
-    const statements = processedLocs.map((loc: any) => {
+    const activePhase = await c.env.DB.prepare(
+      "SELECT id FROM audit_phases WHERE status = 'Active' ORDER BY start_date DESC LIMIT 1"
+    ).first<{ id: string }>();
+
+    const statements = processedLocs.flatMap((loc: any) => {
       const id = loc.id || crypto.randomUUID();
-      return c.env.DB.prepare(
+      const locInsert = c.env.DB.prepare(
         `INSERT OR IGNORE INTO locations 
          (id, name, abbr, department_id, building_id, level, description, supervisor_id, contact, total_assets, uninspected_asset_count, is_active, status) 
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
@@ -374,6 +390,14 @@ router.post('/locations/bulk', requirePolicy('location.manage', emptyContextBuil
         loc.isActive !== undefined ? (loc.isActive ? 1 : 0) : 1,
         loc.status ?? 'Active'
       );
+
+      const stmts = [locInsert];
+      if (loc.departmentId) {
+        stmts.push(c.env.DB.prepare(
+          `INSERT OR IGNORE INTO audit_schedules (id, department_id, location_id, supervisor_id, status, phase_id) VALUES (?, ?, ?, ?, 'Pending', ?)`
+        ).bind(crypto.randomUUID(), loc.departmentId, id, loc.supervisorId || null, activePhase?.id || null));
+      }
+      return stmts;
     });
 
     await c.env.DB.batch(statements);
@@ -407,13 +431,17 @@ router.post('/locations/sync-notes', requirePolicy('location.manage', emptyConte
 router.post('/locations/upsert', requirePolicy('location.manage', emptyContextBuilder()), async (c) => {
   const locs = await c.req.json();
   try {
-    const statements = locs.map((l: any) => {
+    const activePhase = await c.env.DB.prepare(
+      "SELECT id FROM audit_phases WHERE status = 'Active' ORDER BY start_date DESC LIMIT 1"
+    ).first<{ id: string }>();
+
+    const statements = locs.flatMap((l: any) => {
       const id = l.id || crypto.randomUUID();
-      return c.env.DB.prepare(`
+      const locUpsert = c.env.DB.prepare(`
         INSERT INTO locations 
         (id, name, abbr, department_id, building_id, level, description, supervisor_id, contact, total_assets, uninspected_asset_count, is_active, status) 
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT(name, department_id) DO UPDATE SET
+        ON CONFLICT(name, department_id, level, building_id) DO UPDATE SET
           total_assets = EXCLUDED.total_assets,
           uninspected_asset_count = COALESCE(EXCLUDED.uninspected_asset_count, uninspected_asset_count),
           building_id = COALESCE(EXCLUDED.building_id, building_id),
@@ -434,6 +462,14 @@ router.post('/locations/upsert', requirePolicy('location.manage', emptyContextBu
         l.isActive !== undefined ? (l.isActive ? 1 : 0) : 1,
         l.status ?? 'Active'
       );
+      
+      const stmts = [locUpsert];
+      if (l.departmentId) {
+        stmts.push(c.env.DB.prepare(
+          `INSERT OR IGNORE INTO audit_schedules (id, department_id, location_id, supervisor_id, status, phase_id) VALUES (?, ?, ?, ?, 'Pending', ?)`
+        ).bind(crypto.randomUUID(), l.departmentId, id, l.supervisorId || null, activePhase?.id || null));
+      }
+      return stmts;
     });
 
     // D1 batch limit is 100 statements

@@ -50,7 +50,7 @@ export const OfficerSection: React.FC<OfficerSectionProps> = ({
       <h3 className="text-sm font-black text-slate-900 mb-3 flex items-center gap-2"><GraduationCap className="w-4 h-4 text-blue-500" />My Certification</h3>
       {currentUser.certificationExpiry ? (
         <div className="flex items-center gap-3">
-          <div className={`w-3 h-3 rounded-full ${new Date(currentUser.certificationExpiry) > new Date() ? 'bg-emerald-500' : 'bg-red-500'}`} />
+          <div className={`w-3 h-3 rounded-full ${currentUser.certificationExpiry >= new Date().toISOString().split('T')[0] ? 'bg-emerald-500' : 'bg-red-500'}`} />
           <span className="text-sm text-slate-700">Expires: <span className="font-bold">{currentUser.certificationExpiry}</span></span>
         </div>
       ) : <p className="text-sm text-slate-500">No active certification</p>}

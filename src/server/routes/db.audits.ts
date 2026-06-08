@@ -449,7 +449,13 @@ router.post('/audits/bulk', requirePolicy('audit.create', bodyDeptContextBuilder
         c.env.DB.prepare(
           `INSERT INTO audit_schedules 
            (id, department_id, location_id, supervisor_id, auditor1_id, auditor2_id, date, status, phase_id, report_path) 
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+           ON CONFLICT(location_id, phase_id) DO UPDATE SET
+             date = COALESCE(EXCLUDED.date, audit_schedules.date),
+             supervisor_id = COALESCE(EXCLUDED.supervisor_id, audit_schedules.supervisor_id),
+             auditor1_id = COALESCE(EXCLUDED.auditor1_id, audit_schedules.auditor1_id),
+             auditor2_id = COALESCE(EXCLUDED.auditor2_id, audit_schedules.auditor2_id),
+             status = COALESCE(EXCLUDED.status, audit_schedules.status)`
         ).bind(
           id,
           a.departmentId ?? null,

@@ -167,10 +167,19 @@ export const UserManagement: React.FC<UserManagementProps> = ({
           const email = row['Email'] || row['email'];
           
           if (name && email) {
+            const rawDept = String(row['Department'] || row['department'] || '').trim().toLowerCase();
+            const targetDept = departments.find(d => 
+              d.id === rawDept || 
+              d.abbr?.toLowerCase() === rawDept || 
+              d.name.toLowerCase() === rawDept ||
+              (rawDept === 'jka' && d.name.toLowerCase() === 'jabatan kejuruteraan awam') ||
+              (rawDept === 'jke' && d.name.toLowerCase() === 'jabatan kejuruteraan elektrik')
+            );
+
             newUsers.push({
               id,
               name, email,
-              departmentId: row['Department'] || row['department'] || '',
+              departmentId: targetDept?.id || '',
               roles: [(row['Role'] || row['role'] || 'Guest').split(',')[0].trim()] as UserRole[],
 
               status: 'Active',
@@ -624,7 +633,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({
                                );
                              })()}
                              {/* Certification indicator — shown if user has valid cert, regardless of role */}
-                             {user.certificationExpiry && new Date(user.certificationExpiry) > new Date() && (
+                             {user.certificationExpiry && user.certificationExpiry >= new Date().toISOString().split('T')[0] && (
                                <span className="px-2 py-0.5 rounded text-[8px] font-black uppercase border bg-emerald-50 text-emerald-600 border-emerald-200">
                                  Certified
                                </span>

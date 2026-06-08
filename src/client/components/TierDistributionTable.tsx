@@ -96,7 +96,7 @@ export const TierDistributionTable: React.FC<TierDistributionTableProps> = ({
       );
       
       const dUsers = usersByDept[dept.id] || [];
-      const relevantUsers = dUsers.filter(u => u.certificationExpiry && new Date(u.certificationExpiry) > new Date());
+      const relevantUsers = dUsers.filter(u => u.certificationExpiry && u.certificationExpiry >= new Date().toISOString().split('T')[0]);
 
       return {
         ...dept,

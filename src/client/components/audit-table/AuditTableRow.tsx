@@ -313,7 +313,7 @@ export const AuditTableRow: React.FC<AuditTableRowProps> = ({
 
           {(() => {
             const dept = allDepartments.find(d => d.id === audit.departmentId);
-            const deptOfficers = users.filter(u => u.departmentId === dept?.id && u.certificationExpiry && new Date(u.certificationExpiry) > new Date());
+            const deptOfficers = users.filter(u => u.departmentId === dept?.id && u.certificationExpiry && u.certificationExpiry >= new Date().toISOString().split('T')[0]);
             const officerCapacity = deptOfficers.length * maxAssetsPerDay;
             const totalAssets = dept?.totalAssets || 0;
             const isAtRisk = totalAssets > officerCapacity && deptOfficers.length > 0;
