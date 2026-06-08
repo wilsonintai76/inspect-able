@@ -40,13 +40,15 @@ export const useAuditActions = (props: UseAuditActionsProps) => {
   };
 
   const handleAssign = async (id: string, slot: 1 | 2, userId: string) => {
+    const snapshot = schedules.find(s => s.id === id);
     try {
-      const audit = schedules.find(s => s.id === id);
+      const audit = snapshot;
       if (!audit) return;
       const u = users.find(user => user.id === userId);
       if (!(u?.certificationExpiry && u.certificationExpiry >= new Date().toISOString().split('T')[0])) throw new Error("Cert required.");
       const slotUpdate: Partial<AuditSchedule> = slot === 1 ? { auditor1Id: userId } : { auditor2Id: userId };
-      await gateway.updateAudit(id, slotUpdate);
+      
+      // Optimistic update
       setSchedules(prev => prev.map(s => {
         if (s.id !== id) return s;
         const updated = { ...s, ...slotUpdate };
@@ -57,16 +59,25 @@ export const useAuditActions = (props: UseAuditActionsProps) => {
         }
         return updated;
       }));
+
+      await gateway.updateAudit(id, slotUpdate);
+      
       const projected = { ...audit, ...slotUpdate };
       const willStart = projected.date && projected.supervisorId && projected.auditor1Id && projected.auditor2Id;
       showToast(willStart ? 'Assigned! Awaiting supervisor approval.' : 'Assigned');
-    } catch (e) { showError(e); }
+    } catch (e) { 
+      // Rollback
+      if (snapshot) setSchedules(prev => prev.map(s => s.id === id ? snapshot : s));
+      showError(e); 
+    }
   };
 
   const handleUnassign = async (id: string, slot: 1 | 2) => {
+    const snapshot = schedules.find(s => s.id === id);
     try {
       const slotUpdate: Partial<AuditSchedule> = slot === 1 ? { auditor1Id: null } : { auditor2Id: null };
-      await gateway.updateAudit(id, slotUpdate);
+      
+      // Optimistic update
       setSchedules(prev => prev.map(s => {
         if (s.id !== id) return s;
         const updated = { ...s, ...slotUpdate };
@@ -75,7 +86,13 @@ export const useAuditActions = (props: UseAuditActionsProps) => {
         }
         return updated;
       }));
-    } catch (e) { showError(e); }
+
+      await gateway.updateAudit(id, slotUpdate);
+    } catch (e) { 
+      // Rollback
+      if (snapshot) setSchedules(prev => prev.map(s => s.id === id ? snapshot : s));
+      showError(e); 
+    }
   };
 
   const handleDeleteAudit = async (id: string) => {

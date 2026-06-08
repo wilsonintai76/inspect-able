@@ -20,26 +20,6 @@ const router = new Hono<{ Bindings: Bindings, Variables: Variables }>();
 // Audits
 router.get('/audits', async (c) => {
   try {
-    // â”€â”€â”€ KV Read-Through Cache â”€â”€â”€
-    const cached = await c.env.SETTINGS.get(SCHEDULE_CACHE_KEY, 'json').catch(() => null) as any[];
-    if (cached) {
-      return c.json(cached);
-    }
-
-    // Sweep: auto-fix any Pending records that already have all required fields set.
-    await c.env.DB.prepare(
-      `UPDATE audit_schedules SET status = 'Awaiting Approval'
-       WHERE status = 'Pending' AND date IS NOT NULL AND supervisor_id IS NOT NULL
-       AND auditor1_id IS NOT NULL AND auditor2_id IS NOT NULL`
-    ).run();
-
-    // Sweep: demote any Awaiting Approval records that are missing required fields
-    await c.env.DB.prepare(
-      `UPDATE audit_schedules SET status = 'Pending'
-       WHERE status = 'Awaiting Approval' AND (date IS NULL OR supervisor_id IS NULL
-       OR auditor1_id IS NULL OR auditor2_id IS NULL)`
-    ).run();
-
     const { results } = await c.env.DB.prepare(
       'SELECT id, department_id, location_id, supervisor_id, auditor1_id, auditor2_id, date, status, phase_id, report_path, is_locked FROM audit_schedules'
     ).all();
@@ -57,9 +37,6 @@ router.get('/audits', async (c) => {
       reportPath: a.report_path,
       isLocked: a.is_locked === null ? undefined : (a.is_locked === 1)
     }));
-
-    // Save to KV with 60-second TTL for freshness
-    await c.env.SETTINGS.put(SCHEDULE_CACHE_KEY, JSON.stringify(data), { expirationTtl: 60 }).catch(() => {});
     
     return c.json(data);
   } catch (err: any) {
