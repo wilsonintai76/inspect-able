@@ -11,11 +11,13 @@ export interface AuditSchedule {
   phaseId: string;
   isLocked?: boolean;
   reportPath?: string | null;
+  totalAssetsInspected?: number | null;
+  assetStatusSummary?: string | null;
 }
 
 export type AssignmentMode = 'cross-audit' | 'open-audit';
 
-export type Designation = 'Head Of Department' | 'Coordinator' | 'Supervisor' | 'Staff' | 'Developer';
+export type Designation = 'Head Of Department' | 'Head Of Programme' | 'Coordinator' | 'Supervisor' | 'Staff' | 'Developer';
 
 export type UserRole = 'Admin' | 'Coordinator' | 'Supervisor' | 'Guest';
 export type AppView = 'dashboard' | 'overview' | 'schedule' | 'team' | 'settings' | 'departments' | 'locations' | 'profile' | 'knowledge-base' | 'auditor-dashboard' | 'buildings' | 'admin-dashboard';

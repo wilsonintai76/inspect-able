@@ -15,7 +15,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ user, departments, onU
     name: user.name || '',
     contactNumber: user.contactNumber || '',
     departmentId: user.departmentId || '',
-    designation: ((user.designation as string) === 'Guest' ? 'Staff' : user.designation) || 'Staff',
+    designation: user.designation || 'Staff',
   });
   const [passwordData, setPasswordData] = useState({
     currentPassword: '',
@@ -221,10 +221,12 @@ export const UserProfile: React.FC<UserProfileProps> = ({ user, departments, onU
                         value={formData.designation}
                         onChange={e => setFormData({ ...formData, designation: e.target.value })}
                       >
+                        <option value="">Select Designation</option>
+                        <option value="Head Of Department">Head Of Department</option>
+                        <option value="Head Of Programme">Head Of Programme</option>
+                        <option value="Coordinator">Coordinator</option>
                         <option value="Staff">Staff</option>
                         <option value="Supervisor">Supervisor</option>
-                        <option value="Coordinator">Coordinator</option>
-                        <option value="Head Of Department">Head Of Department</option>
                         {user.email?.toLowerCase() === 'admin@poliku.edu.my' && <option value="Developer">Developer</option>}
                       </select>
                     </div>
@@ -258,8 +260,8 @@ export const UserProfile: React.FC<UserProfileProps> = ({ user, departments, onU
                     <h4 className="text-xs font-bold text-blue-900 mb-1">Account Metadata</h4>
                     <p className="text-[10px] text-blue-700/70 leading-relaxed font-medium">
                       Assigned Department: <strong>{departments.find(d => d.id === user.departmentId)?.name || 'General'}</strong><br/>
-                      Designation: <strong>{(user.designation as string) === 'Guest' ? 'Staff' : (user.designation || 'Staff')}</strong><br/>
-                      Roles: <strong>{user.roles.map(r => r === 'Guest' ? 'Staff' : r).join(', ')}</strong><br/>
+                      Designation: <strong>{user.designation || 'Staff'}</strong><br/>
+                      Roles: <strong>{user.roles.join(', ') || 'Guest'}</strong><br/>
                       Last Login: <strong>{user.lastActive}</strong>
                     </p>
                   </div>

@@ -205,7 +205,6 @@ compute.post(
     for (const l of allLocs) locSumPerDept[l.department_id] = (locSumPerDept[l.department_id] || 0) + (l.total_assets || 0);
 
     const newAuditRows: any[] = [];
-    const phaseUpdates: { id: string; phaseId: string }[] = [];
 
     for (const dept of depts) {
       const totalAssets = Math.max(dept.total_assets || 0, locSumPerDept[dept.id] || 0);
@@ -269,15 +268,13 @@ compute.post(
         for (const locId of locIds) {
           const loc = allLocs.find((l: any) => l.id === locId);
           const existing = deptAudits.find((a: any) => a.location_id === locId && !isLocked(a));
-          if (existing) {
-            if (existing.phase_id !== phaseId) phaseUpdates.push({ id: existing.id, phaseId });
-          } else {
+          if (!existing) {
             newAuditRows.push({
               id: crypto.randomUUID(),
               department_id: dept.id,
               location_id: locId,
               supervisor_id: loc?.supervisor_id || null,
-              phase_id: phaseId,
+              phase_id: null,
               status: 'Pending',
               auditor1_id: null,
               auditor2_id: null,
@@ -300,12 +297,6 @@ compute.post(
       );
     }
 
-    for (const u of phaseUpdates) {
-      statements.push(
-        db.prepare('UPDATE audit_schedules SET phase_id = ? WHERE id = ?').bind(u.phaseId, u.id),
-      );
-    }
-
     if (statements.length > 0) {
       // D1 batch limit is 100 statements — chunk if needed
       const CHUNK = 100;
@@ -316,7 +307,7 @@ compute.post(
 
     return c.json({
       createdCount: newAuditRows.length,
-      updatedCount: phaseUpdates.length,
+      updatedCount: 0,
     });
   },
 );

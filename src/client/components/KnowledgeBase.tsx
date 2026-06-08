@@ -115,7 +115,7 @@ export const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ phases = [] }) => 
                     {[
                       ['Coordinator', 'Coordinator', 'Admin'],
                       ['Supervisor', 'Supervisor', 'Admin'],
-                      ['Head Of Department', 'Staff', 'Admin'],
+                      ['Head Of Department', 'Head Of Programme', 'Staff', 'Admin'],
                       ['Staff', 'Staff', 'Admin'],
                     ].map(([des, role, promote]) => (
                       <tr key={des} className="hover:bg-slate-50/30">

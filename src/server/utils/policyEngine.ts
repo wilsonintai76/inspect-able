@@ -120,7 +120,6 @@ export function deriveCapabilities(user: PbaoUser): Set<string> {
   // ── Supervisor > Guest ──────────────────────────────────────────────
   if (roles.includes('Supervisor')) {
     caps.add('view:dashboard');          // inherit Guest
-    caps.add('assign:self');             // can self-assign to audit slots
     caps.add('manage:locations');        // location registry (dept-scoped)
     caps.add('schedule:manage_dept');    // manage department schedules
   }
@@ -128,7 +127,6 @@ export function deriveCapabilities(user: PbaoUser): Set<string> {
   // ── Coordinator > Supervisor > Staff ────────────────────────────────
   if (roles.includes('Coordinator')) {
     caps.add('view:dashboard');          // inherit Staff
-    caps.add('assign:self');             // inherit Supervisor
     caps.add('manage:locations');        // inherit Supervisor
     caps.add('schedule:manage_dept');    // inherit Supervisor
     // Coordinator-specific (one department only)

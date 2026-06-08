@@ -155,6 +155,7 @@ export const MobileSidebar: React.FC<Props> = ({
                   onChange={e => onPhaseChange(e.target.value)}
                 >
                   <option value="">All Phases</option>
+                  <option value="Unscheduled">Unscheduled</option>
                   {phases.map(p => <option key={p.id} value={p.id}>{p.name} ({p.startDate} to {p.endDate})</option>)}
                 </NativeSelectField>
               </NativeSelectRoot>

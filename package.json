@@ -1,7 +1,7 @@
 {
   "name": "asset-audit-pro",
   "private": true,
-  "version": "1.10.770",
+  "version": "1.10.787",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -32,6 +32,7 @@
     "hono": "^4.12.10",
     "lucide-react": "^0.575.0",
     "papaparse": "5.4.1",
+    "pdfjs-dist": "^6.0.227",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
     "tailwind-merge": "^3.5.0",

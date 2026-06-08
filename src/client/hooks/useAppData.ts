@@ -365,17 +365,22 @@ export const useAppData = () => {
       if (selectedDept !== 'All' && s.departmentId !== departments.find(d => d.name === selectedDept)?.id) return false;
       if (selectedStatus !== 'All' && s.status !== selectedStatus) return false;
       if (selectedPhaseId !== 'All') {
-        // Always check date ∈ phase range (ignore stale phaseId from old rebalancer)
-        const phase = auditPhases.find(p => p.id === selectedPhaseId);
-        if (!phase) return false;
-        if (!s.date) {
-          // No date: fall back to phaseId match
-          if (s.phaseId !== selectedPhaseId) return false;
+        if (selectedPhaseId === 'Unscheduled') {
+          // If it has a date, it belongs to a phase, NOT Unscheduled
+          if (s.date) return false;
         } else {
-          const d = new Date(s.date); d.setHours(12, 0, 0, 0);
-          const start = new Date(phase.startDate); start.setHours(0, 0, 0, 0);
-          const end = new Date(phase.endDate); end.setHours(23, 59, 59, 999);
-          if (d < start || d > end) return false;
+          // Specific Phase Selected
+          const phase = auditPhases.find(p => p.id === selectedPhaseId);
+          if (!phase) return false;
+          if (!s.date) {
+            // If it has no date, it is 'Unscheduled', so it cannot belong to this specific phase
+            return false;
+          } else {
+            const d = new Date(s.date); d.setHours(12, 0, 0, 0);
+            const start = new Date(phase.startDate); start.setHours(0, 0, 0, 0);
+            const end = new Date(phase.endDate); end.setHours(23, 59, 59, 999);
+            if (d < start || d > end) return false;
+          }
         }
       }
       // Exclude audits for archived locations

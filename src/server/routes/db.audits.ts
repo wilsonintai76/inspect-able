@@ -1,4 +1,4 @@
-﻿import { Hono } from 'hono';
+import { Hono } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { Bindings, Variables } from '../types';
 import { requirePolicy, bodyDeptContextBuilder, emptyContextBuilder, auditPatchContextBuilder } from '../middleware/pbac';
@@ -79,6 +79,8 @@ router.post('/audits', zValidator('json', auditSchema), requirePolicy('audit.cre
     if (matchingPhase) {
       phaseId = matchingPhase.id;
     }
+  } else {
+    phaseId = null;
   }
 
   try {
@@ -125,6 +127,8 @@ router.patch('/audits/:id', zValidator('json', patchAuditSchema), patchAuditPerm
       if (matchingPhase) {
         updates.phaseId = matchingPhase.id;
       }
+    } else {
+      updates.phaseId = null;
     }
   }
 
@@ -163,6 +167,8 @@ router.patch('/audits/:id', zValidator('json', patchAuditSchema), patchAuditPerm
   if (updates.auditor2Id !== undefined) { fields.push('auditor2_id = ?'); values.push(updates.auditor2Id); }
   if (updates.phaseId !== undefined) { fields.push('phase_id = ?'); values.push(updates.phaseId); }
   if (updates.reportPath !== undefined) { fields.push('report_path = ?'); values.push(updates.reportPath); }
+  if (updates.totalAssetsInspected !== undefined) { fields.push('total_assets_inspected = ?'); values.push(updates.totalAssetsInspected); }
+  if (updates.assetStatusSummary !== undefined) { fields.push('asset_status_summary = ?'); values.push(updates.assetStatusSummary); }
   if (updates.isLocked !== undefined) {
     const callerRoles = (c.get('user') as any)?.roles || [];
     const caps = deriveCapabilities({ id: (c.get('user') as any)?.id || '', email: (c.get('user') as any)?.email || '', role: (c.get('user') as any)?.role || '', roles: callerRoles, departmentId: (c.get('user') as any)?.departmentId || null, certificationExpiry: (c.get('user') as any)?.certificationExpiry || null });
@@ -435,6 +441,8 @@ router.post('/audits/bulk', requirePolicy('audit.create', bodyDeptContextBuilder
         if (matchingPhase) {
           phaseId = matchingPhase.id;
         }
+      } else {
+        phaseId = null;
       }
 
       statements.push(

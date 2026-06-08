@@ -255,10 +255,7 @@ pub.patch('/kiosk/schedules/:id', async (c) => {
     if (action === 'assign') {
       if (!userId || !role) return c.json({ error: 'userId and role are required' }, 400);
       if (!['auditor1', 'auditor2', 'supervisor'].includes(role)) return c.json({ error: 'Invalid role' }, 400);
-      // Supervisor assignment is managed from the main site only
-      if (role === 'supervisor') return c.json({ error: 'Supervisor assignment must be done from the main site.' }, 403);
 
-      // Retrieve system setting for audit strategy to check operational mode
       // Force Open Audit by default as the system-wide operational standard
       let assignmentMode = 'open-audit';
       try {
@@ -658,7 +655,7 @@ pub.get('/kiosk-dashboard', async (c) => {
       phasesResult, buildingsResult, kpiTiersResult, kpiTargetsResult,
       instKpisResult,
     ] = await db.batch([
-      db.prepare(`SELECT id, department_id, location_id, supervisor_id, auditor1_id, auditor2_id, date, status, phase_id, report_path, is_locked FROM audit_schedules ORDER BY date ASC`),
+      db.prepare(`SELECT id, department_id, location_id, supervisor_id, auditor1_id, auditor2_id, date, status, phase_id, report_path, total_assets_inspected, asset_status_summary, is_locked FROM audit_schedules ORDER BY date ASC`),
       db.prepare(`SELECT id, name, email, designation, department_id, roles, status, is_verified, certification_issued, certification_expiry, contact_number FROM users WHERE status = 'Active' ORDER BY name ASC`),
       db.prepare(`SELECT id, name, abbr, head_of_dept_id, description, audit_group_id, is_exempted, is_archived, tier, is_task_force FROM departments ORDER BY name ASC`),
       db.prepare(`SELECT id, name, abbr, department_id, building_id, level, description, supervisor_id, contact, total_assets, status FROM locations ORDER BY name ASC`),
@@ -674,7 +671,10 @@ pub.get('/kiosk-dashboard', async (c) => {
       id: r.id, departmentId: r.department_id, locationId: r.location_id,
       supervisorId: r.supervisor_id, auditor1Id: r.auditor1_id, auditor2Id: r.auditor2_id,
       date: r.date, status: r.status, phaseId: r.phase_id,
-      reportPath: r.report_path, isLocked: r.is_locked === null ? undefined : (r.is_locked === 1),
+      reportPath: r.report_path, 
+      totalAssetsInspected: r.total_assets_inspected,
+      assetStatusSummary: r.asset_status_summary,
+      isLocked: r.is_locked === null ? undefined : (r.is_locked === 1),
     });
 
     const mapUser = (r: any) => ({

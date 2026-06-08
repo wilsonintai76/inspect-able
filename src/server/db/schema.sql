@@ -140,8 +140,10 @@ CREATE TABLE IF NOT EXISTS audit_schedules (
   auditor2_id TEXT,
   date TEXT,
   status TEXT DEFAULT 'Pending', -- Pending, In Progress, Completed
-  phase_id TEXT NOT NULL,
+  phase_id TEXT,
   report_path TEXT,
+  total_assets_inspected INTEGER,
+  asset_status_summary TEXT,
   is_locked INTEGER DEFAULT NULL,
   created_at TEXT DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (department_id) REFERENCES departments(id),

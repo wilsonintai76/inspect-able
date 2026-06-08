@@ -9,10 +9,10 @@ interface AuditPhaseFilterProps {
 
 export const AuditPhaseFilter: React.FC<AuditPhaseFilterProps> = ({ auditPhases, selectedPhaseId, onPhaseChange }) => (
   <div className="flex flex-wrap items-center gap-2 px-2">
-    {['All', ...auditPhases.map(p => ({ id: p.id, name: p.name }))].map(phase => {
-      const isAll = typeof phase === 'string';
-      const phaseId = isAll ? 'All' : (phase as { id: string; name: string }).id;
-      const phaseName = isAll ? 'All Phases' : (phase as { id: string; name: string }).name;
+    {['All', 'Unscheduled', ...auditPhases.map(p => ({ id: p.id, name: p.name }))].map(phase => {
+      const isString = typeof phase === 'string';
+      const phaseId = isString ? phase : (phase as { id: string; name: string }).id;
+      const phaseName = phase === 'All' ? 'All Phases' : phase === 'Unscheduled' ? 'Unscheduled' : (phase as { id: string; name: string }).name;
       return (
         <button
           key={phaseId}

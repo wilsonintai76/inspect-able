@@ -511,6 +511,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({
                     >
                       <option value="">Select Designation</option>
                       <option value="Head Of Department">Head Of Department</option>
+                      <option value="Head Of Programme">Head Of Programme</option>
                       <option value="Coordinator">Coordinator</option>
                       <option value="Supervisor">Supervisor</option>
                       <option value="Staff">Staff</option>
@@ -524,7 +525,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({
                     {isAdmin ? (
                     <div className="mt-2 space-y-2">
                       <div className="px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-600">
-                        {(formData.roles[0] === 'Guest' ? 'Staff' : formData.roles[0]) || 'Staff'} <span className="text-[10px] text-slate-400 font-medium">(bound to designation)</span>
+                        {formData.roles[0] || 'Guest'} <span className="text-[10px] text-slate-400 font-medium">(bound to designation)</span>
                       </div>
                       <label className={`flex items-center gap-2 p-3 rounded-xl border transition-all cursor-pointer w-fit ${
                         formData.roles.includes('Admin')
@@ -554,7 +555,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({
                     </div>
                     ) : (
                       <div className="mt-2 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-600">
-                        {(formData.roles[0] === 'Guest' ? 'Staff' : formData.roles[0]) || 'Staff'}
+                        {formData.roles[0] || 'Guest'}
                       </div>
                     )}
                   </div>
@@ -615,7 +616,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({
                              {(() => {
                                const role = (user.roles && user.roles.length > 0) ? user.roles[0] : 'Guest';
                                // Map legacy Guest role to display as Staff
-                               const displayRole = role === 'Guest' ? 'Staff' : role;
+                               const displayRole = role;
                                return (
                                  <span key={displayRole} className={`px-2 py-0.5 rounded text-[8px] font-black uppercase border ${getRoleBadgeStyle(displayRole)}`}>
                                    {displayRole}

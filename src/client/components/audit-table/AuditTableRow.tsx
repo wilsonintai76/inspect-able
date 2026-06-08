@@ -92,6 +92,21 @@ export const AuditTableRow: React.FC<AuditTableRowProps> = ({
   };
 
   const commitDateEdit = (newDate: string) => {
+    if (newDate) {
+      const isValid = auditPhases.some(p => {
+        const start = new Date(p.startDate);
+        const end = new Date(p.endDate);
+        start.setHours(0, 0, 0, 0);
+        end.setHours(23, 59, 59, 999);
+        const d = new Date(newDate);
+        return d >= start && d <= end;
+      });
+      if (!isValid) {
+        alert('Please select a date that falls within one of the active inspection phases.');
+        setEditingDate(false);
+        return;
+      }
+    }
     onDateChange(audit.id, newDate, audit.phaseId);
     setEditingDate(false);
   };
@@ -185,11 +200,21 @@ export const AuditTableRow: React.FC<AuditTableRowProps> = ({
               <button
                 onClick={() => {
                   const today = new Date().toISOString().split('T')[0];
-                  const phase = auditPhases.find(p => p.id === audit.phaseId);
-                  if (isDateInValidPhase(today, audit.phaseId)) {
+                  
+                  const isTodayValid = auditPhases.some(p => {
+                    const start = new Date(p.startDate);
+                    const end = new Date(p.endDate);
+                    start.setHours(0, 0, 0, 0);
+                    end.setHours(23, 59, 59, 999);
+                    const d = new Date(today);
+                    return d >= start && d <= end;
+                  });
+
+                  if (isTodayValid) {
                     onDateChange(audit.id, today, audit.phaseId);
-                  } else if (phase) {
-                    onDateChange(audit.id, phase.startDate, audit.phaseId);
+                  } else if (auditPhases.length > 0) {
+                    // Pick the first phase's start date as fallback
+                    onDateChange(audit.id, auditPhases[0].startDate, audit.phaseId);
                   }
                 }}
                 className="shrink-0 px-2 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all shadow-md shadow-blue-500/20 text-[9px] font-black uppercase tracking-widest active:scale-95"
@@ -481,7 +506,7 @@ export const AuditTableRow: React.FC<AuditTableRowProps> = ({
       {/* ── Actions Cell ── */}
       <td className="px-5 py-4 align-top text-center">
         <div className="flex items-center justify-center gap-2">
-          {audit.reportPath && (
+          {audit.reportPath && (audit.reportPath.startsWith('http') || audit.reportPath.startsWith('/')) && (
             <a
               href={audit.reportPath}
               target="_blank"

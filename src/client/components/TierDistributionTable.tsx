@@ -63,7 +63,16 @@ export const TierDistributionTable: React.FC<TierDistributionTableProps> = ({
         phaseId: string; hasAudit: boolean; isRequired: boolean;
         isCompleted: boolean; targetPct: number; targetAssets: number;
       }[]>((acc, phase) => {
-        const hasAuditDirect = deptAudits.some(a => a.phaseId === phase.id);
+        const isInPhase = (a: AuditSchedule) => {
+          if (a.date) {
+            const d = new Date(a.date); d.setHours(12, 0, 0, 0);
+            const start = new Date(phase.startDate); start.setHours(0, 0, 0, 0);
+            const end = new Date(phase.endDate); end.setHours(23, 59, 59, 999);
+            return d >= start && d <= end;
+          }
+          return a.phaseId === phase.id;
+        };
+        const hasAuditDirect = deptAudits.some(isInPhase);
         const targetPct = tier
           ? (kpiTierTargets.find(kt => kt.tierId === tier.id && kt.phaseId === phase.id)?.targetPercentage
              ?? tier.targets?.[phase.id]
@@ -72,7 +81,7 @@ export const TierDistributionTable: React.FC<TierDistributionTableProps> = ({
         const prevReached100 = acc.some(p => p.targetPct >= 100);
         const isRequired = (dept.totalAssets || 0) > 0 && targetPct > 0 && !prevReached100;
         const hasAudit = hasAuditDirect || (isRequired && allLocsScheduled);
-        const isCompleted = deptAudits.some(a => a.phaseId === phase.id && a.status === 'Completed');
+        const isCompleted = deptAudits.some(a => isInPhase(a) && a.status === 'Completed');
         const targetAssets = Math.ceil((dept.totalAssets || 0) * targetPct / 100);
 
         acc.push({ phaseId: phase.id, hasAudit, isRequired, isCompleted, targetPct, targetAssets });

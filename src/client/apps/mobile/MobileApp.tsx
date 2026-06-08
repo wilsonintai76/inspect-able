@@ -587,7 +587,14 @@ showToast(`Plan Overwritten: Inspection reassigned from ${targetSchedule.phaseNa
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
     return schedules.filter(s => {
-      if (phaseFilter && s.phaseId !== phaseFilter) return false;
+      if (phaseFilter) {
+        if (phaseFilter === 'Unscheduled') {
+          if (s.date) return false;
+        } else {
+          if (!s.date) return false;
+          if (s.phaseId !== phaseFilter) return false;
+        }
+      }
       if (statusFilter && s.status !== statusFilter) return false;
       if (departmentFilter && s.departmentId !== departmentFilter) return false;
       if (buildingFilter && s.buildingId !== buildingFilter) return false;
@@ -712,7 +719,7 @@ showToast(`Plan Overwritten: Inspection reassigned from ${targetSchedule.phaseNa
   // ── Personal Dashboard computations (Officer Dashboard in Mobile) ───────────────────
   const mySchedules = useMemo(() => {
     if (!currentUser) return [];
-    return schedules.filter(s => s.auditor1Id === currentUser.id || s.auditor2Id === currentUser.id);
+    return schedules.filter(s => s.auditor1Id === currentUser.id || s.auditor2Id === currentUser.id || s.supervisorId === currentUser.id);
   }, [schedules, currentUser]);
 
   const myStats = useMemo(() => {
@@ -985,7 +992,7 @@ showToast(`Plan Overwritten: Inspection reassigned from ${targetSchedule.phaseNa
                       {currentUser.name.split(' ')[0]}
                     </Text>
                     <Badge colorPalette={primaryRole === 'Admin' ? 'red' : primaryRole === 'Coordinator' ? 'purple' : primaryRole === 'Supervisor' ? 'blue' : primaryRole === 'Auditor' ? 'green' : 'gray'} variant="subtle" size="xs" fontWeight="bold">
-                      {(primaryRole === 'Guest' ? 'Staff' : primaryRole).toUpperCase()}
+                      {primaryRole.toUpperCase()}
                     </Badge>
                   </VStack>
                 </Button>

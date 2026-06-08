@@ -79,8 +79,14 @@ Return ONLY: { "department": "...", "status": "...", "text": "..." }` }
   }
 });
 
-ai.post('/report', zValidator('json', z.object({ audit: z.any() })), async (c) => {
-  const { audit } = c.req.valid('json');
+ai.post('/report', zValidator('json', z.object({ audit: z.any(), resolvedData: z.any().optional() })), async (c) => {
+  const { audit, resolvedData } = c.req.valid('json');
+
+  const locName = resolvedData?.locationName || audit.locationId;
+  const deptName = resolvedData?.departmentName || audit.departmentId;
+  const a1Name = resolvedData?.auditor1Name || audit.auditor1Id || 'N/A';
+  const a2Name = resolvedData?.auditor2Name || audit.auditor2Id || 'N/A';
+  const supName = resolvedData?.supervisorName || audit.supervisorId;
 
   try {
     const result = await c.env.AI.run(MODEL, {
@@ -89,12 +95,11 @@ ai.post('/report', zValidator('json', z.object({ audit: z.any() })), async (c) =
         { role: 'user', content: `Generate a formal "Movable Asset Inspection Report" for this completed inspection.
 
 Context:
-- Location: ${audit.locationId}
-- Department: ${audit.departmentId}
+- Location: ${locName}
+- Department: ${deptName}
 - Date Completed: ${audit.date}
-- Auditors: ${audit.auditor1Id || 'N/A'} and ${audit.auditor2Id || 'N/A'}
-- Supervisor (Site): ${audit.supervisorId}
-- ID: ${audit.id}
+- Auditors: ${a1Name} and ${a2Name}
+- Supervisor (Site): ${supName}
 
 Format:
 - Start with "OFFICIAL MOVABLE ASSET INSPECTION RECORD" as the header.

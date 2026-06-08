@@ -206,7 +206,7 @@ export const AuditTable: React.FC<AuditTableProps> = ({
 
         if (!matchingPhase) {
           alert("Warning: Selected date falls outside of all configured audit phases!");
-          onUpdateDate(id, ''); // Reset to empty — consistent with mobile behavior
+          onUpdateAudit(id, { date: '', phaseId: null as any }); // Reset to empty and clear phase
           return;
         }
 
@@ -214,8 +214,10 @@ export const AuditTable: React.FC<AuditTableProps> = ({
           onUpdateAudit(id, { date: newDate, phaseId: matchingPhase.id });
           return;
         }
+        onUpdateDate(id, newDate);
+    } else {
+        onUpdateAudit(id, { date: '', phaseId: null as any });
     }
-    onUpdateDate(id, newDate);
   };
 
   const handleSelfAssign = async (auditId: string, slot: 1 | 2, date: string, phaseId: string, manualUserId?: string) => {
@@ -585,6 +587,13 @@ export const AuditTable: React.FC<AuditTableProps> = ({
       {reportAudit && (
         <AuditReportModal
           audit={reportAudit}
+          resolvedData={{
+            locationName: allLocations.find(l => l.id === reportAudit.locationId)?.name || reportAudit.locationId,
+            departmentName: allDepartments.find(d => d.id === reportAudit.departmentId)?.name || reportAudit.departmentId,
+            auditor1Name: users.find(u => u.id === reportAudit.auditor1Id)?.name || reportAudit.auditor1Id || 'N/A',
+            auditor2Name: users.find(u => u.id === reportAudit.auditor2Id)?.name || reportAudit.auditor2Id || 'N/A',
+            supervisorName: reportAudit.supervisorId?.split(',').map(id => users.find(u => u.id === id.trim())?.name || id).join(', ') || 'N/A',
+          }}
           onClose={() => setReportAudit(null)}
         />
       )}
@@ -594,8 +603,13 @@ export const AuditTable: React.FC<AuditTableProps> = ({
           audit={uploadAudit}
           locationName={allLocations.find(l => l.id === uploadAudit.locationId)?.name || uploadAudit.locationId}
           onClose={() => setUploadAudit(null)}
-          onComplete={async (id, reportPath) => {
-            await onUpdateAudit(id, { status: 'Completed', reportPath });
+          onComplete={async (id, reportPath, totalAssets, statusSummary) => {
+            await onUpdateAudit(id, { 
+              status: 'Completed', 
+              reportPath,
+              totalAssetsInspected: totalAssets,
+              assetStatusSummary: statusSummary
+            });
           }}
         />
       )}

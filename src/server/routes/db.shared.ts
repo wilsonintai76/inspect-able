@@ -23,6 +23,7 @@ export const SCHEDULE_CACHE_KEY = 'schedule:all';
 // ═══════════════════════════════════════════════════════════════
 export const invalidateScheduleCache = (kv: KVNamespace) => {
   kv.delete(SCHEDULE_CACHE_KEY).catch(() => {});
+  kv.delete('mobile_cache').catch(() => {});
 };
 
 export const getRolesForDesignation = (designation?: string | null): string[] | null => {
@@ -33,6 +34,7 @@ export const getRolesForDesignation = (designation?: string | null): string[] | 
     case 'Supervisor':
       return ['Supervisor'];
     case 'Head Of Department':
+    case 'Head Of Programme':
     case 'Staff':
     case 'Guest': // legacy — treat same as Staff (base access)
       return ['Guest'];
@@ -249,10 +251,18 @@ export const patchAuditPermissionGuard = async (c: Context<{ Bindings: Bindings;
 
   if (!existing) return next();
 
-  const adminOnlyFields = ['phaseId', 'departmentId', 'locationId', 'supervisorId'];
+  const adminOnlyFields = ['phaseId', 'departmentId', 'locationId'];
   const hasAdminOnlyFields = adminOnlyFields.some(f => updates[f] !== undefined);
   if (hasAdminOnlyFields) {
-    return c.json({ error: 'Forbidden: only Admins and Coordinators can modify location, department, phase, or supervisor assignments' }, 403);
+    return c.json({ error: 'Forbidden: only Admins and Coordinators can modify location, department, or phase' }, 403);
+  }
+
+  if (updates.supervisorId !== undefined) {
+    const isSelfAssignment = updates.supervisorId === caller.id;
+    const isSelfUnassignment = updates.supervisorId === null && existing.supervisor_id === caller.id;
+    if (!isSelfAssignment && !isSelfUnassignment && !canAudit) {
+      return c.json({ error: 'Forbidden: only Admins and Coordinators can assign or remove other users as supervisor' }, 403);
+    }
   }
 
   const isAssignedAuditor = 
@@ -263,8 +273,8 @@ export const patchAuditPermissionGuard = async (c: Context<{ Bindings: Bindings;
 
   if (updates.date !== undefined) {
     const isDesignatedSupervisor = existing.supervisor_id === caller.id;
-    if (!isDesignatedSupervisor && !isAssignedAuditor && !isSupervisor) {
-      return c.json({ error: 'Forbidden: you must be the assigned site supervisor, a Supervisor, or an assigned auditor to modify the date of this inspection' }, 403);
+    if (!isDesignatedSupervisor && !isAssignedAuditor && !isSupervisor && !canAudit) {
+      return c.json({ error: 'Forbidden: you must be the assigned site supervisor, a Supervisor, an assigned auditor, or a certified officer to modify the date' }, 403);
     }
   }
 
@@ -313,6 +323,8 @@ export const patchAuditSchema = z.object({
   auditor2Id: z.string().nullable().optional(),
   phaseId: z.string().nullable().optional(),
   reportPath: z.string().nullable().optional(),
+  totalAssetsInspected: z.number().nullable().optional(),
+  assetStatusSummary: z.string().nullable().optional(),
   isLocked: z.boolean().nullable().optional(),
 });
 
