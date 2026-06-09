@@ -144,6 +144,27 @@ export const AuditTable: React.FC<AuditTableProps> = ({
     return dept?.auditGroupId || deptId;
   };
 
+  /**
+   * Checks if a cross-audit permission exists between two entities (dept or group).
+   * Matches the server-side auditAssignmentGuard logic:
+   *   - Department-level direct & mutual
+   *   - Group-level direct & mutual
+   */
+  const hasCrossAuditPermission = (auditorEntityId: string, targetEntityId: string) => {
+    return crossAuditPermissions.some(p => {
+      if (!p.isActive) return false;
+      // Dept-level: direct
+      if (p.auditorDeptId === auditorEntityId && p.targetDeptId === targetEntityId) return true;
+      // Dept-level: mutual (reverse)
+      if (p.isMutual && p.auditorDeptId === targetEntityId && p.targetDeptId === auditorEntityId) return true;
+      // Group-level: direct
+      if (p.auditorGroupId === auditorEntityId && p.targetGroupId === targetEntityId) return true;
+      // Group-level: mutual (reverse)
+      if (p.isMutual && p.auditorGroupId === targetEntityId && p.targetGroupId === auditorEntityId) return true;
+      return false;
+    });
+  };
+
   const getPhaseName = (phaseId: string) => {
     return auditPhases.find(p => p.id === phaseId)?.name || 'Unknown Phase';
   };
@@ -157,12 +178,7 @@ export const AuditTable: React.FC<AuditTableProps> = ({
 
     // 2. Check if a pairing exists in crossAuditPermissions (only if in cross-audit mode)
     if (assignmentMode === 'cross-audit') {
-      const hasCrossAuditPerm = crossAuditPermissions.some(p => 
-        p.auditorDeptId === myEntityId && 
-        p.targetDeptId === targetEntityId && 
-        p.isActive
-      );
-      return isAdmin || hasCrossAuditPerm;
+      return isAdmin || hasCrossAuditPermission(myEntityId, targetEntityId);
     }
 
     // 3. In Open Audit mode, any certified officer can audit any department (except COI)
@@ -267,11 +283,7 @@ export const AuditTable: React.FC<AuditTableProps> = ({
     }
 
     if (assignmentMode === 'cross-audit') {
-      const hasCrossPerm = isAdmin || crossAuditPermissions.some(p => 
-        p.auditorDeptId === myEntityId && 
-        p.targetDeptId === targetEntityId && 
-        p.isActive
-      );
+      const hasCrossPerm = isAdmin || hasCrossAuditPermission(myEntityId, targetEntityId);
 
       if (!hasCrossPerm) {
         alert(`PAIRING RESTRICTION: This asset location is outside the assigned inspection matrix for ${isSelf ? 'you' : 'the selected officer'}.`);
@@ -334,12 +346,7 @@ export const AuditTable: React.FC<AuditTableProps> = ({
           if (myEntityId === targetEntityId) return false;
 
           if (assignmentMode === 'cross-audit') {
-            const hasCrossPerm = isAdmin || crossAuditPermissions.some(p => 
-              p.auditorDeptId === myEntityId && 
-              p.targetDeptId === targetEntityId && 
-              p.isActive
-            );
-            if (!hasCrossPerm) return false;
+            if (!isAdmin && !hasCrossAuditPermission(myEntityId, targetEntityId)) return false;
           }
 
           // 3. ABSOLUTE LOCK: Supervisor cannot be the Auditor for the same location
