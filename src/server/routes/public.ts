@@ -39,7 +39,7 @@ async function getMobileSession(c: any): Promise<string | null> {
 }
 
 /**
- * Verify the authenticated user is a Certified Officer:
+ * Verify the authenticated user is a Qualified Asset Inspector (QAI):
  * any Active, verified user with a valid (non-expired) certification_expiry.
  * The "Auditor" role label is NOT required — certification is the sole gate,
  * matching the client-side hasCert check in MobileApp.tsx.
@@ -54,7 +54,7 @@ async function assertCertifiedOfficer(db: D1Database, userId: string): Promise<s
   if (user.status !== 'Active') return 'Your account is not active.';
   if (!user.is_verified) return 'Your account is not verified.';
   if (!user.certification_expiry || user.certification_expiry < today) {
-    return 'Access restricted: this mobile app is for certified officers only.';
+    return 'Access restricted: this mobile app is for qualified asset inspectors (QAIs) only.';
   }
   return null;
 }
@@ -66,14 +66,14 @@ async function assertCertifiedOfficer(db: D1Database, userId: string): Promise<s
  * Returns all audit schedules enriched with department, location, phase,
  * and auditor/supervisor display names. Also returns all active users
  * (for the searchable assignment combobox) and phases.
- * Restricted to certified officers (Auditor role + valid certification).
+ * Restricted to qualified asset inspectors (QAIs) (Auditor role + valid certification).
  */
 pub.get('/kiosk', async (c) => {
   // Require SSO session — mobile is no longer publicly accessible
   const sessionUserId = await getMobileSession(c);
   if (!sessionUserId) return c.json({ error: 'Authentication required' }, 401);
 
-  // Mobile is for certified officers only
+  // Mobile is for qualified asset inspectors (QAIs) only
   const certError = await assertCertifiedOfficer(c.env.DB, sessionUserId);
   if (certError) return c.json({ error: certError, code: 'NOT_CERTIFIED' }, 403);
 
@@ -228,7 +228,7 @@ pub.patch('/kiosk/schedules/:id', async (c) => {
   const sessionUserId = await getMobileSession(c);
   if (!sessionUserId) return c.json({ error: 'Authentication required' }, 401);
 
-  // Mobile is for certified officers only
+  // Mobile is for qualified asset inspectors (QAIs) only
   const certError = await assertCertifiedOfficer(c.env.DB, sessionUserId);
   if (certError) return c.json({ error: certError, code: 'NOT_CERTIFIED' }, 403);
 
@@ -399,7 +399,7 @@ pub.patch('/kiosk/schedules/:id', async (c) => {
         return c.json({ error: 'RACE CONDITION DETECTED: This slot was just taken by another user. Please refresh your view to see the latest assignments.' }, 409);
       }
 
-      // Auto-activation check (Pending -> Awaiting Approval once assignments are complete)
+      // Auto-activation check (Pending -> In Progress once assignments are complete)
       const updatedSchedule = await c.env.DB.prepare(
         'SELECT status, date, supervisor_id, auditor1_id, auditor2_id FROM audit_schedules WHERE id = ?'
       ).bind(scheduleId).first<{ status: string; date: string | null; supervisor_id: string | null; auditor1_id: string | null; auditor2_id: string | null }>();
@@ -408,10 +408,10 @@ pub.patch('/kiosk/schedules/:id', async (c) => {
         if (updatedSchedule.status === 'Pending') {
           if (updatedSchedule.date && updatedSchedule.supervisor_id && updatedSchedule.auditor1_id && updatedSchedule.auditor2_id) {
             await c.env.DB.prepare(
-              "UPDATE audit_schedules SET status = 'Awaiting Approval' WHERE id = ?"
+              "UPDATE audit_schedules SET status = 'In Progress', is_locked = 1 WHERE id = ?"
             ).bind(scheduleId).run();
           }
-        } else if (updatedSchedule.status === 'In Progress' || updatedSchedule.status === 'Awaiting Approval') {
+        } else if (updatedSchedule.status === 'In Progress') {
           if (!updatedSchedule.date || !updatedSchedule.supervisor_id || !updatedSchedule.auditor1_id || !updatedSchedule.auditor2_id) {
             await c.env.DB.prepare(
               "UPDATE audit_schedules SET status = 'Pending' WHERE id = ?"
@@ -422,6 +422,7 @@ pub.patch('/kiosk/schedules/:id', async (c) => {
 
       // Bust the mobile cache so the next poll reflects the new assignment
       await c.env.SETTINGS.delete('mobile_cache');
+      await c.env.SETTINGS.delete('kiosk_dashboard_cache');
       return c.json({ success: true, name: user.name });
     } else {
       // Unassign – mobile users can only remove their own assignment (supervisor slot blocked)
@@ -443,12 +444,13 @@ pub.patch('/kiosk/schedules/:id', async (c) => {
       ).bind(scheduleId).run();
       // Bust the mobile cache so the next poll reflects the removed assignment
       await c.env.SETTINGS.delete('mobile_cache');
+      await c.env.SETTINGS.delete('kiosk_dashboard_cache');
 
-      // Revert Awaiting Approval / In Progress -> Pending if any assignment is missing
+      // Revert In Progress -> Pending if any assignment is missing
       const remaining = await c.env.DB.prepare(
         `SELECT status, date, supervisor_id, auditor1_id, auditor2_id FROM audit_schedules WHERE id = ?`
       ).bind(scheduleId).first<{ status: string; date: string | null; supervisor_id: string | null; auditor1_id: string | null; auditor2_id: string | null }>();
-      if (remaining && (remaining.status === 'In Progress' || remaining.status === 'Awaiting Approval')) {
+      if (remaining && remaining.status === 'In Progress') {
         if (!remaining.date || !remaining.supervisor_id || !remaining.auditor1_id || !remaining.auditor2_id) {
           await c.env.DB.prepare(
             `UPDATE audit_schedules SET status = 'Pending' WHERE id = ?`
@@ -474,7 +476,7 @@ pub.patch('/kiosk/schedules/:id/date', async (c) => {
   const sessionUserId = await getMobileSession(c);
   if (!sessionUserId) return c.json({ error: 'Authentication required' }, 401);
 
-  // Mobile is for certified officers only
+  // Mobile is for qualified asset inspectors (QAIs) only
   const certError = await assertCertifiedOfficer(c.env.DB, sessionUserId);
   if (certError) return c.json({ error: certError, code: 'NOT_CERTIFIED' }, 403);
 
@@ -512,7 +514,7 @@ pub.patch('/kiosk/schedules/:id/date', async (c) => {
       ).bind(date ?? null, scheduleId).run();
     }
 
-    // Auto-activation check (Pending -> Awaiting Approval once assignments are complete)
+    // Auto-activation check (Pending -> In Progress once assignments are complete)
     const updatedSchedule = await c.env.DB.prepare(
       'SELECT status, date, supervisor_id, auditor1_id, auditor2_id FROM audit_schedules WHERE id = ?'
     ).bind(scheduleId).first<{ status: string; date: string | null; supervisor_id: string | null; auditor1_id: string | null; auditor2_id: string | null }>();
@@ -521,10 +523,10 @@ pub.patch('/kiosk/schedules/:id/date', async (c) => {
       if (updatedSchedule.status === 'Pending') {
         if (updatedSchedule.date && updatedSchedule.supervisor_id && updatedSchedule.auditor1_id && updatedSchedule.auditor2_id) {
           await c.env.DB.prepare(
-            "UPDATE audit_schedules SET status = 'Awaiting Approval' WHERE id = ?"
+            "UPDATE audit_schedules SET status = 'In Progress', is_locked = 1 WHERE id = ?"
           ).bind(scheduleId).run();
         }
-      } else if (updatedSchedule.status === 'In Progress' || updatedSchedule.status === 'Awaiting Approval') {
+      } else if (updatedSchedule.status === 'In Progress') {
         if (!updatedSchedule.date || !updatedSchedule.supervisor_id || !updatedSchedule.auditor1_id || !updatedSchedule.auditor2_id) {
           await c.env.DB.prepare(
             "UPDATE audit_schedules SET status = 'Pending' WHERE id = ?"
@@ -535,6 +537,7 @@ pub.patch('/kiosk/schedules/:id/date', async (c) => {
 
     // Bust the mobile cache so the next poll reflects the updated date
     await c.env.SETTINGS.delete('mobile_cache');
+    await c.env.SETTINGS.delete('kiosk_dashboard_cache');
     return c.json({ success: true });
   } catch (err: any) {
     return c.json({ error: err.message }, 500);
@@ -648,6 +651,13 @@ pub.get('/stats', async (c) => {
  * Edge-cached for 60 seconds (matches kiosk polling interval).
  */
 pub.get('/kiosk-dashboard', async (c) => {
+  // KV read-through cache — drops load latency to ~30ms globally
+  const cachedDashboard = await c.env.SETTINGS.get('kiosk_dashboard_cache');
+  if (cachedDashboard) {
+    c.header('Cache-Control', 'public, max-age=60, s-maxage=60');
+    return c.json(JSON.parse(cachedDashboard));
+  }
+
   try {
     const db = c.env.DB;
     const [
@@ -712,8 +722,7 @@ pub.get('/kiosk-dashboard', async (c) => {
     const mapKPITierTarget = (r: any) => ({ id: r.id, tierId: r.tier_id, phaseId: r.phase_id, targetPercentage: r.target_percentage });
     const mapInstKPI = (r: any) => ({ id: r.phase_id, phaseId: r.phase_id, targetPercentage: r.target_percentage });
 
-    c.header('Cache-Control', 'public, max-age=60, s-maxage=60');
-    return c.json({
+    const payload = {
       schedules: (schedulesResult.results ?? []).map(mapSchedule),
       users: (usersResult.results ?? []).map(mapUser),
       departments: (deptsResult.results ?? []).map(mapDept),
@@ -724,7 +733,13 @@ pub.get('/kiosk-dashboard', async (c) => {
       kpiTierTargets: (kpiTargetsResult.results ?? []).map(mapKPITierTarget),
       institutionKPIs: (instKpisResult.results ?? []).map(mapInstKPI),
       activities: [], // removed from kiosk — system_activities query dropped
-    });
+    };
+
+    // Write to KV with 60 s TTL
+    await c.env.SETTINGS.put('kiosk_dashboard_cache', JSON.stringify(payload), { expirationTtl: 60 });
+    
+    c.header('Cache-Control', 'public, max-age=60, s-maxage=60');
+    return c.json(payload);
   } catch (err: any) {
     console.error('[Kiosk Dashboard] Error:', err);
     return c.json({ error: 'Failed to load dashboard data' }, 500);

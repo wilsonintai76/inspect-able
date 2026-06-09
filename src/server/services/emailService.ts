@@ -15,7 +15,7 @@ const FROM_ADDRESS = 'Inspect-Able <noreply@inspect-able.com>';
 
 /**
  * Sends a supervisor approval email when an audit schedule transitions to
- * "Awaiting Approval" (all 4 fields filled: date, supervisor, auditor1, auditor2).
+ * "In Progress" (all 4 fields filled: date, supervisor, auditor1, auditor2).
  *
  * The supervisor is asked to log in and click the Lock button to confirm.
  */
@@ -41,7 +41,7 @@ export async function sendSupervisorApprovalEmail(
           <td style="background:linear-gradient(135deg,#4f46e5 0%,#6366f1 100%);padding:40px 40px 32px;text-align:center;">
             <p style="margin:0 0 8px;color:rgba(255,255,255,0.75);font-size:11px;font-weight:700;letter-spacing:0.15em;text-transform:uppercase;">Inspect-Able · Inspection Management</p>
             <h1 style="margin:0;color:#ffffff;font-size:24px;font-weight:900;line-height:1.2;">Action Required</h1>
-            <p style="margin:10px 0 0;color:rgba(255,255,255,0.85);font-size:15px;">An inspection schedule is awaiting your approval</p>
+            <p style="margin:10px 0 0;color:rgba(255,255,255,0.85);font-size:15px;">An inspection has been assigned to you</p>
           </td>
         </tr>
 
@@ -50,7 +50,7 @@ export async function sendSupervisorApprovalEmail(
           <td style="padding:36px 40px;">
             <p style="margin:0 0 20px;color:#475569;font-size:15px;line-height:1.6;">Hello <strong style="color:#0f172a;">${supervisorName}</strong>,</p>
             <p style="margin:0 0 24px;color:#475569;font-size:15px;line-height:1.6;">
-              An inspection has been fully scheduled and is awaiting your confirmation before it can officially begin.
+              An inspection has been fully scheduled and is now In Progress.
               Please review the details below and <strong style="color:#4f46e5;">lock the schedule</strong> to approve it.
             </p>
 
@@ -126,7 +126,7 @@ export async function sendSupervisorApprovalEmail(
     body: JSON.stringify({
       from: FROM_ADDRESS,
       to: [to],
-      subject: `Action Required: Inspection Awaiting Approval — ${locationName} (${auditDate})`,
+      subject: `Action Required: Inspection Assigned — ${locationName} (${auditDate})`,
       html,
     }),
   });
@@ -161,14 +161,14 @@ export async function sendPreDateReminderEmail(
           <td style="background:linear-gradient(135deg,#ea580c 0%,#f97316 100%);padding:40px 40px 32px;text-align:center;">
             <p style="margin:0 0 8px;color:rgba(255,255,255,0.75);font-size:11px;font-weight:700;letter-spacing:0.15em;text-transform:uppercase;">Inspect-Able · Reminder</p>
             <h1 style="margin:0;color:#ffffff;font-size:24px;font-weight:900;line-height:1.2;">Upcoming Inspection</h1>
-            <p style="margin:10px 0 0;color:rgba(255,255,255,0.85);font-size:15px;">An inspection is scheduled in 2 days and still awaiting your approval</p>
+            <p style="margin:10px 0 0;color:rgba(255,255,255,0.85);font-size:15px;">An inspection is scheduled in 2 days and requires your attention</p>
           </td>
         </tr>
         <tr>
           <td style="padding:36px 40px;">
             <p style="margin:0 0 20px;color:#475569;font-size:15px;line-height:1.6;">Hello <strong style="color:#0f172a;">${supervisorName}</strong>,</p>
             <p style="margin:0 0 24px;color:#475569;font-size:15px;line-height:1.6;">
-              This is a reminder that the following inspection is scheduled for <strong style="color:#ea580c;">${auditDate}</strong> and is still awaiting your approval.
+              This is a reminder that the following inspection is scheduled for <strong style="color:#ea580c;">${auditDate}</strong> and is scheduled and requires your attention.
               Please lock the schedule to confirm it before the date arrives.
             </p>
             <table width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:16px;margin:0 0 28px;">

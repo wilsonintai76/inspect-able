@@ -19,11 +19,17 @@ import {
   Lock,
   Mail,
   User as UserIcon,
-  Loader2
+  Loader2,
+  FileText,
+  HelpCircle,
+  Smartphone,
+  Monitor
 } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
 import { AuditPhase, SystemActivity, UserRole, AppView } from '@shared/types';
 import { BRAND, BRANDING } from '../constants';
 import { authService } from '../services/auth';
+import { gateway } from '../services/dataGateway';
 
 interface LandingPageProps {
   onEnter: () => void;
@@ -180,7 +186,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
     if (authMode === 'forgot-password') {
       try {
-        const { gateway } = await import('../services/dataGateway');
         const result = await gateway.requestPasswordReset(email);
         setAuthError(null);
         setAuthMode('login');
@@ -301,6 +306,68 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             </div>
 
           <div className="flex items-center gap-8">
+            <a
+              href="https://mobile.inspect-able.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hidden md:flex text-[10px] font-black uppercase text-slate-500 tracking-widest hover:text-blue-600 transition-colors items-center gap-2"
+            >
+              <Smartphone className="w-3 h-3" />
+              Mobile App
+            </a>
+            <a
+              href="https://kiosk.inspect-able.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hidden md:flex text-[10px] font-black uppercase text-slate-500 tracking-widest hover:text-blue-600 transition-colors items-center gap-2"
+            >
+              <Monitor className="w-3 h-3" />
+              Kiosk App
+            </a>
+            <a
+              href="/manuals/sppa-manual.pdf"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hidden md:flex text-[10px] font-black uppercase text-slate-500 tracking-widest hover:text-blue-600 transition-colors items-center gap-2"
+            >
+              <FileText className="w-3 h-3" />
+              SPPA Manual
+            </a>
+            <Dialog>
+              <DialogTrigger render={
+                <button
+                  className="hidden md:flex text-[10px] font-black uppercase text-slate-500 tracking-widest hover:text-blue-600 transition-colors items-center gap-2"
+                >
+                  <HelpCircle className="w-3 h-3" />
+                  Staff FAQ
+                </button>
+              } />
+              <DialogContent className="max-w-2xl bg-white rounded-3xl p-8 border-none shadow-2xl">
+                <DialogHeader className="mb-8">
+                  <DialogTitle className="text-2xl font-black text-slate-900">Staff FAQ</DialogTitle>
+                  <p className="text-slate-500 text-sm mt-1">Real-time status of your institutional asset inspection operations.</p>
+                </DialogHeader>
+                <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
+                  {faqs.map((faq, i) => (
+                    <div 
+                      key={i}
+                      className="bg-white border border-slate-200 rounded-2xl overflow-hidden transition-all duration-300"
+                    >
+                      <button
+                        onClick={() => setOpenFaq(openFaq === i ? null : i)}
+                        className="w-full px-6 py-4 flex items-center justify-between text-left"
+                      >
+                        <span className="font-bold text-slate-900 text-sm">{faq.q}</span>
+                        <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-300 ${openFaq === i ? 'rotate-180' : ''}`} />
+                      </button>
+                      <div className={`transition-all duration-300 ease-in-out px-6 overflow-hidden ${openFaq === i ? 'max-h-40 pb-4 opacity-100' : 'max-h-0 opacity-0'}`}>
+                        <p className="text-slate-500 text-sm leading-relaxed">{faq.a}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </DialogContent>
+            </Dialog>
             <button
               onClick={onShowKnowledgeBase}
               className="text-[10px] font-black uppercase text-slate-500 tracking-widest hover:text-blue-600 transition-colors flex items-center gap-2"
@@ -478,32 +545,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           </div>
         )}
 
-        {/* FAQ Section (Feature 4) */}
-        <section className="mt-40 max-w-3xl mx-auto">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl font-black text-slate-900 mb-4">Staff FAQ</h2>
-            <p className="text-slate-500 text-lg mt-1">Real-time status of your institutional asset inspection operations.</p>
-          </div>
-          <div className="space-y-4">
-            {faqs.map((faq, i) => (
-              <div 
-                key={i}
-                className="bg-white border border-slate-200 rounded-3xl overflow-hidden transition-all duration-300 hover:shadow-lg hover:shadow-slate-200/50"
-              >
-                <button
-                  onClick={() => setOpenFaq(openFaq === i ? null : i)}
-                  className="w-full px-8 py-6 flex items-center justify-between text-left"
-                >
-                  <span className="font-bold text-slate-900">{faq.q}</span>
-                  <ChevronDown className={`w-5 h-5 text-slate-400 transition-transform duration-300 ${openFaq === i ? 'rotate-180' : ''}`} />
-                </button>
-                <div className={`transition-all duration-300 ease-in-out px-8 overflow-hidden ${openFaq === i ? 'max-h-40 pb-6 opacity-100' : 'max-h-0 opacity-0'}`}>
-                  <p className="text-slate-500 leading-relaxed">{faq.a}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
+
       </main>
 
       {/* AUTH MODAL */}

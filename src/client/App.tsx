@@ -6,6 +6,7 @@ import {
   AppView,
   UserRole
 } from '@shared/types';
+import { BRANDING } from './constants';
 
 // Components
 import { AuditTable } from './components/AuditTable';
@@ -62,7 +63,6 @@ const App: React.FC = () => {
         if (res.ok) {
           const { branding } = (await res.json()) as any;
           if (branding) {
-            const { BRANDING } = await import('./constants');
             if (branding.logoBrand) {
               BRANDING.logoBrand = branding.logoBrand;
             } else if (branding.logoHorizontal || branding.logoSquare) {

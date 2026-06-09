@@ -353,7 +353,7 @@ export default {
               const pending = await env.DB.prepare(
                 `SELECT a.id, a.date, a.supervisor_id, a.location_id, a.department_id
                  FROM audit_schedules a
-                 WHERE a.status = 'Awaiting Approval' AND a.date = ?`
+                 WHERE a.status = 'In Progress' AND a.date = ?`
               ).bind(targetDate).all<{ id: string; date: string; supervisor_id: string | null; location_id: string | null; department_id: string | null }>();
 
               for (const audit of pending.results || []) {

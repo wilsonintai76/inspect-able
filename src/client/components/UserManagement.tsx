@@ -306,7 +306,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({
               <div className="w-6 h-6 rounded-lg bg-white/10 flex items-center justify-center group-hover:bg-white/20 transition-colors">
                  <Plus className="w-4 h-4" />
               </div>
-              Add Team Member
+              Add New User
             </button>
           )}
         </div>

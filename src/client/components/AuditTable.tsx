@@ -385,7 +385,6 @@ export const AuditTable: React.FC<AuditTableProps> = ({
     switch(status) {
       case 'Completed': return 'bg-emerald-50 text-emerald-600 border-emerald-200 hover:bg-emerald-100 hover:border-emerald-300 cursor-pointer';
       case 'In Progress': return 'bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100 hover:border-blue-300 cursor-pointer';
-      case 'Awaiting Approval': return 'bg-amber-50 text-amber-600 border-amber-200 hover:bg-amber-100 hover:border-amber-300 cursor-pointer';
       default: return 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed';
     }
   };

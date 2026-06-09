@@ -142,8 +142,8 @@ export const KioskApp: React.FC = () => {
           totalAssets: deptTotalAssets,
           gaps: [
             !hasHod && 'No HOD',
-            certified.length === 0 && 'No certified inspectors',
-            certified.length === 1 && 'Only 1 certified inspector',
+            certified.length === 0 && 'No QAIs',
+            certified.length === 1 && 'Only 1 QAI',
           ].filter(Boolean) as string[],
         };
       })
@@ -162,18 +162,16 @@ export const KioskApp: React.FC = () => {
     let completedAssets = 0;
     let completed = 0;
     let inProgress = 0;
-    let awaitingApproval = 0;
     let assigned = 0;
     activeLocations.forEach(l => {
       const s = scheduleByLoc.get(l.id);
       if (s) {
         if (s.status === 'Completed') { completed++; completedAssets += (l.totalAssets || 0); }
         else if (s.status === 'In Progress') inProgress++;
-        else if (s.status === 'Awaiting Approval') awaitingApproval++;
         if (s.auditor1Id && s.auditor2Id) assigned++;
       }
     });
-    return { totalLocations, totalAssets, completedAssets, total: totalLocations, assigned, inProgress, completed, awaitingApproval };
+    return { totalLocations, totalAssets, completedAssets, total: totalLocations, assigned, inProgress, completed };
   }, [schedules, activeLocations, activeLocationIds]);
 
   const inspectionByDept = React.useMemo(() => {
@@ -191,7 +189,6 @@ export const KioskApp: React.FC = () => {
           const s = schedules.find(sc => sc.locationId === l.id);
           return !s || s.status === 'Pending';
         }).length;
-        const awaiting = deptLocs.filter(l => schedules.find(sc => sc.locationId === l.id)?.status === 'Awaiting Approval').length;
         const inProgress = deptLocs.filter(l => schedules.find(sc => sc.locationId === l.id)?.status === 'In Progress').length;
         const completed = deptLocs.filter(l => schedules.find(sc => sc.locationId === l.id)?.status === 'Completed').length;
         const noSupervisor = deptLocs.filter(l => !l.supervisorId).length;
@@ -202,7 +199,6 @@ export const KioskApp: React.FC = () => {
           locs: deptLocs.length,
           totalAssets,
           pending,
-          awaiting,
           inProgress,
           completed,
           noSupervisor,
@@ -235,7 +231,7 @@ export const KioskApp: React.FC = () => {
 
   const pendingApprovals = React.useMemo(() => {
     return schedules
-      .filter(s => s.status === 'Awaiting Approval' && activeLocationIds.has(s.locationId))
+      .filter(s => false)
       .map(s => {
         const dept = departments.find(d => d.id === s.departmentId);
         const loc = locations.find(l => l.id === s.locationId);
@@ -381,13 +377,12 @@ export const KioskApp: React.FC = () => {
           <Space wrap size={[8, 8]}>
             <Typography.Text strong style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: 1 }}>Status:</Typography.Text>
             <Tag icon={<ClockCircleOutlined />} color="default">
-              Pending {auditStats.total - auditStats.inProgress - auditStats.awaitingApproval - auditStats.completed}
+              Pending {auditStats.total - auditStats.inProgress - auditStats.completed}
             </Tag>
             <Tag icon={<SyncOutlined spin />} color="processing">
               In Progress {auditStats.inProgress}
             </Tag>
             <Tag icon={<ExclamationCircleOutlined />} color="warning">
-              Awaiting {auditStats.awaitingApproval}
             </Tag>
             <Tag icon={<CheckCircleOutlined />} color="success">
               Completed {auditStats.completed}
@@ -468,10 +463,9 @@ export const KioskApp: React.FC = () => {
                     <Space size={6} wrap>
                       {d.completed > 0 && <Tag color="success" style={{ margin: 0, fontSize: 13, padding: '2px 10px' }}>✅ {d.completed}</Tag>}
                       {d.inProgress > 0 && <Tag color="processing" style={{ margin: 0, fontSize: 13, padding: '2px 10px' }}>🔄 {d.inProgress}</Tag>}
-                      {d.awaiting > 0 && <Tag color="warning" style={{ margin: 0, fontSize: 13, padding: '2px 10px' }}>⏳ {d.awaiting}</Tag>}
                       {d.pending > 0 && <Tag style={{ margin: 0, fontSize: 13, padding: '2px 10px' }}>⏸ {d.pending}</Tag>}
                       {d.noSupervisor > 0 && <Tag color="error" style={{ margin: 0, fontSize: 13, padding: '2px 10px' }}>⚠ {d.noSupervisor}</Tag>}
-                      {d.completed === 0 && d.inProgress === 0 && d.awaiting === 0 && d.pending === 0 && d.noSupervisor === 0 && (
+                      {d.completed === 0 && d.inProgress === 0 && d.pending === 0 && d.noSupervisor === 0 && (
                         <Typography.Text style={{ fontSize: 13, color: '#999' }}>No schedules</Typography.Text>
                       )}
                     </Space>
@@ -496,22 +490,16 @@ export const KioskApp: React.FC = () => {
                         animation: 'fadeIn 0.25s ease',
                       }}>
                         <Row gutter={[10, 10]}>
-                          <Col span={8}>
+                          <Col span={12}>
                             <div style={{ textAlign: 'center', padding: '12px 6px', borderRadius: 10, background: '#f6ffed' }}>
                               <div style={{ fontSize: 26, fontWeight: 900, color: '#52c41a' }}>{d.completed}</div>
                               <div style={{ fontSize: 14, color: '#555', fontWeight: 600 }}>Completed</div>
                             </div>
                           </Col>
-                          <Col span={8}>
+                          <Col span={12}>
                             <div style={{ textAlign: 'center', padding: '12px 6px', borderRadius: 10, background: '#e6f7ff' }}>
                               <div style={{ fontSize: 26, fontWeight: 900, color: '#1890ff' }}>{d.inProgress}</div>
                               <div style={{ fontSize: 14, color: '#555', fontWeight: 600 }}>In Progress</div>
-                            </div>
-                          </Col>
-                          <Col span={8}>
-                            <div style={{ textAlign: 'center', padding: '12px 6px', borderRadius: 10, background: '#fff7e6' }}>
-                              <div style={{ fontSize: 26, fontWeight: 900, color: '#fa8c16' }}>{d.awaiting}</div>
-                              <div style={{ fontSize: 14, color: '#555', fontWeight: 600 }}>Awaiting</div>
                             </div>
                           </Col>
                         </Row>
@@ -587,7 +575,6 @@ export const KioskApp: React.FC = () => {
           <Col xs={24} lg={12}>
             <Card
               title={<Space><ExclamationCircleOutlined style={{ color: '#fa8c16' }} />Pending Approval</Space>}
-              extra={<Tag color="warning">{pendingApprovals.length} awaiting</Tag>}
               bordered={false}
               style={{ borderRadius: 12, height: '100%' }}
               bodyStyle={{ maxHeight: 360, overflow: 'auto' }}
@@ -665,7 +652,7 @@ export const KioskApp: React.FC = () => {
               {staffingGaps.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: 32 }}>
                   <CheckCircleOutlined style={{ fontSize: 32, color: '#52c41a', marginBottom: 8 }} />
-                  <Typography.Text type="secondary">All departments have certified inspectors</Typography.Text>
+                  <Typography.Text type="secondary">All departments have QAIs</Typography.Text>
                 </div>
               ) : (
                 staffingGaps.map(d => (

@@ -240,10 +240,10 @@ router.post('/locations/merge', requirePolicy('location.manage', emptyContextBui
     const allIds = [...sourceIds, targetId];
     const placeholders = allIds.map(() => '?').join(',');
     const { results } = await c.env.DB.prepare(
-      `SELECT id, name, description, total_assets, uninspected_asset_count FROM locations WHERE id IN (${placeholders})`
+      `SELECT id, name, description, total_assets, uninspected_asset_count, supervisor_id FROM locations WHERE id IN (${placeholders})`
     ).bind(...allIds).all();
 
-    const locs = results as { id: string, name: string, description: string | null, total_assets: number, uninspected_asset_count: number }[];
+    const locs = results as { id: string, name: string, description: string | null, total_assets: number, uninspected_asset_count: number, supervisor_id: string | null }[];
     const target = locs.find(l => l.id === targetId);
     const sources = locs.filter(l => sourceIds.includes(l.id));
 
@@ -270,8 +270,8 @@ router.post('/locations/merge', requirePolicy('location.manage', emptyContextBui
     // 3. Re-link Schedules
     const sourcePlaceholders = sourceIds.map(() => '?').join(',');
     statements.push(c.env.DB.prepare(
-      `UPDATE audit_schedules SET location_id = ? WHERE location_id IN (${sourcePlaceholders})`
-    ).bind(targetId, ...sourceIds));
+      `UPDATE audit_schedules SET location_id = ?, supervisor_id = ? WHERE location_id IN (${sourcePlaceholders})`
+    ).bind(targetId, target.supervisor_id || null, ...sourceIds));
 
     // 4. Update Mappings (so old sources now map to target)
     statements.push(c.env.DB.prepare(

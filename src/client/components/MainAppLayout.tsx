@@ -1,5 +1,6 @@
 import React from 'react';
-import { Menu, BookOpen, AlertCircle, ShieldCheck } from 'lucide-react';
+import { Menu, BookOpen, AlertCircle, ShieldCheck, FileText } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
 import { User, AppView, SystemActivity, AppNotification } from '@shared/types';
 import { Sidebar } from './Sidebar';
 import { NotificationCenter } from './NotificationCenter';
@@ -81,6 +82,25 @@ export const MainAppLayout: React.FC<MainAppLayoutProps> = ({
             <div className="flex items-center gap-4">
               {checkProfileComplete(currentUser) && (
                 <>
+                  <Dialog>
+                    <DialogTrigger render={<button className="w-10 h-10 flex items-center justify-center rounded-xl transition-all bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-rose-600" title="SPPA Manual"><FileText className="w-5 h-5" /></button>} />
+                    <DialogContent className="max-w-[90vw] w-full h-[90vh] p-0 overflow-hidden bg-slate-900 border-none rounded-2xl flex flex-col">
+                      <DialogHeader className="px-6 py-4 bg-slate-900 border-b border-slate-800 flex flex-row items-center justify-between shrink-0">
+                        <DialogTitle className="text-white flex items-center gap-3">
+                          <FileText className="w-5 h-5 text-rose-500" />
+                          Manual Pemeriksaan Aset Alih Kerajaan (SPPA)
+                        </DialogTitle>
+                      </DialogHeader>
+                      <div className="flex-grow w-full h-full relative bg-slate-950">
+                        <iframe 
+                          src="/manuals/sppa-manual.pdf#toolbar=0" 
+                          className="absolute inset-0 w-full h-full border-0"
+                          title="SPPA Manual"
+                        />
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+
                   <button
                     onClick={() => handleViewChange('knowledge-base')}
                     className={`w-10 h-10 flex items-center justify-center rounded-xl transition-all ${activeView === 'knowledge-base' ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}

@@ -5,7 +5,7 @@ import {
 import { AuditorAssignmentSlot } from '../AuditorAssignmentSlot';
 import {
   Calendar, Lock, Unlock, Building, Layers, Package,
-  AlertTriangle, Phone, UserCheck, RotateCcw, FileText, ExternalLink, Upload, Mail,
+  AlertTriangle, Phone, UserCheck, RotateCcw, FileText, ExternalLink, Upload, Mail, MapPin,
 } from 'lucide-react';
 
 export interface AuditTableRowProps {
@@ -141,7 +141,7 @@ export const AuditTableRow: React.FC<AuditTableRowProps> = ({
     return d >= start && d <= end;
   });
   const locationLevel = loc?.level;
-  const canLock = isAdmin || isCoordinator || isSupervisor; // Admin, Coordinator & Supervisor can lock/unlock (main site only)
+  const canLock = isAdmin || isCoordinator || isSupervisor || isInspector; // Admin, Coordinator, Supervisor & Inspector can unlock
   const allFieldsSet = !!(audit.date && audit.supervisorId && audit.auditor1Id && audit.auditor2Id);
   // Allow toggling if: already effectively locked (any privileged role can unlock),
   // OR all fields are set and it's not yet locked (ready to lock).
@@ -277,6 +277,13 @@ export const AuditTableRow: React.FC<AuditTableRowProps> = ({
               </div>
             );
           })()}
+
+          {loc?.abbr && (
+            <div className="text-[11px] text-slate-400 font-medium flex items-center gap-1.5 uppercase tracking-tight">
+              <MapPin className="w-3 h-3 opacity-40 text-indigo-500" />
+              {loc.abbr}
+            </div>
+          )}
 
           {locationLevel && (
             <div className="text-[11px] text-slate-400 font-medium flex items-center gap-1.5">
@@ -415,58 +422,6 @@ export const AuditTableRow: React.FC<AuditTableRowProps> = ({
               <span className={`inline-flex items-center px-3 py-1.5 rounded-xl text-[10px] font-black uppercase border tracking-widest whitespace-nowrap ${getStatusBadgeStyles(audit.status)}`}>
                 {audit.status}
               </span>
-
-              {/* Awaiting Approval: lock action */}
-              {audit.status === 'Awaiting Approval' && (
-                <>
-                  {canApprove ? (
-                    <button
-                      onClick={() => {
-                        if (!window.confirm(`Lock & approve inspection for "${loc?.name || audit.locationId}"?\n\nStatus will change to "In Progress".`)) return;
-                        onToggleLock(audit.id);
-                      }}
-                      className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500 text-white rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-emerald-600 transition-all shadow-md shadow-emerald-500/25 active:scale-95 whitespace-nowrap"
-                      title="Lock this inspection to approve it — sets status to In Progress"
-                    >
-                      <Lock className="w-3 h-3" />
-                      Lock to Approve
-                    </button>
-                  ) : (
-                    <div className="flex items-center gap-1 px-2 py-1 bg-amber-50 text-amber-600 border border-amber-100 rounded-lg text-[9px] font-bold whitespace-nowrap">
-                      <Lock className="w-2.5 h-2.5 shrink-0" />
-                      <span>Awaiting supervisor approval</span>
-                    </div>
-                  )}
-
-                  {canSendApprovalReminder && (
-                    (() => {
-                      const daysUntilDate = audit.date
-                        ? Math.ceil((new Date(audit.date + 'T00:00:00').getTime() - new Date(todayStr + 'T00:00:00').getTime()) / (1000 * 60 * 60 * 24))
-                        : 999;
-                      const isLastDay = daysUntilDate <= 1;
-                      return (
-                        <button
-                          onClick={() => {
-                            if (!isLastDay) return;
-                            if (!window.confirm(`Send an approval reminder email to the supervisor for "${loc?.name || audit.locationId}"?`)) return;
-                            onSendEmail(audit.id);
-                          }}
-                          disabled={!isLastDay}
-                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
-                            isLastDay
-                              ? 'bg-white border border-slate-200 text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200 active:scale-95'
-                              : 'bg-slate-50 border border-slate-100 text-slate-300 cursor-not-allowed'
-                          }`}
-                          title={isLastDay ? 'Send approval reminder email to supervisor' : `Reminder available 1 day before schedule (${audit.date || 'date not set'})`}
-                        >
-                          <Mail className="w-3 h-3" />
-                          {isLastDay ? 'Send Reminder' : 'Reminder Later'}
-                        </button>
-                      );
-                    })()
-                  )}
-                </>
-              )}
 
               {/* In Progress: upload action */}
               {audit.status === 'In Progress' && (

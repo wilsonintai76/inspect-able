@@ -7,7 +7,6 @@ interface InspectionDeptRow {
   locs: number;
   totalAssets: number;
   pending: number;
-  awaiting: number;
   inProgress: number;
   completed: number;
   noSupervisor: number;
@@ -34,7 +33,6 @@ export const InspectionStatusTable: React.FC<Props> = ({ data }) => {
               <th className="px-4 py-3 text-[10px] font-black uppercase text-slate-400">Department</th>
               <th className="px-2 py-3 text-[10px] font-black uppercase text-slate-400 text-center">Locs</th>
               <th className="px-2 py-3 text-[10px] font-black uppercase text-slate-400 text-center">Pending</th>
-              <th className="px-2 py-3 text-[10px] font-black uppercase text-orange-500 text-center">Awaiting</th>
               <th className="px-2 py-3 text-[10px] font-black uppercase text-amber-500 text-center">In Prog</th>
               <th className="px-2 py-3 text-[10px] font-black uppercase text-emerald-600 text-center">Done</th>
               <th className="px-2 py-3 text-[10px] font-black uppercase text-slate-400 text-center">No Supv</th>
@@ -47,7 +45,6 @@ export const InspectionStatusTable: React.FC<Props> = ({ data }) => {
                 <td className="px-4 py-3 font-bold text-slate-800">{d.name}</td>
                 <td className="px-2 py-3 text-center font-bold text-slate-600">{d.locs}</td>
                 <td className="px-2 py-3 text-center font-medium text-slate-500">{d.pending}</td>
-                <td className="px-2 py-3 text-center font-bold text-orange-500">{d.awaiting}</td>
                 <td className="px-2 py-3 text-center font-bold text-amber-500">{d.inProgress}</td>
                 <td className="px-2 py-3 text-center font-bold text-emerald-600">{d.completed}</td>
                 <td className="px-2 py-3 text-center">
@@ -70,12 +67,7 @@ export const InspectionStatusTable: React.FC<Props> = ({ data }) => {
                           style={{ width: `${(d.inProgress / d.locs) * 100}%` }}
                         />
                       )}
-                      {d.awaiting > 0 && (
-                        <div
-                          className="h-full bg-orange-400 transition-all"
-                          style={{ width: `${(d.awaiting / d.locs) * 100}%` }}
-                        />
-                      )}
+
                       {d.pending > 0 && (
                         <div
                           className="h-full bg-slate-300 transition-all"

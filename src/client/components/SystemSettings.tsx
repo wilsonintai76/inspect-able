@@ -342,7 +342,7 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
                 <span className="text-[9px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-md uppercase ml-auto">Active</span>
               </div>
               <p className="text-[10px] text-slate-400 font-semibold px-2 italic">
-                Decentralized: Any certified officer can assign themselves to any location except their own.
+                Decentralized: Any Qualified Asset Inspector can assign themselves to any location except their own.
               </p>
             </div>
 

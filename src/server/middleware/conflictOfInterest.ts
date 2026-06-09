@@ -129,7 +129,7 @@ export const auditAssignmentGuard = async (
 
       if (canAssignOthers && isCoordinatorCaller && !isAdminCaller) {
         if (!caller.departmentId || auditor?.department_id !== caller.departmentId) {
-          return c.json({ error: 'Forbidden: coordinators may only assign certified officers from their own department' }, 403);
+          return c.json({ error: 'Forbidden: coordinators may only assign qualified asset inspectors from their own department' }, 403);
         }
       }
 

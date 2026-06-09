@@ -26,7 +26,7 @@ export interface ClientUser {
  * Derives capability strings from user roles + cert expiry.
  * Identical logic to the server's deriveCapabilities().
  */
-export function deriveClientCapabilities(user: ClientUser | null): Set<string> {
+function deriveClientRoleCapabilities(user: ClientUser | null): Set<string> {
   const caps = new Set<string>();
   if (!user) return caps;
 
@@ -81,7 +81,14 @@ export function deriveClientCapabilities(user: ClientUser | null): Set<string> {
     caps.add('system:reset');
   }
 
-  // ── Certified Officer ───────────────────────────────────────────────
+  return caps;
+}
+
+function deriveClientQualificationCapabilities(user: ClientUser | null): Set<string> {
+  const caps = new Set<string>();
+  if (!user) return caps;
+
+  // ── Qualified Asset Inspector (QAI) ─────────────────────────────────
   const today = new Date().toISOString().split('T')[0];
   const isCertValid =
     !!user.certificationExpiry && user.certificationExpiry >= today;
@@ -93,36 +100,20 @@ export function deriveClientCapabilities(user: ClientUser | null): Set<string> {
   return caps;
 }
 
+function deriveClientCapabilities(user: ClientUser | null): Set<string> {
+  const roleCaps = deriveClientRoleCapabilities(user);
+  const qualCaps = deriveClientQualificationCapabilities(user);
+  return new Set([...roleCaps, ...qualCaps]);
+}
+
 /** Check if user holds a specific capability. */
 export function hasCapability(user: ClientUser | null, capability: string): boolean {
   return deriveClientCapabilities(user).has(capability);
 }
 
-// ── Widget capability constants ──────────────────────────────────────────────
-
-/** KPI stats, tier analytics, institutional progress */
-export const CAP_VIEW_KPI = 'view:all_departments';
-/** Admin alerts, cert watch, audit gaps, archive queue */
-export const CAP_ADMIN_INSIGHTS = 'manage:departments';
-/** Officer schedule, upcoming audits, cert status */
-export const CAP_OFFICER_HUB = 'asset_inspector';
-/** My workload, assignment slots */
-export const CAP_MY_WORKLOAD = 'assign:self';
-/** System activity, backup, full reset */
-export const CAP_SYSTEM_ADMIN = 'system:admin';
-/** Schedule management */
-export const CAP_SCHEDULE_MANAGE = 'schedule:manage_dept';
-/** View schedule */
-export const CAP_VIEW_SCHEDULE_ALL = 'schedule:manage_all';
 /** Issue/renew officer certifications */
 export const CAP_MANAGE_CERTS = 'manage:certs';
 /** Permanently delete archived records */
 export const CAP_PURGE_DATA = 'purge:data';
 
-// ── Sidebar link capability constants ────────────────────────────────────────
 
-export const CAP_VIEW_OVERVIEW = 'view:all_departments';
-export const CAP_MANAGE_LOCATIONS = 'manage:locations';
-export const CAP_MANAGE_DEPARTMENTS = 'manage:departments';
-export const CAP_MANAGE_USERS = 'manage:users';
-export const CAP_MANAGE_SETTINGS = 'manage:settings';

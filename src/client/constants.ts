@@ -6,7 +6,7 @@ import { AuditSchedule, User, AppNotification, Department, Location } from '@sha
 export const SOFTWARE_DEV_DEPT_NAME = 'Software Development';
 
 // Superadmin email — excluded from auditor counts, pairing, and printing.
-export const SUPERADMIN_EMAIL = 'admin@poliku.edu.my';
+
 
 
 

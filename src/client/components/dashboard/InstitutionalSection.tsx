@@ -95,8 +95,8 @@ export const InstitutionalSection: React.FC<InstitutionalSectionProps> = ({
           totalAssets: deptTotalAssets,
           gaps: [
             !hasHod && 'No HOD',
-            certified.length === 0 && 'No certified inspectors',
-            certified.length === 1 && 'Only 1 certified inspector',
+            certified.length === 0 && 'No QAIs',
+            certified.length === 1 && 'Only 1 QAI',
           ].filter(Boolean) as string[],
         };
       })
@@ -107,7 +107,6 @@ export const InstitutionalSection: React.FC<InstitutionalSectionProps> = ({
   // ── Pending Approvals Pipeline ──────────────────────────────────────
   const pendingApprovals = React.useMemo(() => {
     return schedules
-      .filter(s => s.status === 'Awaiting Approval')
       .map(s => {
         const dept = departments.find(d => d.id === s.departmentId);
         const loc = locations.find(l => l.id === s.locationId);
@@ -165,7 +164,6 @@ export const InstitutionalSection: React.FC<InstitutionalSectionProps> = ({
       assigned: activeSchedules.filter(s => s.auditor1Id && s.auditor2Id).length,
       inProgress: activeSchedules.filter(s => s.status === 'In Progress').length,
       completed: activeSchedules.filter(s => s.status === 'Completed').length,
-      awaitingApproval: activeSchedules.filter(s => s.status === 'Awaiting Approval').length,
     };
   }, [schedules, activeLocations, activeLocationIds]);
 
@@ -185,7 +183,6 @@ export const InstitutionalSection: React.FC<InstitutionalSectionProps> = ({
           const s = schedules.find(sc => sc.locationId === l.id);
           return !s || s.status === 'Pending';
         }).length;
-        const awaiting = deptLocs.filter(l => schedules.find(sc => sc.locationId === l.id)?.status === 'Awaiting Approval').length;
         const inProgress = deptLocs.filter(l => schedules.find(sc => sc.locationId === l.id)?.status === 'In Progress').length;
         const completed = deptLocs.filter(l => schedules.find(sc => sc.locationId === l.id)?.status === 'Completed').length;
         const noSupervisor = deptLocs.filter(l => !l.supervisorId).length;
@@ -196,7 +193,6 @@ export const InstitutionalSection: React.FC<InstitutionalSectionProps> = ({
           locs: deptLocs.length,
           totalAssets,
           pending,
-          awaiting,
           inProgress,
           completed,
           noSupervisor,
@@ -236,7 +232,7 @@ export const InstitutionalSection: React.FC<InstitutionalSectionProps> = ({
           <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mr-1">Status:</span>
           <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-slate-100 text-slate-500 rounded-lg text-[10px] font-bold">
             <span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
-            Pending {auditStats.total - auditStats.inProgress - auditStats.awaitingApproval}
+            Pending {auditStats.total - auditStats.inProgress}
           </span>
           <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-50 text-amber-600 rounded-lg text-[10px] font-bold">
             <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
@@ -244,7 +240,6 @@ export const InstitutionalSection: React.FC<InstitutionalSectionProps> = ({
           </span>
           <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-orange-50 text-orange-500 rounded-lg text-[10px] font-bold">
             <span className="w-1.5 h-1.5 rounded-full bg-orange-500"></span>
-            Awaiting {auditStats.awaitingApproval}
           </span>
           <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-green-50 text-emerald-600 rounded-lg text-[10px] font-bold">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
@@ -265,9 +260,6 @@ export const InstitutionalSection: React.FC<InstitutionalSectionProps> = ({
             <span className="font-bold text-amber-500">In Progress</span> — inspection actively underway
           </span>
           <span className="text-[9px] text-slate-400 font-medium">
-            <span className="font-bold text-orange-500">Awaiting</span> — ready, waiting supervisor approval
-          </span>
-          <span className="text-[9px] text-slate-400 font-medium">
             <span className="font-bold text-emerald-500">Completed</span> — inspection finished
           </span>
         </div>
@@ -275,7 +267,7 @@ export const InstitutionalSection: React.FC<InstitutionalSectionProps> = ({
 
       {/* ── Institution Health Cards ─────────────────────────────────── */}
       <div className="grid grid-cols-3 gap-4">
-        <StatCard icon={Users} label="Certified Inspectors" value={totalOfficers} color="text-indigo-600" />
+        <StatCard icon={Users} label="Qualified Asset Inspectors" value={totalOfficers} color="text-indigo-600" />
         <StatCard icon={ShieldAlert} label="Overloaded Inspectors" value={overloadedOfficers} color={overloadedOfficers > 0 ? 'text-red-500' : 'text-emerald-500'} />
         <StatCard icon={AlertTriangle} label="Depts with Gaps" value={deptsWithGaps} color={deptsWithGaps > 0 ? 'text-amber-500' : 'text-emerald-500'} />
       </div>
@@ -332,7 +324,6 @@ export const InstitutionalSection: React.FC<InstitutionalSectionProps> = ({
                   <Clock className="w-4 h-4 text-orange-500" />
                   Pending Approval Status
                 </h3>
-                <span className="text-[10px] text-slate-400 font-bold">{pendingApprovals.length} awaiting</span>
               </div>
               <div className="divide-y divide-slate-50 max-h-80 overflow-auto">
                 {pendingApprovals.map(a => (

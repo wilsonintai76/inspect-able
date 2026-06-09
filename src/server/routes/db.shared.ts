@@ -138,10 +138,9 @@ export const zeroAssetGuard = async (c: Context<{ Bindings: Bindings; Variables:
   return next();
 };
 
-export const VALID_TRANSITIONS: Record<string, string[]> = {
-  'Pending':            ['Awaiting Approval', 'In Progress'],
-  'Awaiting Approval':  ['Pending', 'In Progress'],
-  'In Progress':        ['Awaiting Approval', 'Pending', 'Completed'],
+const VALID_TRANSITIONS: Record<string, string[]> = {
+  'Pending':            ['In Progress'],
+    'In Progress':        ['Pending', 'Completed'],
   'Completed':          [],
 };
 
@@ -217,7 +216,6 @@ export const statusTransitionGuard = async (c: Context<{ Bindings: Bindings; Var
 
 export const patchAuditPermissionGuard = async (c: Context<{ Bindings: Bindings; Variables: Variables }>, next: Next) => {
   const caller = c.get('user')!;
-  const { deriveCapabilities } = await import('../utils/policyEngine');
   const caps = deriveCapabilities(caller as any);
   const isAdmin = caps.has('system:admin');
   const isCoordinator = caps.has('manage:departments') && !isAdmin;
@@ -274,7 +272,7 @@ export const patchAuditPermissionGuard = async (c: Context<{ Bindings: Bindings;
   if (updates.date !== undefined) {
     const isDesignatedSupervisor = existing.supervisor_id === caller.id;
     if (!isDesignatedSupervisor && !isAssignedAuditor && !isSupervisor && !canAudit) {
-      return c.json({ error: 'Forbidden: you must be the assigned site supervisor, a Supervisor, an assigned auditor, or a certified officer to modify the date' }, 403);
+      return c.json({ error: 'Forbidden: you must be the assigned site supervisor, a Supervisor, an assigned auditor, or a qualified asset inspector to modify the date' }, 403);
     }
   }
 
@@ -290,7 +288,7 @@ export const patchAuditPermissionGuard = async (c: Context<{ Bindings: Bindings;
 // ═══════════════════════════════════════════════════════════════
 // Schemas
 // ═══════════════════════════════════════════════════════════════
-export const assetSchema = z.object({
+const assetSchema = z.object({
   id: z.string().uuid().optional(),
   tag: z.string(),
   name: z.string(),

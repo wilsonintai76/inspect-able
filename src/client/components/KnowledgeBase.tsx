@@ -5,7 +5,7 @@ import { Network, Shield, Rocket, Headset, Route, Flag, Building, BookOpen, User
 
 import { AuditPhase } from '@shared/types';
 
-type Section = 'workflow' | 'permissions' | 'setup';
+type Section = 'workflow' | 'permissions' | 'qualifications' | 'setup';
 
 interface KnowledgeBaseProps {
   phases?: AuditPhase[];
@@ -43,6 +43,7 @@ export const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ phases = [] }) => 
             {[
               { id: 'workflow', label: 'Inspection Workflow', icon: Network },
               { id: 'permissions', label: 'Access Matrix', icon: Shield },
+              { id: 'qualifications', label: 'Qualification Matrix', icon: ShieldCheck },
               { id: 'setup', label: 'System Setup', icon: Rocket }
             ].map((item) => (
               <button
@@ -221,13 +222,33 @@ export const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({ phases = [] }) => 
                 </div>
               </div>
 
-              {/* Certified Inspector (cross-cutting) */}
+              {/* Removed Certified Inspector */}
+            </div>
+          </section>
+
+          {/* QUALIFICATION SECTION */}
+          <section id="qualifications" className="scroll-mt-32">
+            <div className="flex items-center gap-4 mb-8">
+              <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center text-xl shadow-inner">
+                <ShieldCheck className="w-6 h-6" />
+              </div>
+              <h3 className="text-2xl font-black text-slate-900">Qualification Matrix</h3>
+            </div>
+            <div className="bg-white rounded-2xl border border-slate-200 p-6 mb-6">
+              <h4 className="text-sm font-black text-slate-900 mb-3 flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-emerald-500" />
+                Operational Field Qualifications
+              </h4>
+              <p className="text-xs text-slate-500 mb-4">
+                Qualifications are operational capability overlays. While <strong>Roles</strong> determine administrative access, <strong>Qualifications</strong> determine field capabilities (like conducting audits). Any user, regardless of their base role, can hold a qualification.
+              </p>
+              
               <div className="bg-white rounded-2xl border border-emerald-200 p-5">
                 <h5 className="text-sm font-black text-emerald-700 mb-2 flex items-center gap-2">
-                  <ShieldCheck className="w-4 h-4" /> Certified Inspector <span className="text-[10px] text-emerald-400 font-medium">(cross-cutting — any role + valid cert)</span>
+                  <ShieldCheck className="w-4 h-4" /> Qualified Asset Inspector (QAI) <span className="text-[10px] text-emerald-400 font-medium">(requires valid certificationExpiry)</span>
                 </h5>
                 <p className="text-xs text-slate-500 mb-2">
-                  Not a role — a <strong>capability overlay</strong>. Any user with a valid <code>certificationExpiry</code> date automatically gains inspector capabilities regardless of their base role.
+                  Granted automatically when a user has a valid, unexpired certification. This qualification grants the <code>asset_inspector</code> and <code>assign:self</code> capabilities.
                 </p>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-1.5 text-[11px]">
                   {['Self-assign to inspection slots','Access Personal Dashboard','Use Inspection Kiosk','Upload inspection reports','Toggle inspection status'].map(c => (

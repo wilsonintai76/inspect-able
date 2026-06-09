@@ -366,8 +366,8 @@ export const useAppData = () => {
       if (selectedStatus !== 'All' && s.status !== selectedStatus) return false;
       if (selectedPhaseId !== 'All') {
         if (selectedPhaseId === 'Unscheduled') {
-          // If it has a date, it belongs to a phase, NOT Unscheduled
-          if (s.date) return false;
+          // Keep it in Unscheduled until all required personnel are assigned (status changes from Pending)
+          if (s.status !== 'Pending') return false;
         } else {
           // Specific Phase Selected
           const phase = auditPhases.find(p => p.id === selectedPhaseId);
@@ -403,7 +403,7 @@ export const useAppData = () => {
       .slice(0, 5);
   }, [departmentsWithAssets, schedules]);
 
-  // PBAC handles certified officers via certificationExpiry — no need to inject phantom roles
+  // PBAC handles qualified asset inspectors via certificationExpiry — no need to inject phantom roles
   const enrichedCurrentUser = useMemo(() => {
     if (!currentUser) return null;
     // Ensure roles is always a valid array
@@ -416,7 +416,7 @@ export const useAppData = () => {
     return currentUser;
   }, [currentUser]);
 
-  // PBAC handles certified officers via certificationExpiry — no need to inject phantom roles
+  // PBAC handles qualified asset inspectors via certificationExpiry — no need to inject phantom roles
   const enrichedUsers = useMemo(() => {
     return users.map(u => {
       const roles = Array.isArray(u.roles) && u.roles.length > 0 ? u.roles : ['Guest'];

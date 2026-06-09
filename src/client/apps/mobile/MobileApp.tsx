@@ -19,6 +19,7 @@ import { AutoUpdater } from '../../components/AutoUpdater';
 import { authService } from '../../services/auth';
 import { getAuthToken } from '../../services/honoClient';
 import { User } from '@shared/types';
+import { BRANDING } from '../../constants';
 
 export const MobileApp: React.FC = () => {
   // ── Auth state ────────────────────────────────────────────────────────────
@@ -133,7 +134,6 @@ export const MobileApp: React.FC = () => {
         if (res.ok) {
           const { branding } = (await res.json()) as any;
           if (branding) {
-            const { BRANDING } = await import('../../constants');
             let brandLogoUrl = BRANDING.logoBrand;
             if (branding.logoBrand) {
               BRANDING.logoBrand = branding.logoBrand;
@@ -503,9 +503,9 @@ showToast(`Plan Overwritten: Inspection reassigned from ${targetSchedule.phaseNa
           return;
         }
 
-        // Auto-update phase filter so the card stays visible in its new phase
-        setPhaseFilter(matchingPhase.id);
-        setSearch(''); // Clear search to ensure visibility
+        // Removed auto-jump to new phase so user can easily assign themselves while staying in Unscheduled
+        // setPhaseFilter(matchingPhase.id);
+        // setSearch('');
 
         setSchedules(prev => prev.map(s => {
           if (s.id !== scheduleId) return s;
@@ -589,7 +589,8 @@ showToast(`Plan Overwritten: Inspection reassigned from ${targetSchedule.phaseNa
     return schedules.filter(s => {
       if (phaseFilter) {
         if (phaseFilter === 'Unscheduled') {
-          if (s.date) return false;
+          // Keep it in Unscheduled until all required personnel are assigned (status changes from Pending)
+          if (s.status !== 'Pending') return false;
         } else {
           if (!s.date) return false;
           if (s.phaseId !== phaseFilter) return false;
@@ -815,7 +816,7 @@ showToast(`Plan Overwritten: Inspection reassigned from ${targetSchedule.phaseNa
               <ShieldCheck size={28} color="white" />
             </Flex>
             <Heading size="xl" color="white" mb={1}>Access Restricted</Heading>
-            <Text color="white/80" fontSize="xs" fontWeight="medium">Inspection Mobile · Certified Inspectors Only</Text>
+            <Text color="white/80" fontSize="xs" fontWeight="medium">Inspection Mobile · QAIs Only</Text>
           </Box>
           <CardBody gap={4}>
             <VStack gap={1}>

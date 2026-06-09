@@ -86,7 +86,7 @@ export const InspectorRosterGaps: React.FC<Props> = ({ allInspectors, totalInspe
           {staffingGaps.length === 0 ? (
             <div className="p-8 text-center">
               <UserCheck className="w-8 h-8 text-emerald-300 mx-auto mb-2" />
-              <p className="text-xs text-slate-400 font-bold">All departments have certified inspectors</p>
+              <p className="text-xs text-slate-400 font-bold">All departments have QAIs</p>
             </div>
           ) : (
             <table className="w-full text-left text-xs">

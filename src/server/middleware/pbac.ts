@@ -126,7 +126,7 @@ export function requirePolicy(
  * Builds context from a validated request body (requires zValidator upstream).
  * Use this when the body already contains all the fields needed for policy eval.
  */
-export function bodyContextBuilder(
+function bodyContextBuilder(
   overrides?: Partial<PolicyEvaluationContext>,
 ): ContextBuilder {
   return (c) => {
@@ -252,7 +252,7 @@ export function userPatchContextBuilder(
 /**
  * For audit.create (POST /audits) — uses body departmentId for COI + dept scoping.
  */
-export function auditCreateContextBuilder(
+function auditCreateContextBuilder(
   overrides?: Partial<PolicyEvaluationContext>,
 ): ContextBuilder {
   return (c) => {

@@ -31,8 +31,8 @@ export const useAuditActions = (props: UseAuditActionsProps) => {
       setSchedules(prev => prev.map(s => {
         if (s.id !== id) return s;
         const updated = { ...s, isLocked: newLocked };
-        if (newLocked && s.status === 'Awaiting Approval') updated.status = 'In Progress';
-        else if (!newLocked && s.status === 'In Progress') updated.status = 'Awaiting Approval';
+        if (!newLocked && s.status === 'In Progress') updated.status = 'Pending';
+          updated.isLocked = true;
         return updated;
       }));
       showToast(newLocked ? 'Approved & In Progress' : 'Approval Revoked');
@@ -53,8 +53,9 @@ export const useAuditActions = (props: UseAuditActionsProps) => {
         if (s.id !== id) return s;
         const updated = { ...s, ...slotUpdate };
         if (updated.status === 'Pending' && updated.date && updated.supervisorId && updated.auditor1Id && updated.auditor2Id) {
-          updated.status = 'Awaiting Approval';
-        } else if ((updated.status === 'In Progress' || updated.status === 'Awaiting Approval') && (!updated.date || !updated.supervisorId || !updated.auditor1Id || !updated.auditor2Id)) {
+          updated.status = 'In Progress';
+          updated.isLocked = true;
+        } else if (updated.status === 'In Progress' && (!updated.date || !updated.supervisorId || !updated.auditor1Id || !updated.auditor2Id)) {
           updated.status = 'Pending';
         }
         return updated;
@@ -64,7 +65,7 @@ export const useAuditActions = (props: UseAuditActionsProps) => {
       
       const projected = { ...audit, ...slotUpdate };
       const willStart = projected.date && projected.supervisorId && projected.auditor1Id && projected.auditor2Id;
-      showToast(willStart ? 'Assigned! Awaiting supervisor approval.' : 'Assigned');
+      showToast(willStart ? 'Assigned and scheduled!' : 'Assigned');
     } catch (e) { 
       // Rollback
       if (snapshot) setSchedules(prev => prev.map(s => s.id === id ? snapshot : s));
@@ -81,7 +82,7 @@ export const useAuditActions = (props: UseAuditActionsProps) => {
       setSchedules(prev => prev.map(s => {
         if (s.id !== id) return s;
         const updated = { ...s, ...slotUpdate };
-        if ((updated.status === 'In Progress' || updated.status === 'Awaiting Approval') && (!updated.date || !updated.supervisorId || !updated.auditor1Id || !updated.auditor2Id)) {
+        if (updated.status === 'In Progress' && (!updated.date || !updated.supervisorId || !updated.auditor1Id || !updated.auditor2Id)) {
           updated.status = 'Pending';
         }
         return updated;
@@ -118,10 +119,12 @@ export const useAuditActions = (props: UseAuditActionsProps) => {
         const finalSupervisor = updates.supervisorId !== undefined ? updates.supervisorId : audit.supervisorId;
         const finalAuditor1 = updates.auditor1Id !== undefined ? updates.auditor1Id : audit.auditor1Id;
         const finalAuditor2 = updates.auditor2Id !== undefined ? updates.auditor2Id : audit.auditor2Id;
-        if (currentStatus === 'Pending' && finalDate && finalSupervisor && finalAuditor1 && finalAuditor2)
-          updates.status = 'Awaiting Approval';
-        else if ((currentStatus === 'In Progress' || currentStatus === 'Awaiting Approval') && (!finalDate || !finalSupervisor || !finalAuditor1 || !finalAuditor2))
+        if (currentStatus === 'Pending' && finalDate && finalSupervisor && finalAuditor1 && finalAuditor2) {
+          updates.status = 'In Progress';
+          updates.isLocked = true;
+        } else if (currentStatus === 'In Progress' && (!finalDate || !finalSupervisor || !finalAuditor1 || !finalAuditor2)) {
           updates.status = 'Pending';
+        }
       }
       // Optimistic update — reflect change immediately so UI feels instant
       setSchedules(prev => prev.map(s => s.id === id ? { ...s, ...updates } : s));
@@ -143,10 +146,12 @@ export const useAuditActions = (props: UseAuditActionsProps) => {
       let updates: Partial<AuditSchedule> = resolvedPhaseId ? { date, phaseId: resolvedPhaseId } : { date };
       if (audit) {
         const currentStatus = updates.status || audit.status;
-        if (currentStatus === 'Pending' && date && audit.supervisorId && audit.auditor1Id && audit.auditor2Id)
-          updates.status = 'Awaiting Approval';
-        else if ((currentStatus === 'In Progress' || currentStatus === 'Awaiting Approval') && (!date || !audit.supervisorId || !audit.auditor1Id || !audit.auditor2Id))
+        if (currentStatus === 'Pending' && date && audit.supervisorId && audit.auditor1Id && audit.auditor2Id) {
+          updates.status = 'In Progress';
+          updates.isLocked = true;
+        } else if (currentStatus === 'In Progress' && (!date || !audit.supervisorId || !audit.auditor1Id || !audit.auditor2Id)) {
           updates.status = 'Pending';
+        }
       }
       // Optimistic update — reflect the date immediately so UI feels instant
       setSchedules(prev => prev.map(s => s.id === id ? { ...s, ...updates } : s));

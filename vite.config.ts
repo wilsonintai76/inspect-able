@@ -30,6 +30,14 @@ export default defineConfig((configEnv) => {
             mobile: path.resolve(__dirname, 'mobile.html'),
             kiosk: path.resolve(__dirname, 'kiosk.html'),
           },
+          output: {
+            manualChunks: {
+              'react-vendor': ['react', 'react-dom'],
+              'antd-vendor': ['antd', '@ant-design/icons'],
+              'lucide-vendor': ['lucide-react'],
+              'pdf-vendor': ['pdfjs-dist'],
+            }
+          }
         },
       },
       plugins: [

@@ -108,7 +108,7 @@ export type PbacAction =
  * Any role + valid certification → asset_inspector (can perform audits).
  * ─────────────────────────────────────────────────────────────────────────
  */
-export function deriveCapabilities(user: PbaoUser): Set<string> {
+function deriveRoleCapabilities(user: PbaoUser): Set<string> {
   const caps = new Set<string>();
   const roles = user.roles || [];
 
@@ -160,16 +160,36 @@ export function deriveCapabilities(user: PbaoUser): Set<string> {
     caps.add('system:reset');
   }
 
-  // ── Certified Officer (any role + valid cert) ───────────────────────
+  return caps;
+}
+
+/**
+ * Derives capability strings from the user's field qualifications.
+ * A Qualification is an operational capability overlay, separate from an administrative Role.
+ */
+function deriveQualificationCapabilities(user: PbaoUser): Set<string> {
+  const caps = new Set<string>();
+
+  // ── Qualified Asset Inspector (QAI) ──────────────────────────────────
+  // Any role + valid cert → asset_inspector (can perform audits).
   const today = new Date().toISOString().split('T')[0];
   const isCertValid =
     !!user.certificationExpiry && user.certificationExpiry >= today;
   if (isCertValid) {
     caps.add('asset_inspector');
-    caps.add('assign:self');  // certified → can self-assign to audit slots
+    caps.add('assign:self');  // QAI → can self-assign to audit slots
   }
 
   return caps;
+}
+
+/**
+ * Derives ALL capabilities (Role + Qualification) for the given user.
+ */
+export function deriveCapabilities(user: PbaoUser): Set<string> {
+  const roleCaps = deriveRoleCapabilities(user);
+  const qualCaps = deriveQualificationCapabilities(user);
+  return new Set([...roleCaps, ...qualCaps]);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -359,7 +379,7 @@ const COORDINATOR_DEPT_SCOPE: PolicyDefinition = {
  * Maps each PBAC action to the ordered list of policies that must ALL pass.
  * Policies are evaluated in order; the first DENY short-circuits.
  */
-export const ACTION_POLICIES: Record<PbacAction, PolicyDefinition[]> = {
+const ACTION_POLICIES: Record<PbacAction, PolicyDefinition[]> = {
   // ── Audit schedule — self-assignment (caller = assignee) ──────────────
   'schedule.assign': [
     REQUIRE_INSPECTOR,
@@ -483,7 +503,7 @@ export function evaluateAccess(
 // User-Facing Error Messages (for the React client)
 // ═══════════════════════════════════════════════════════════════════════════════
 
-export const PBAC_REASON_MESSAGES: Record<string, string> = {
+const PBAC_REASON_MESSAGES: Record<string, string> = {
   COI_VIOLATION:
     'Conflict of Interest: You cannot audit your own department.',
   SLOT_LOCKED:

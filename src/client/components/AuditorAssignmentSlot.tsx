@@ -192,7 +192,7 @@ export const AuditorAssignmentSlot: React.FC<AuditorAssignmentSlotProps> = ({
           {canAssignOthers && (
             <div className="relative">
               <input
-                title="Search Certified Officer"
+                title="Search QAI"
                 placeholder="Type officer name..."
                 value={officerQuery}
                 disabled={!canUseAssignOthers}
@@ -248,7 +248,7 @@ export const AuditorAssignmentSlot: React.FC<AuditorAssignmentSlotProps> = ({
                     ))
                   ) : (
                     <div className="px-3 py-2 text-[10px] text-slate-400 font-medium">
-                      No matching certified officer
+                      No matching QAI
                     </div>
                   )}
                 </div>

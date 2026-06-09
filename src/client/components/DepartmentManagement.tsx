@@ -244,7 +244,7 @@ export const DepartmentManagement: React.FC<DepartmentManagementProps> = ({
               <tr>
                 <th className="px-6 py-5 text-[10px] font-black uppercase text-slate-400 tracking-widest">Department</th>
                 <th className="px-6 py-5 text-[10px] font-black uppercase text-slate-400 tracking-widest">Head of Department</th>
-                <th className="px-6 py-5 text-[10px] font-black uppercase text-slate-400 tracking-widest text-center">Certified Officers</th>
+                <th className="px-6 py-5 text-[10px] font-black uppercase text-slate-400 tracking-widest text-center">Qualified Asset Inspectors</th>
                 <th className="px-6 py-5 text-[10px] font-black uppercase text-slate-400 tracking-widest text-center">Required Inspectors</th>
                 <th className="px-6 py-5 text-[10px] font-black uppercase text-slate-400 tracking-widest">Total Asset</th>
                 <th className="px-6 py-5 text-[10px] font-black uppercase text-slate-400 tracking-widest text-center">Locations</th>

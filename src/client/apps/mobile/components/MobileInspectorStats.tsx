@@ -21,7 +21,7 @@ export const MobileInspectorStats: React.FC<Props> = ({ stats, threshold }) => {
       <HStack gap={2} mb={3}>
         <UserCheck size={16} color="var(--chakra-colors-indigo-600)" />
         <Text fontSize="xs" fontWeight="bold" color="fg.muted" textTransform="uppercase">
-          Certified Inspector Workload
+          QAI Workload
         </Text>
       </HStack>
 

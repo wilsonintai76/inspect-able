@@ -141,7 +141,7 @@ export const TierDistributionTable: React.FC<TierDistributionTableProps> = ({
           <thead className="bg-slate-50/95 sticky top-0 z-10 backdrop-blur-sm shadow-sm">
             <tr>
               <th className="px-6 py-4 text-[10px] font-black uppercase text-slate-400 tracking-widest">Department</th>
-              <th id="header-auditors-tier" className="px-6 py-4 text-[10px] font-black uppercase text-slate-400 tracking-widest text-center">Certified Officers</th>
+              <th id="header-auditors-tier" className="px-6 py-4 text-[10px] font-black uppercase text-slate-400 tracking-widest text-center">Qualified Asset Inspectors</th>
               <th className="px-6 py-4 text-[10px] font-black uppercase text-slate-400 tracking-widest text-center">Required Inspectors</th>
               <th className="px-6 py-4 text-[10px] font-black uppercase text-slate-400 tracking-widest">Assets / Tier</th>
               {sortedPhases.map(phase => (

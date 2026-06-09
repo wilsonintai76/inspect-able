@@ -390,7 +390,7 @@ interface GroupedData {
   unassignedDepts: GroupedDept[];
 }
 
-export function printUnitConsolidation(
+function printUnitConsolidation(
   groupedData: GroupedData,
   overallTotal: number,
 ): void {
@@ -498,7 +498,7 @@ interface EntityPermission {
   rawPermIds?: string[];
 }
 
-export function printCrossAuditAssignments(
+function printCrossAuditAssignments(
   entityPermissions: EntityPermission[],
   entities: Entity[],
 ): void {
@@ -872,7 +872,7 @@ export function exportInspectionSchedule(
 
 // ─── REPORT 6: Strategic Inspection Plan Approval (Management Grade) ──────────
 
-export function generateStrategicInspectionPlanHTML(
+function generateStrategicInspectionPlanHTML(
   institutionName: string,
   year: number,
   globalStats: GlobalStats,
@@ -1336,7 +1336,7 @@ ${feasibility?.exemptionRecommendations && feasibility.exemptionRecommendations.
 </div>
   `;
 }
-export function printStrategicInspectionPlanApproval(
+function printStrategicInspectionPlanApproval(
   institutionName: string,
   year: number,
   globalStats: GlobalStats,

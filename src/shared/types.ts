@@ -7,7 +7,7 @@ export interface AuditSchedule {
   auditor1Id: string | null;
   auditor2Id: string | null;
   date: string | null;
-  status: 'Pending' | 'Awaiting Approval' | 'In Progress' | 'Completed';
+  status: 'Pending' | 'In Progress' | 'Completed';
   phaseId: string;
   isLocked?: boolean;
   reportPath?: string | null;

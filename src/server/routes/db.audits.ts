@@ -109,6 +109,42 @@ router.patch('/audits/:id', zValidator('json', patchAuditSchema), patchAuditPerm
     }
   }
 
+  // --- Begin: Department move audit repair logic ---
+  if (updates.departmentId !== undefined) {
+    // 1. Update all audits for this location to new department
+    await c.env.DB.prepare('UPDATE audit_schedules SET department_id = ? WHERE location_id = ?').bind(updates.departmentId, id).run();
+
+    // 2. For each audit, clear any auditor who now matches the new department
+    const audits = await c.env.DB.prepare('SELECT id, auditor1_id, auditor2_id, is_locked, status FROM audit_schedules WHERE location_id = ?').bind(id).all<any>();
+    for (const audit of audits.results || []) {
+      let clear1 = false, clear2 = false;
+      if (audit.auditor1_id) {
+        const u1 = await c.env.DB.prepare('SELECT department_id FROM users WHERE id = ?').bind(audit.auditor1_id).first<{department_id:string}>();
+        if (u1 && u1.department_id === updates.departmentId) clear1 = true;
+      }
+      if (audit.auditor2_id) {
+        const u2 = await c.env.DB.prepare('SELECT department_id FROM users WHERE id = ?').bind(audit.auditor2_id).first<{department_id:string}>();
+        if (u2 && u2.department_id === updates.departmentId) clear2 = true;
+      }
+      if (clear1 || clear2) {
+        let newStatus = audit.status;
+        let newLocked = audit.is_locked;
+        if (audit.status === 'In Progress') newStatus = 'Pending';
+        if (audit.is_locked) newLocked = null;
+        await c.env.DB.prepare(
+          'UPDATE audit_schedules SET auditor1_id = ?, auditor2_id = ?, status = ?, is_locked = ? WHERE id = ?'
+        ).bind(
+          clear1 ? null : audit.auditor1_id,
+          clear2 ? null : audit.auditor2_id,
+          newStatus,
+          newLocked,
+          audit.id
+        ).run();
+      }
+    }
+  }
+  // --- End: Department move audit repair logic ---
+
   // Automatic status transitions between Pending and In Progress based on assignment completeness
   const existingForActivation = await c.env.DB.prepare(
     'SELECT status, date, supervisor_id, auditor1_id, auditor2_id, phase_id FROM audit_schedules WHERE id = ?'
@@ -123,10 +159,13 @@ router.patch('/audits/:id', zValidator('json', patchAuditSchema), patchAuditPerm
 
     if (currentStatus === 'Pending') {
       if (finalDate && finalSupervisor && finalAuditor1 && finalAuditor2) {
-        updates.status = 'Awaiting Approval';
+        if (updates.isLocked !== false) {
+          updates.status = 'In Progress';
+          updates.isLocked = true;
+        }
       }
-    } else if (currentStatus === 'In Progress' || currentStatus === 'Awaiting Approval') {
-      if (!finalDate || !finalSupervisor || !finalAuditor1 || !finalAuditor2) {
+    } else if (currentStatus === 'In Progress') {
+      if (!finalDate || !finalSupervisor || !finalAuditor1 || !finalAuditor2 || updates.isLocked === false) {
         updates.status = 'Pending';
       }
     }
@@ -149,41 +188,22 @@ router.patch('/audits/:id', zValidator('json', patchAuditSchema), patchAuditPerm
   if (updates.isLocked !== undefined) {
     const callerRoles = (c.get('user') as any)?.roles || [];
     const caps = deriveCapabilities({ id: (c.get('user') as any)?.id || '', email: (c.get('user') as any)?.email || '', role: (c.get('user') as any)?.role || '', roles: callerRoles, departmentId: (c.get('user') as any)?.departmentId || null, certificationExpiry: (c.get('user') as any)?.certificationExpiry || null });
-    if (!caps.has('manage:locations') && !caps.has('system:admin') && !caps.has('manage:departments')) {
-      return c.json({ error: 'Only Supervisors can lock or unlock schedules.' }, 403);
+    if (!caps.has('manage:locations') && !caps.has('system:admin') && !caps.has('manage:departments') && !caps.has('asset_inspector')) {
+      return c.json({ error: 'Only authorized personnel can lock or unlock schedules.' }, 403);
     }
     fields.push('is_locked = ?');
     values.push(updates.isLocked === null ? null : (updates.isLocked ? 1 : 0));
 
-    // Lock approval: Awaiting Approval â†’ In Progress
-    if (updates.isLocked === true && existingForActivation?.status === 'Awaiting Approval') {
-      fields.push('status = ?');
-      values.push('In Progress');
-      updates.status = 'In Progress'; // used below for email guard
-
-      // Auto-assign phase on lock if none explicitly set and none exists
-      if (updates.phaseId === undefined && !existingForActivation?.phase_id) {
-        const now = new Date().toISOString().split('T')[0];
-        const phase = await c.env.DB.prepare(
-          'SELECT id FROM audit_phases WHERE start_date <= ? AND end_date >= ? LIMIT 1'
-        ).bind(now, now).first<{ id: string }>();
-        if (phase) {
-          fields.push('phase_id = ?');
-          values.push(phase.id);
-          updates.phaseId = phase.id;
-        }
-      }
-    }
-    // Revoke approval: In Progress → Awaiting Approval (if all fields still present)
-    // Revoke approval: In Progress â†’ Awaiting Approval (if all fields still present)
-    if (updates.isLocked === false && existingForActivation?.status === 'In Progress') {
-      const d  = existingForActivation.date;
-      const s  = existingForActivation.supervisor_id;
-      const a1 = existingForActivation.auditor1_id;
-      const a2 = existingForActivation.auditor2_id;
-      if (d && s && a1 && a2) {
-        fields.push('status = ?');
-        values.push('Awaiting Approval');
+    // Auto-assign phase on lock if none explicitly set and none exists
+    if (updates.isLocked === true && updates.phaseId === undefined && !existingForActivation?.phase_id) {
+      const now = new Date().toISOString().split('T')[0];
+      const phase = await c.env.DB.prepare(
+        'SELECT id FROM audit_phases WHERE start_date <= ? AND end_date >= ? LIMIT 1'
+      ).bind(now, now).first<{ id: string }>();
+      if (phase) {
+        fields.push('phase_id = ?');
+        values.push(phase.id);
+        updates.phaseId = phase.id;
       }
     }
   }
@@ -195,12 +215,12 @@ router.patch('/audits/:id', zValidator('json', patchAuditSchema), patchAuditPerm
       `UPDATE audit_schedules SET ${fields.join(', ')} WHERE id = ?`
     ).bind(...values, id).run();
 
-    // Fire-and-forget email when status just became 'Awaiting Approval'
+    // Fire-and-forget email when status just became 'In Progress'
     const previousStatus = existingForActivation?.status;
     const newStatus = updates.status;
     if (
-      newStatus === 'Awaiting Approval' &&
-      previousStatus !== 'Awaiting Approval' &&
+      newStatus === 'In Progress' &&
+      previousStatus !== 'In Progress' &&
       c.env.RESEND_API_KEY
     ) {
       const supervisorId = updates.supervisorId ?? existingForActivation?.supervisor_id ?? null;
@@ -209,39 +229,7 @@ router.patch('/audits/:id', zValidator('json', patchAuditSchema), patchAuditPerm
           try {
 
         // --- Begin: Department move audit repair logic ---
-        if (updates.departmentId !== undefined) {
-          // 1. Update all audits for this location to new department
-          await c.env.DB.prepare('UPDATE audit_schedules SET department_id = ? WHERE location_id = ?').bind(updates.departmentId, id).run();
-
-          // 2. For each audit, clear any auditor who now matches the new department
-          const audits = await c.env.DB.prepare('SELECT id, auditor1_id, auditor2_id, is_locked, status FROM audit_schedules WHERE location_id = ?').bind(id).all<any>();
-          for (const audit of audits.results || []) {
-            let clear1 = false, clear2 = false;
-            if (audit.auditor1_id) {
-              const u1 = await c.env.DB.prepare('SELECT department_id FROM users WHERE id = ?').bind(audit.auditor1_id).first<{department_id:string}>();
-              if (u1 && u1.department_id === updates.departmentId) clear1 = true;
-            }
-            if (audit.auditor2_id) {
-              const u2 = await c.env.DB.prepare('SELECT department_id FROM users WHERE id = ?').bind(audit.auditor2_id).first<{department_id:string}>();
-              if (u2 && u2.department_id === updates.departmentId) clear2 = true;
-            }
-            if (clear1 || clear2) {
-              let newStatus = audit.status;
-              let newLocked = audit.is_locked;
-              if (audit.status === 'Awaiting Approval' || audit.status === 'In Progress') newStatus = 'Pending';
-              if (audit.is_locked) newLocked = null;
-              await c.env.DB.prepare(
-                'UPDATE audit_schedules SET auditor1_id = ?, auditor2_id = ?, status = ?, is_locked = ? WHERE id = ?'
-              ).bind(
-                clear1 ? null : audit.auditor1_id,
-                clear2 ? null : audit.auditor2_id,
-                newStatus,
-                newLocked,
-                audit.id
-              ).run();
-            }
-          }
-        }
+        // (Moved outside the email dispatcher block)
         // --- End: Department move audit repair logic ---
             const sIds = (supervisorId || '').split(',').map((s: string) => s.trim()).filter(Boolean);
             const supervisors: { name: string; email: string }[] = [];
@@ -356,7 +344,7 @@ router.post('/audits/:id/send-approval-email', requirePolicy('audit.maintenance'
   try {
     const audit = await c.env.DB.prepare('SELECT * FROM audit_schedules WHERE id = ?').bind(id).first<any>();
     if (!audit) return c.json({ error: 'Audit not found' }, 404);
-    if (audit.status !== 'Awaiting Approval') return c.json({ error: 'Audit is not awaiting approval' }, 400);
+    
 
     const supervisorIds = (audit.supervisor_id || '').split(',').map((s: string) => s.trim()).filter(Boolean);
     const supervisors: { name: string; email: string }[] = [];
@@ -427,7 +415,7 @@ router.post('/audits/bulk', requirePolicy('audit.create', bodyDeptContextBuilder
           `INSERT INTO audit_schedules 
            (id, department_id, location_id, supervisor_id, auditor1_id, auditor2_id, date, status, phase_id, report_path) 
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-           ON CONFLICT(location_id, phase_id) DO UPDATE SET
+           ON CONFLICT(location_id) DO UPDATE SET
              date = COALESCE(EXCLUDED.date, audit_schedules.date),
              supervisor_id = COALESCE(EXCLUDED.supervisor_id, audit_schedules.supervisor_id),
              auditor1_id = COALESCE(EXCLUDED.auditor1_id, audit_schedules.auditor1_id),
