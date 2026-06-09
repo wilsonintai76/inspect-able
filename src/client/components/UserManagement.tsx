@@ -257,8 +257,21 @@ export const UserManagement: React.FC<UserManagementProps> = ({
 
   const startEdit = (user: User) => {
     setEditingId(user.id);
-    // Single role only
-    const role = (user.roles && user.roles.length > 0) ? user.roles[0] : 'Guest';
+    // Derive the correct role from designation (not DB) to prevent
+    // designation/role drift caused by prior profile saves with wrong defaults.
+    const bound = (() => {
+      switch (user.designation) {
+        case 'Coordinator': return 'Coordinator';
+        case 'Supervisor': return 'Supervisor';
+        case 'Developer': return 'Admin';
+        case 'Head Of Department':
+        case 'Head Of Programme':
+        default: return 'Guest';
+      }
+    })();
+    const dbRole = (user.roles && user.roles.length > 0) ? user.roles[0] : 'Guest';
+    // If DB role doesn't match designation binding, use the bound role
+    const role = (dbRole !== bound && bound !== 'Guest') ? bound : dbRole;
     setFormData({
       name: user.name || '',
       email: user.email || '',

@@ -30,7 +30,7 @@ export const LocationManagement: React.FC<LocationManagementProps> = ({
   const isAdmin = hasCapability(pbacUser, 'system:admin');
   const canManage = hasCapability(pbacUser, 'manage:locations');
   const canPurge = hasCapability(pbacUser, CAP_PURGE_DATA);
-  const isCoordinator = canManage && !isAdmin;
+  const isCoordinator = canManage && hasCapability(pbacUser, 'manage:departments') && !isAdmin;
   const isSupervisor = canManage && !hasCapability(pbacUser, 'manage:departments') && !isAdmin;
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingLocation, setEditingLocation] = useState<Location | null>(null);
@@ -61,7 +61,7 @@ export const LocationManagement: React.FC<LocationManagementProps> = ({
   };
 
   const filteredLocations = useMemo(() => {
-    let base = (isCoordinator && !isAdmin)
+    let base = ((isCoordinator || isSupervisor) && !isAdmin)
       ? locations.filter(l => l.departmentId === userDeptId) 
       : locations;
 
@@ -92,18 +92,18 @@ export const LocationManagement: React.FC<LocationManagementProps> = ({
       if (indexA !== -1 && indexB !== -1) return indexA - indexB;
       return (a.level || '').localeCompare(b.level || '');
     });
-  }, [locations, showArchived, isCoordinator, isAdmin, userDeptId, selectedDeptFilter, selectedBlockFilter, selectedLevelFilter]);
+  }, [locations, showArchived, isCoordinator, isSupervisor, isAdmin, userDeptId, selectedDeptFilter, selectedBlockFilter, selectedLevelFilter]);
 
   const availableBlocks = useMemo(() => {
-    let base = (isCoordinator && !isAdmin) ? locations.filter(l => l.departmentId === userDeptId) : locations;
+    let base = ((isCoordinator || isSupervisor) && !isAdmin) ? locations.filter(l => l.departmentId === userDeptId) : locations;
     if (selectedDeptFilter !== 'All') base = base.filter(l => l.departmentId === selectedDeptFilter);
     // Resolve building names from buildings state if building name is missing in location
     const abbrs = base.map(l => getBuildingAbbr(l.buildingId, l.building)).filter(Boolean);
     return Array.from(new Set(abbrs)).sort() as string[];
-  }, [locations, buildings, isCoordinator, isAdmin, userDeptId, selectedDeptFilter]);
+  }, [locations, buildings, isCoordinator, isSupervisor, isAdmin, userDeptId, selectedDeptFilter]);
 
   const availableLevels = useMemo(() => {
-    let base = (isCoordinator && !isAdmin) ? locations.filter(l => l.departmentId === userDeptId) : locations;
+    let base = ((isCoordinator || isSupervisor) && !isAdmin) ? locations.filter(l => l.departmentId === userDeptId) : locations;
     if (selectedDeptFilter !== 'All') base = base.filter(l => l.departmentId === selectedDeptFilter);
     if (selectedBlockFilter !== 'All') {
       base = base.filter(l => getBuildingAbbr(l.buildingId, l.building) === selectedBlockFilter);
@@ -114,7 +114,7 @@ export const LocationManagement: React.FC<LocationManagementProps> = ({
       if (indexA !== -1 && indexB !== -1) return indexA - indexB;
       return (a || '').localeCompare(b || '');
     });
-  }, [locations, isCoordinator, isAdmin, userDeptId, selectedDeptFilter, selectedBlockFilter]);
+  }, [locations, isCoordinator, isSupervisor, isAdmin, userDeptId, selectedDeptFilter, selectedBlockFilter]);
 
   const handleSave = (data: Omit<Location, 'id'> | Partial<Location>) => {
     if (editingLocation) {
@@ -170,7 +170,7 @@ export const LocationManagement: React.FC<LocationManagementProps> = ({
       <div className="flex items-center justify-end gap-2">
         {canManage && (
           <>
-            {(() => {
+            {!isSupervisor && (() => {
               const archivedCount = locations.filter(l => l.status === 'Archived').length;
               return archivedCount > 0 ? (
                 <button
@@ -185,6 +185,7 @@ export const LocationManagement: React.FC<LocationManagementProps> = ({
                 </button>
               ) : null;
             })()}
+            {!isSupervisor && (
             <button 
               onClick={startAdd}
               className={`px-4 py-2 rounded-2xl text-[13px] font-bold shadow-lg transition-all flex items-center justify-center gap-2 whitespace-nowrap active:scale-95 ${
@@ -196,6 +197,7 @@ export const LocationManagement: React.FC<LocationManagementProps> = ({
               <Plus className="w-4 h-4" />
               New Location
             </button>
+            )}
           </>
         )}
       </div>
@@ -375,12 +377,10 @@ export const LocationManagement: React.FC<LocationManagementProps> = ({
                     <td className="px-6 py-4 align-middle">
                       {canManage && (
                         <div className="flex gap-1">
-                          {canManage && (
-                            <button onClick={() => startEdit(loc)} className="w-9 h-9 flex items-center justify-center bg-white border border-slate-200 text-slate-400 hover:text-blue-600 hover:border-blue-200 rounded-xl transition-colors" title={isSupervisor && !isAdmin && !isCoordinator ? 'Edit Level / Total Assets' : 'Edit Location'}>
-                              <Pencil className="w-4 h-4" />
-                            </button>
-                          )}
-                          {canManage && (
+                          <button onClick={() => startEdit(loc)} className="w-9 h-9 flex items-center justify-center bg-white border border-slate-200 text-slate-400 hover:text-blue-600 hover:border-blue-200 rounded-xl transition-colors" title={isSupervisor ? 'Edit Level / Total Assets' : 'Edit Location'}>
+                            <Pencil className="w-4 h-4" />
+                          </button>
+                          {!isSupervisor && (
                             (() => {
                               const isAssigned = schedules.some(s => s.locationId === loc.id && s.status !== 'Completed' && (s.date || s.auditor1Id || s.auditor2Id));
                               const isArchived = loc.status === 'Archived';

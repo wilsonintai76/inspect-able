@@ -230,8 +230,10 @@ router.patch(
     }
   }
 
-  // Sync roles if designation is updated and roles are NOT explicitly provided
-  if (updates.designation !== undefined && updates.roles === undefined) {
+  // Sync roles if designation is updated — always rebind, even if roles were
+  // explicitly provided, to prevent designation/role drift (e.g. Admin editing a
+  // user whose roles were corrupted by a prior profile save with wrong default).
+  if (updates.designation !== undefined) {
     const boundRoles = getRolesForDesignation(updates.designation);
     if (boundRoles) {
       updates.roles = boundRoles;

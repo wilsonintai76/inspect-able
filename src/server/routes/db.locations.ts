@@ -115,6 +115,7 @@ router.patch('/locations/:id', requirePolicy('location.manage', emptyContextBuil
   const callerCaps = deriveCapabilities({ id: caller?.id || '', email: caller?.email || '', role: caller?.role || '', roles: caller?.roles || [], departmentId: caller?.departmentId || null, certificationExpiry: caller?.certificationExpiry || null });
   const isAdmin = callerCaps.has('system:admin') || caller?.email?.toLowerCase() === 'admin@poliku.edu.my';
   const isCoordinator = callerCaps.has('manage:departments') && !isAdmin;
+  const isSupervisor = callerCaps.has('manage:locations') && !callerCaps.has('manage:departments') && !isAdmin;
   // Coordinators may only edit locations in their own department
   if (!isAdmin && isCoordinator) {
     const existing = await c.env.DB.prepare('SELECT department_id FROM locations WHERE id = ? LIMIT 1').bind(id).first<{ department_id: string }>();
@@ -125,6 +126,27 @@ router.patch('/locations/:id', requirePolicy('location.manage', emptyContextBuil
     // Prevent re-assigning location to another department
     if (updates.departmentId && updates.departmentId !== caller?.departmentId) {
       return c.json({ error: 'Coordinators cannot re-assign a location to a different department' }, 403);
+    }
+  }
+  // Supervisors may only edit locations in their own department
+  if (!isAdmin && isSupervisor) {
+    const existing = await c.env.DB.prepare('SELECT department_id FROM locations WHERE id = ? LIMIT 1').bind(id).first<{ department_id: string }>();
+    if (!existing) return c.json({ error: 'Location not found' }, 404);
+    if (existing.department_id !== caller?.departmentId) {
+      return c.json({ error: 'Supervisors can only edit locations in their own department' }, 403);
+    }
+    // Supervisors cannot archive, restore, or change department
+    if (updates.status !== undefined) {
+      return c.json({ error: 'Supervisors cannot archive or restore locations' }, 403);
+    }
+    if (updates.departmentId !== undefined) {
+      return c.json({ error: 'Supervisors cannot re-assign a location to a different department' }, 403);
+    }
+    // Supervisors can only update: buildingId, level, totalAssets, contact
+    const allowedFields = ['buildingId', 'level', 'totalAssets', 'contact', 'uninspectedAssetCount', 'supervisorId'];
+    const disallowed = Object.keys(updates).filter(k => !allowedFields.includes(k) && k !== 'building');
+    if (disallowed.length > 0) {
+      return c.json({ error: `Supervisors cannot modify: ${disallowed.join(', ')}` }, 403);
     }
   }
   const fields: string[] = [];

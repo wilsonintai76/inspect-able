@@ -11,11 +11,11 @@ interface UserProfileProps {
 }
 
 export const UserProfile: React.FC<UserProfileProps> = ({ user, departments, onUpdate }) => {
-  const [formData, setFormData] = useState<{ name: string; contactNumber: string; departmentId: string; designation: string }>({
+  const [formData, setFormData] = useState<{ name: string; contactNumber: string; departmentId: string; designation: string }>({  // designation defaults to '' to avoid silent role corruption
     name: user.name || '',
     contactNumber: user.contactNumber || '',
     departmentId: user.departmentId || '',
-    designation: user.designation || 'Staff',
+    designation: user.designation || '',
   });
   const [passwordData, setPasswordData] = useState({
     currentPassword: '',
@@ -53,9 +53,16 @@ export const UserProfile: React.FC<UserProfileProps> = ({ user, departments, onU
     setIsSaving(true);
     
     try {
-      const updates: Partial<User> = { 
-        ...formData
-      } as Partial<User>;
+      // Build updates — for non-admin users with completed profiles,
+      // exclude designation/name/departmentId to prevent silent role rebinding.
+      const raw = { ...formData };
+      let updates: Partial<User>;
+      if (isProfileComplete && !isAdmin) {
+        const { name: _n, departmentId: _d, designation: _des, ...safeFields } = raw;
+        updates = { ...safeFields } as Partial<User>;
+      } else {
+        updates = { ...raw } as Partial<User>;
+      }
       
       if (user.status === 'Pending') {
         updates.status = 'Active';

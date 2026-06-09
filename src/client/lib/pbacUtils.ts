@@ -40,24 +40,26 @@ function deriveClientRoleCapabilities(user: ClientUser | null): Set<string> {
   // ── Supervisor > Guest ─────────────────────────────────────────────
   if (roles.includes('Supervisor')) {
     caps.add('view:dashboard');          // inherit Guest
-    caps.add('assign:self');
-    caps.add('manage:locations');
-    caps.add('schedule:manage_dept');
+    caps.add('manage:locations');        // location registry (dept-scoped)
+    caps.add('schedule:manage_dept');    // manage department schedules
+    // NOTE: assign:self is NOT granted here — it comes only from
+    // certification (QAI). Server policyEngine.ts matches this.
   }
 
   // ── Coordinator > Supervisor > Staff ────────────────────────────────
   if (roles.includes('Coordinator')) {
-    caps.add('view:dashboard');
-    caps.add('assign:self');
-    caps.add('manage:locations');
-    caps.add('schedule:manage_dept');
-    caps.add('assign:others');
-    caps.add('view:all_departments');
-    caps.add('manage:departments');
-    caps.add('manage:users');
-    caps.add('manage:groups');
-    caps.add('manage:mappings');
+    caps.add('view:dashboard');          // inherit Staff
+    caps.add('manage:locations');        // inherit Supervisor
+    caps.add('schedule:manage_dept');    // inherit Supervisor
+    // Coordinator-specific (one department only)
+    caps.add('assign:others');           // assign others to slots
+    caps.add('view:all_departments');    // view cross-dept data
+    caps.add('manage:departments');       // department registry
+    caps.add('manage:users');            // user management (dept-scoped)
+    caps.add('manage:groups');           // audit groups
+    caps.add('manage:mappings');         // dept/location mappings
     // KPI tiers, audit phases → System Admin only
+    // NOTE: assign:self comes only from certification (QAI), not role.
   }
 
   // ── Admin > all ─────────────────────────────────────────────────────
