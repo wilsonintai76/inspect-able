@@ -263,7 +263,6 @@ export const UserManagement: React.FC<UserManagementProps> = ({
       switch (user.designation) {
         case 'Coordinator': return 'Coordinator';
         case 'Supervisor': return 'Supervisor';
-        case 'Developer': return 'Admin';
         case 'Head Of Department':
         case 'Head Of Programme':
         default: return 'Guest';
@@ -537,9 +536,6 @@ export const UserManagement: React.FC<UserManagementProps> = ({
                       <option value="Coordinator">Coordinator</option>
                       <option value="Supervisor">Supervisor</option>
                       <option value="Staff">Staff</option>
-                      {users.find(u => u.id === currentUserId)?.email?.toLowerCase() === 'admin@poliku.edu.my' && (
-                        <option value="Developer">Developer</option>
-                      )}
                     </select>
                   </div>
                   <div className="space-y-1 md:col-span-2">

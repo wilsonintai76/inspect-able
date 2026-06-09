@@ -16,6 +16,7 @@ UPDATE users SET roles = '["Guest"]'
 WHERE designation IN ('Staff', 'Guest', 'Head Of Department', 'Head Of Programme')
   AND roles != '["Guest"]';
 
--- Developer → must have ['Admin']
-UPDATE users SET roles = '["Admin"]'
-WHERE designation = 'Developer' AND roles != '["Admin"]';
+-- Developer designation removed — migrate to Staff + keep Admin role if assigned
+-- (Admin role is assigned manually, not via designation binding)
+UPDATE users SET designation = 'Staff'
+WHERE designation = 'Developer';

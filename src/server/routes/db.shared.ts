@@ -38,8 +38,6 @@ export const getRolesForDesignation = (designation?: string | null): string[] | 
     case 'Staff':
     case 'Guest': // legacy — treat same as Staff (base access)
       return ['Guest'];
-    case 'Developer':
-      return ['Admin'];
     default:
       return ['Guest'];
   }

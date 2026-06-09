@@ -593,7 +593,7 @@ router.post('/system/initialize-defaults', requirePolicy('system.reset', emptyCo
     const caller = c.get('user');
     if (caller?.email?.toLowerCase() === 'admin@poliku.edu.my') {
       await c.env.DB.prepare(
-        "UPDATE users SET status = 'Active', designation = 'Developer', department_id = ?, is_verified = 1, must_change_pin = 0 WHERE email = ?"
+        "UPDATE users SET status = 'Active', designation = 'Staff', department_id = ?, is_verified = 1, must_change_pin = 0 WHERE email = ?"
       ).bind(softDevId, 'admin@poliku.edu.my').run();
       
       // Evict cache to reflect changes immediately
