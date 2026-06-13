@@ -348,7 +348,7 @@ router.patch(
         const clear2 = audit.auditor2_id === id;
         let newStatus = audit.status;
         let newLocked = audit.is_locked;
-        if (audit.status === 'Awaiting Approval' || audit.status === 'In Progress') newStatus = 'Pending';
+        if (audit.status === 'In Progress') newStatus = 'Pending';
         if (audit.is_locked) newLocked = null;
         await c.env.DB.prepare(
           'UPDATE audit_schedules SET auditor1_id = ?, auditor2_id = ?, status = ?, is_locked = ? WHERE id = ?'

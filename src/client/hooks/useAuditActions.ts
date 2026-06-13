@@ -30,12 +30,9 @@ export const useAuditActions = (props: UseAuditActionsProps) => {
       await gateway.updateAudit(id, { isLocked: newLocked });
       setSchedules(prev => prev.map(s => {
         if (s.id !== id) return s;
-        const updated = { ...s, isLocked: newLocked };
-        if (newLocked && s.status === 'Awaiting Approval') updated.status = 'In Progress';
-        else if (!newLocked && s.status === 'In Progress') updated.status = 'Awaiting Approval';
-        return updated;
+        return { ...s, isLocked: newLocked };
       }));
-      showToast(newLocked ? 'Approved & In Progress' : 'Approval Revoked');
+      showToast(newLocked ? 'Locked' : 'Unlocked');
     } catch (e) { showError(e); }
   };
 
@@ -51,15 +48,20 @@ export const useAuditActions = (props: UseAuditActionsProps) => {
         if (s.id !== id) return s;
         const updated = { ...s, ...slotUpdate };
         if (updated.status === 'Pending' && updated.date && updated.supervisorId && updated.auditor1Id && updated.auditor2Id) {
-          updated.status = 'Awaiting Approval';
-        } else if ((updated.status === 'In Progress' || updated.status === 'Awaiting Approval') && (!updated.date || !updated.supervisorId || !updated.auditor1Id || !updated.auditor2Id)) {
+          updated.status = 'In Progress';
+          const matchingPhase = auditPhases.find(p => {
+            const d = new Date(updated.date!);
+            return d >= new Date(p.startDate) && d <= new Date(p.endDate);
+          });
+          if (matchingPhase) updated.phaseId = matchingPhase.id;
+        } else if (updated.status === 'In Progress' && (!updated.date || !updated.supervisorId || !updated.auditor1Id || !updated.auditor2Id)) {
           updated.status = 'Pending';
         }
         return updated;
       }));
       const projected = { ...audit, ...slotUpdate };
       const willStart = projected.date && projected.supervisorId && projected.auditor1Id && projected.auditor2Id;
-      showToast(willStart ? 'Assigned! Awaiting supervisor approval.' : 'Assigned');
+      showToast(willStart ? 'Assigned — In Progress' : 'Assigned');
     } catch (e) { showError(e); }
   };
 
@@ -70,7 +72,7 @@ export const useAuditActions = (props: UseAuditActionsProps) => {
       setSchedules(prev => prev.map(s => {
         if (s.id !== id) return s;
         const updated = { ...s, ...slotUpdate };
-        if ((updated.status === 'In Progress' || updated.status === 'Awaiting Approval') && (!updated.date || !updated.supervisorId || !updated.auditor1Id || !updated.auditor2Id)) {
+        if (updated.status === 'In Progress' && (!updated.date || !updated.supervisorId || !updated.auditor1Id || !updated.auditor2Id)) {
           updated.status = 'Pending';
         }
         return updated;
@@ -101,9 +103,17 @@ export const useAuditActions = (props: UseAuditActionsProps) => {
         const finalSupervisor = updates.supervisorId !== undefined ? updates.supervisorId : audit.supervisorId;
         const finalAuditor1 = updates.auditor1Id !== undefined ? updates.auditor1Id : audit.auditor1Id;
         const finalAuditor2 = updates.auditor2Id !== undefined ? updates.auditor2Id : audit.auditor2Id;
-        if (currentStatus === 'Pending' && finalDate && finalSupervisor && finalAuditor1 && finalAuditor2)
-          updates.status = 'Awaiting Approval';
-        else if ((currentStatus === 'In Progress' || currentStatus === 'Awaiting Approval') && (!finalDate || !finalSupervisor || !finalAuditor1 || !finalAuditor2))
+        if (currentStatus === 'Pending' && finalDate && finalSupervisor && finalAuditor1 && finalAuditor2) {
+          updates.status = 'In Progress';
+          if (!updates.phaseId) {
+            const matchingPhase = auditPhases.find(p => {
+              const d = new Date(finalDate);
+              return d >= new Date(p.startDate) && d <= new Date(p.endDate);
+            });
+            if (matchingPhase) updates.phaseId = matchingPhase.id;
+          }
+        }
+        else if (currentStatus === 'In Progress' && (!finalDate || !finalSupervisor || !finalAuditor1 || !finalAuditor2))
           updates.status = 'Pending';
       }
       // Optimistic update — reflect change immediately so UI feels instant
@@ -120,15 +130,27 @@ export const useAuditActions = (props: UseAuditActionsProps) => {
     const snapshot = schedules.find(s => s.id === id);
     try {
       const audit = snapshot;
-      const resolvedPhaseId = date
-        ? (auditPhases.find(p => p.startDate <= date && date <= p.endDate)?.id ?? null)
-        : null;
-      let updates: Partial<AuditSchedule> = resolvedPhaseId ? { date, phaseId: resolvedPhaseId } : { date };
+      let resolvedPhaseId: string | null = null;
+      if (date) {
+        resolvedPhaseId = auditPhases.find(p => {
+          const d = new Date(date);
+          return d >= new Date(p.startDate) && d <= new Date(p.endDate);
+        })?.id ?? null;
+      }
+      let updates: Partial<AuditSchedule> = { date, phaseId: resolvedPhaseId };
       if (audit) {
         const currentStatus = updates.status || audit.status;
-        if (currentStatus === 'Pending' && date && audit.supervisorId && audit.auditor1Id && audit.auditor2Id)
-          updates.status = 'Awaiting Approval';
-        else if ((currentStatus === 'In Progress' || currentStatus === 'Awaiting Approval') && (!date || !audit.supervisorId || !audit.auditor1Id || !audit.auditor2Id))
+        if (currentStatus === 'Pending' && date && audit.supervisorId && audit.auditor1Id && audit.auditor2Id) {
+          updates.status = 'In Progress';
+          if (!resolvedPhaseId) {
+            const matchingPhase = auditPhases.find(p => {
+              const d = new Date(date);
+              return d >= new Date(p.startDate) && d <= new Date(p.endDate);
+            });
+            if (matchingPhase) updates.phaseId = matchingPhase.id;
+          }
+        }
+        else if (currentStatus === 'In Progress' && (!date || !audit.supervisorId || !audit.auditor1Id || !audit.auditor2Id))
           updates.status = 'Pending';
       }
       // Optimistic update — reflect the date immediately so UI feels instant
@@ -139,17 +161,6 @@ export const useAuditActions = (props: UseAuditActionsProps) => {
       if (snapshot) setSchedules(prev => prev.map(s => s.id === id ? snapshot : s));
       showError(e);
     }
-  };
-
-  const handleSendApprovalEmail = async (id: string) => {
-    setIsProcessing(true);
-    try {
-      await gateway.sendApprovalEmail(id);
-      showToast('Approval reminder email sent successfully!', 'success');
-      const acts = await gateway.getSystemActivity();
-      setActivities(acts);
-    } catch (e) { showError(e); }
-    finally { setIsProcessing(false); }
   };
 
   const handleToggleStatus = async (id: string) => {
@@ -172,5 +183,5 @@ export const useAuditActions = (props: UseAuditActionsProps) => {
   };
 
   return { isAuditLocked, handleToggleLock, handleAssign, handleUnassign, handleDeleteAudit,
-    handleUpdateAudit, handleUpdateAuditDate, handleSendApprovalEmail, handleToggleStatus, handleBulkAddAudits };
+    handleUpdateAudit, handleUpdateAuditDate, handleToggleStatus, handleBulkAddAudits };
 };

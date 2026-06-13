@@ -146,7 +146,7 @@ export const MobileInspectorHub: React.FC<Props> = ({
                   {/* Status + Locate */}
                   <VStack gap={1} align="flex-end" flexShrink={0}>
                     <Badge
-                      colorPalette={s.status === 'Completed' ? 'green' : s.status === 'In Progress' ? 'orange' : s.status === 'Awaiting Approval' ? 'blue' : 'gray'}
+                      colorPalette={s.status === 'Completed' ? 'green' : s.status === 'In Progress' ? 'orange' : 'gray'}
                       variant="subtle"
                       size="sm"
                       borderRadius="full"

@@ -225,7 +225,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ user, departments, onU
                         <option value="Supervisor">Supervisor</option>
                         <option value="Coordinator">Coordinator</option>
                         <option value="Head Of Department">Head Of Department</option>
-                        {user.email?.toLowerCase() === 'admin@poliku.edu.my' && <option value="Developer">Developer</option>}
+                        <option value="Head Of Programme">Head Of Programme</option>
                       </select>
                     </div>
                   </div>

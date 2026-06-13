@@ -1,10 +1,10 @@
 import { AuditSchedule, AuditInsight } from '@shared/types';
 import { api, getAuthHeaders } from './honoClient';
 
-export const generateAuditReport = async (audit: AuditSchedule): Promise<string> => {
+export const generateAuditReport = async (audit: AuditSchedule, context?: any): Promise<string> => {
   try {
     const res = await (api as any).ai.report.$post(
-      { json: { audit } },
+      { json: { audit, context } },
       { headers: await getAuthHeaders() }
     );
     if (!res.ok) throw new Error('AI report failed');

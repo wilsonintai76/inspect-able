@@ -6,10 +6,11 @@ import { FileText, X, Stamp, Check, Copy } from 'lucide-react';
 
 interface AuditReportModalProps {
   audit: AuditSchedule;
+  reportContext?: any;
   onClose: () => void;
 }
 
-export const AuditReportModal: React.FC<AuditReportModalProps> = ({ audit, onClose }) => {
+export const AuditReportModal: React.FC<AuditReportModalProps> = ({ audit, reportContext, onClose }) => {
   const [reportText, setReportText] = useState('');
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
@@ -17,7 +18,7 @@ export const AuditReportModal: React.FC<AuditReportModalProps> = ({ audit, onClo
   useEffect(() => {
     let mounted = true;
     const fetchReport = async () => {
-      const text = await generateAuditReport(audit);
+      const text = await generateAuditReport(audit, reportContext);
       if (mounted) {
         setReportText(text);
         setLoading(false);

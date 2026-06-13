@@ -22,7 +22,7 @@ export async function unassignExpiredAuditors(db: D1Database, today: string) {
     if (clear1 || clear2) {
       let newStatus = audit.status;
       let newLocked = audit.is_locked;
-      if (audit.status === 'Awaiting Approval' || audit.status === 'In Progress') newStatus = 'Pending';
+      if (audit.status === 'In Progress') newStatus = 'Pending';
       if (audit.is_locked) newLocked = null;
       await db.prepare(
         'UPDATE audit_schedules SET auditor1_id = ?, auditor2_id = ?, status = ?, is_locked = ? WHERE id = ?'
@@ -76,7 +76,7 @@ export async function handleLocationDepartmentTransfer(
     if (clear1 || clear2) {
       let newStatus = audit.status;
       let newLocked = audit.is_locked;
-      if (audit.status === 'Awaiting Approval' || audit.status === 'In Progress') newStatus = 'Pending';
+      if (audit.status === 'In Progress') newStatus = 'Pending';
       if (audit.is_locked) newLocked = null;
       await db.prepare(
         'UPDATE audit_schedules SET auditor1_id = ?, auditor2_id = ?, status = ?, is_locked = ? WHERE id = ?'
@@ -138,7 +138,7 @@ export async function unassignSpecificAuditorFromFutureAudits(
     let clear2 = audit.auditor2_id === userId;
     let newStatus = audit.status;
     let newLocked = audit.is_locked;
-    if (audit.status === 'Awaiting Approval' || audit.status === 'In Progress') newStatus = 'Pending';
+    if (audit.status === 'In Progress') newStatus = 'Pending';
     if (audit.is_locked) newLocked = null;
     await db.prepare(
       'UPDATE audit_schedules SET auditor1_id = ?, auditor2_id = ?, status = ?, is_locked = ? WHERE id = ?'
@@ -154,11 +154,11 @@ export async function unassignSpecificAuditorFromFutureAudits(
 
 /**
  * Clean up audit schedules when a location is archived.
- * - Delete all non-completed audits (Pending, Awaiting Approval, In Progress)
+ * - Delete all non-completed audits (Pending, In Progress)
  * - Keep completed audits for historical records
  */
 export async function cleanupAuditsForArchivedLocation(db: D1Database, locationId: string) {
   await db.prepare(
-    `DELETE FROM audit_schedules WHERE location_id = ? AND status != 'Completed'`
+    `DELETE FROM audit_schedules WHERE location_id = ? AND status NOT IN ('Completed')`
   ).bind(locationId).run();
 }

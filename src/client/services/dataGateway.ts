@@ -78,10 +78,6 @@ class DataGateway {
     await this.rpc<unknown>(h => (api as any).db.audits[':id'].$delete({ param: { id } }, { headers: h }));
   }
 
-  async sendApprovalEmail(id: string): Promise<void> {
-    await this.rpc<unknown>(h => (api as any).db.audits[':id']['send-approval-email'].$post({ param: { id } }, { headers: h }));
-  }
-
   // --- USERS ---
   async getUsers(): Promise<User[]> {
     return this.rpc<User[]>(h => (api as any).db.users.$get({}, { headers: h }));
@@ -161,9 +157,7 @@ class DataGateway {
     await this.rpc<unknown>(h => (api as any).db.departments[':id'].purge.$delete({ param: { id } }, { headers: h }));
   }
 
-  async clearAllLocations() {
-    await this.rpc<unknown>(h => (api as any).db.locations.clear.$post({}, { headers: h }));
-  }
+
 
   async requestPasswordReset(email: string) {
     return await this.rpc<{ success: boolean; message: string }>(h => (api as any).auth['request-reset'].$post({ json: { email } }, { headers: h }));
@@ -181,29 +175,7 @@ class DataGateway {
     await this.rpc<unknown>(h => (api as any).db.users[':id'].approve.$post({ param: { id: userId } }, { headers: h }));
   }
 
-  async clearAllDepartments(currentUserId?: string) {
-    await this.rpc<unknown>(h => (api as any).db.departments.clear.$post({ json: { keep_user_id: currentUserId } }, { headers: h }));
-  }
 
-  async clearAllUsers(currentUserId?: string) {
-    await this.rpc<unknown>(h => (api as any).db.users.clear.$post({ json: { keep_user_id: currentUserId } }, { headers: h }));
-  }
-
-  async clearAuditPhases() {
-    await this.rpc<unknown>(h => (api as any).db['audit-phases'].clear.$post({}, { headers: h }));
-  }
-
-  async clearKPI() {
-    await this.rpc<unknown>(h => (api as any).db.kpi.clear.$post({}, { headers: h }));
-  }
-
-  async fullSystemReset(adminUserId?: string) {
-    await this.rpc<unknown>(h => (api as any).db.system['full-reset'].$post({ json: { keep_user_id: adminUserId } }, { headers: h }));
-  }
-
-  async initializeDefaults() {
-    await this.rpc<unknown>(h => (api as any).db.system['initialize-defaults'].$post({ json: {} }, { headers: h }));
-  }
 
   // --- DEPARTMENT MAPPINGS ---
   async getDepartmentMappings(): Promise<DepartmentMapping[]> {
@@ -214,9 +186,7 @@ class DataGateway {
     return this.rpc<DepartmentMapping>(h => (api as any).db['department-mappings'].$post({ json: mapping as any }, { headers: h }));
   }
 
-  async clearDepartmentMappings(): Promise<void> {
-    await this.rpc<unknown>(h => (api as any).db['department-mappings'].clear.$post({}, { headers: h }));
-  }
+
 
   async deleteDepartmentMapping(id: string): Promise<void> {
     await this.rpc<unknown>(h => (api as any).db['department-mappings'][':id'].$delete({ param: { id } }, { headers: h }));
@@ -244,38 +214,7 @@ class DataGateway {
     await this.rpc<unknown>(h => (api as any).db.activity.$post({ json: activity as any }, { headers: h }));
   }
 
-  // --- PERMISSIONS (STUBBED FOR OPEN AUDIT) ---
-  async getPermissions(): Promise<CrossAuditPermission[]> {
-    return [];
-  }
 
-  async addPermission(perm: Omit<CrossAuditPermission, 'id'>) {
-    return;
-  }
-
-  async bulkAddPermissions(perms: Omit<CrossAuditPermission, 'id'>[]) {
-    return;
-  }
-
-  async deletePermission(id: string) {
-    return;
-  }
-
-  async bulkDeletePermissions(ids: string[]) {
-    return;
-  }
-
-  async clearAllPermissions(): Promise<{ success: boolean }> {
-    return { success: true };
-  }
-
-  async resetOnlyPermissions(): Promise<{ success: boolean }> {
-    return { success: true };
-  }
-
-  async updatePermission(id: string, updates: Partial<CrossAuditPermission>) {
-    return;
-  }
 
   // --- AUDIT PHASES ---
   async getAuditPhases(): Promise<AuditPhase[]> {
@@ -328,22 +267,7 @@ class DataGateway {
     await this.rpc<unknown>(h => (api as any).db['kpi-tier-targets'][':id'].$delete({ param: { id } }, { headers: h }));
   }
 
-  // --- AUDIT GROUPS ---
-  async getAuditGroups(): Promise<AuditGroup[]> {
-    return (await this.rpcOrNull<AuditGroup[]>(h => (api as any).db['audit-groups'].$get({}, { headers: h }))) ?? [];
-  }
 
-  async addAuditGroup(group: Omit<AuditGroup, 'id'>): Promise<AuditGroup> {
-    return this.rpc<AuditGroup>(h => (api as any).db['audit-groups'].$post({ json: group as any }, { headers: h }));
-  }
-
-  async updateAuditGroup(id: string, updates: Partial<AuditGroup>): Promise<void> {
-    await this.rpc<unknown>(h => (api as any).db['audit-groups'][':id'].$patch({ param: { id }, json: updates as any }, { headers: h }));
-  }
-
-  async deleteAuditGroup(id: string): Promise<void> {
-    await this.rpc<unknown>(h => (api as any).db['audit-groups'][':id'].$delete({ param: { id } }, { headers: h }));
-  }
 
   async getInstitutionKPIs(): Promise<InstitutionKPITarget[]> {
     return (await this.rpcOrNull<InstitutionKPITarget[]>(h => (api as any).db['institution-kpi-targets'].$get({}, { headers: h }))) ?? [];
@@ -361,17 +285,7 @@ class DataGateway {
     return this.rpc(h => (api as any).compute['auto-tier-targets'].$post({ json: { tierId } }, { headers: h }));
   }
 
-  async autoConsolidateAuditGroups(threshold: number, excludedDeptIds: string[], minAuditors: number, groupingMargin: number, useAI: boolean, pairingMode: string = 'asymmetric', aiConsolidation: boolean = false, minAuditorsPerGroup: number = 10, dryRun: boolean = false, auditorMargin: number = 3) {
-    return this.rpc(h => (api as any).compute.consolidate.$post({ json: { threshold, excludedDeptIds, minAuditors, groupingMargin, useAI, pairingMode, aiConsolidation, minAuditorsPerGroup, dryRun, auditorMargin } }, { headers: h }));
-  }
 
-  async commitConsolidationDraft(groups: any[]) {
-    return this.rpc(h => (api as any).compute.consolidate['commit-draft'].$post({ json: { groups } }, { headers: h }));
-  }
-
-  async generateStrategicPairings(payload: { mode: string; minAuditors: number; strictAuditorRule: boolean; autoPairingMutual: boolean; respectManualPairings: boolean; simulate: boolean; useAI: boolean }) {
-    return this.rpc(h => (api as any).compute['cross-audit'].generate.$post({ json: payload }, { headers: h }));
-  }
 
   // --- BUILDINGS ---
   async getBuildings(): Promise<Building[]> {
@@ -402,24 +316,7 @@ class DataGateway {
     await this.rpc<unknown>(h => (api as any).db['system-settings'][':id'].$post({ param: { id }, json: { value } }, { headers: h }));
   }
 
-  async setDeptTotalsFromMapping() {
-    await this.rpc<unknown>(h => (api as any).db.departments.refresh.$post({}, { headers: h }));
-  }
 
-  async upsertLocations(locations: Omit<Location, 'id'>[]) {
-    await this.rpc<unknown>(h => (api as any).db.locations.upsert.$post({ json: locations as any }, { headers: h }));
-  }
-
-  async syncLocationMappings() {
-    await this.rpc<unknown>(h => (api as any).db.locations.sync.$post({}, { headers: h }));
-  }
-  async syncLocationNotes() {
-    await this.rpc<unknown>(h => (api as any).db.locations['sync-notes'].$post({}, { headers: h }));
-  }
-
-  async mergeLocations(sourceIds: string[], targetId: string) {
-    await this.rpc<unknown>(h => (api as any).db.locations.merge.$post({ json: { sourceIds, targetId } }, { headers: h }));
-  }
 }
 
 export const gateway = new DataGateway();

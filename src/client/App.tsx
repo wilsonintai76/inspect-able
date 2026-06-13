@@ -83,8 +83,8 @@ const App: React.FC = () => {
     currentUser, viewState, setViewState, activeView, setActiveView, isInitialLoading,
     publicStats, connectionErrorMessage, filteredSchedules,
     departmentsWithAssets, auditPhases, kpiTiers, locations,
-    activities, maxAssetsPerDay, auditGroups, institutionKPIs,
-    buildings, kpiTierTargets, crossAuditPermissions,
+    activities, maxAssetsPerDay, institutionKPIs,
+    buildings, kpiTierTargets,
     selectedDept, setSelectedDept, selectedStatus, setSelectedStatus,
     selectedPhaseId, setSelectedPhaseId, groupingMargin, setGroupingMargin,
     isSidebarOpen, setIsSidebarOpen,
@@ -99,32 +99,20 @@ const App: React.FC = () => {
     handleLoginSuccess, handleLogout, handleViewChange,
     handleIssueCertForRenewal, handleUpdateDashboardConfig,
     handleAssign, handleUnassign, handleUpdateAuditDate,
-    handleUpdateAudit, handleToggleStatus, handleToggleLock, handleSendApprovalEmail,
+    handleUpdateAudit, handleToggleStatus, handleToggleLock,
+    handleDeleteAudit,
     handleAddMember, handleBulkAddMembers, handleUpdateMember,
     handleDeleteMember, handleUpdateUserRoles, handleUpdateUserStatus,
     handleResetUserPassword, handleAddDept, handleUpdateDept,
-    handleBulkUpdateDepts, handleArchiveDept, handleAddAuditGroup,
-    handleUpdateAuditGroup, handleDeleteAuditGroup, handleAddLoc,
+    handleBulkUpdateDepts, handleArchiveDept, handleAddLoc,
     handleBulkAddLocs, handleUpdateLoc, handleArchiveLoc,
     handleApproveArchive, handleRejectArchive, handleAddBuilding, handleUpdateBuilding,
-    handleBulkAddBuildings, handleDeleteBuilding, handleAddPermission,
-    handleRemovePermission, handleTogglePermission, handleBulkAddPermissions,
-    handleBulkRemovePermissions, handleLockPairing, handleUnlockPairing,
+    handleBulkAddBuildings, handleDeleteBuilding,
     handleAddPhase, handleUpdatePhase, handleDeletePhase,
     handleAddKPITier, handleUpdateKPITier, handleDeleteKPITier,
     handleUpdateKPITierTarget, handleUpdateInstitutionKPI,
-    handleAutoCalculateTierTargets, handleResetLocations,
-    handleResetOperationalData, handleResetDepartments,
-    handleResetUsers, handleResetPhases, handleResetKPI,
-    handleBulkAddDepts, handleBulkActivateStaff,
-    handleAddDepartmentMapping, handleDeleteDepartmentMapping,
-    handleSyncLocationMappings, handleUpsertLocations,
-    handleSetDeptTotalsFromMapping, handleUpdateUninspectedAssetCounts,
-    handleBulkDeleteAuditGroups, handleAutoConsolidate, handleCommitGroups, handleCancelGroupSimulation, handleRunStrategicPairing, handleSaveFeasibilityReport, handleResetOnlyPermissions,
+    handleAutoCalculateTierTargets,
     handleUpdateAssignmentMode, handleUpdateOpenAuditThreshold,
-    handleSyncLocationNotes,
-    handleMergeLocations,
-    handleAddLocationMapping, handleDeleteLocationMapping,
     handlePurgeDept, handlePurgeLoc,
     showToast, closeToast, showError, customConfirm, customAlert
   } = appActions;
@@ -308,7 +296,6 @@ const App: React.FC = () => {
           activities={activities}
           buildings={buildings}
           openAuditThreshold={openAuditThreshold}
-          onSendEmail={handleSendApprovalEmail}
         />
       )}
       {activeView === 'schedule' && (
@@ -333,12 +320,11 @@ const App: React.FC = () => {
           onToggleLock={handleToggleLock}
           allDepartments={departmentsWithAssets}
           allLocations={locations}
-          crossAuditPermissions={crossAuditPermissions}
           auditPhases={auditPhases}
           maxAssetsPerDay={maxAssetsPerDay}
           buildings={buildings}
-          assignmentMode={assignmentMode}
-          onSendEmail={handleSendApprovalEmail}
+          onDeleteAudit={handleDeleteAudit}
+          onUpdateLocation={handleUpdateLoc}
         />
       )}
       {activeView === 'team' && (
@@ -367,16 +353,14 @@ const App: React.FC = () => {
           locations={visibleLocations}
           departmentMappings={appData.departmentMappings}
           users={users}
+          schedules={appData.schedules}
+          onUpdateLocation={handleUpdateLoc}
           onAdd={handleAddDept}
           onUpdate={handleUpdateDept}
           onBulkUpdate={handleBulkUpdateDepts}
           onDelete={handleArchiveDept}
           onPurge={handlePurgeDept}
           phases={auditPhases}
-          auditGroups={auditGroups}
-          onAddGroup={handleAddAuditGroup}
-          onUpdateGroup={handleUpdateAuditGroup}
-          onDeleteGroup={handleDeleteAuditGroup}
           onAddInspector={(deptId) => { setSelectedDept(deptId); setActiveView('team'); }}
           currentUserRoles={currentUser.roles}
           openAuditThreshold={openAuditThreshold}
@@ -415,23 +399,13 @@ const App: React.FC = () => {
         <SystemSettings
           departments={departmentsWithAssets}
           users={users}
-          permissions={crossAuditPermissions}
           phases={auditPhases}
           kpiTiers={kpiTiers}
           kpiTierTargets={kpiTierTargets}
           institutionKPIs={institutionKPIs}
           userRoles={currentUser.roles}
-          onAddPermission={handleAddPermission}
-          onRemovePermission={handleRemovePermission}
-          onTogglePermission={handleTogglePermission}
           onUpdateDepartment={handleUpdateDept}
           onBulkUpdateDepartments={handleBulkUpdateDepts}
-          onBulkAddPermissions={handleBulkAddPermissions}
-          onBulkRemovePermissions={handleBulkRemovePermissions}
-          pairingLocked={appData.pairingLocked}
-          pairingLockInfo={appData.pairingLockInfo}
-          onLockPairing={handleLockPairing}
-          onUnlockPairing={handleUnlockPairing}
           showToast={showToast}
           onAddPhase={handleAddPhase}
           onUpdatePhase={handleUpdatePhase}
@@ -442,16 +416,7 @@ const App: React.FC = () => {
           onUpdateKPITierTarget={handleUpdateKPITierTarget}
           onUpdateInstitutionKPI={handleUpdateInstitutionKPI}
           onAutoCalculateTierTargets={handleAutoCalculateTierTargets}
-          onResetLocations={handleResetLocations}
-          onResetOperationalData={handleResetOperationalData}
-          onResetDepartments={handleResetDepartments}
-          onResetUsers={handleResetUsers}
-          onResetPhases={handleResetPhases}
-          onResetKPI={handleResetKPI}
-          isSystemLocked={appData.pairingLocked}
-          onBulkAddLocs={handleBulkAddLocs}
-          onBulkAddDepts={handleBulkAddDepts}
-          onBulkActivateStaff={handleBulkActivateStaff}
+
           standaloneThresholdAssets={appData.standaloneThresholdAssets}
           onUpdateMaxAssetsPerDay={async (val) => { appData.setMaxAssetsPerDay(val); await gateway.updateSystemSetting('audit_constraints', { maxAssetsPerDay: val, maxLocationsPerDay: appData.maxLocationsPerDay, minAuditorsPerLocation: appData.minAuditorsPerLocation, dailyInspectionCapacity: appData.dailyInspectionCapacity, standaloneThresholdAssets: appData.standaloneThresholdAssets }); }}
           onUpdateMaxLocationsPerDay={async (val) => { appData.setMaxLocationsPerDay(val); await gateway.updateSystemSetting('audit_constraints', { maxAssetsPerDay: appData.maxAssetsPerDay, maxLocationsPerDay: val, minAuditorsPerLocation: appData.minAuditorsPerLocation, dailyInspectionCapacity: appData.dailyInspectionCapacity, standaloneThresholdAssets: appData.standaloneThresholdAssets }); }}
@@ -463,39 +428,15 @@ const App: React.FC = () => {
           groupingAuditorMargin={appData.groupingAuditorMargin}
           onUpdateGroupingAuditorMargin={async (val) => { appData.setGroupingAuditorMargin(val); await gateway.updateSystemSetting('audit_constraints', { maxAssetsPerDay: appData.maxAssetsPerDay, maxLocationsPerDay: appData.maxLocationsPerDay, minAuditorsPerLocation: appData.minAuditorsPerLocation, dailyInspectionCapacity: appData.dailyInspectionCapacity, standaloneThresholdAssets: appData.standaloneThresholdAssets, groupingMargin: appData.groupingMargin, groupingAuditorMargin: val }); }}
           schedules={appData.schedules}
-          departmentMappings={appData.departmentMappings}
-          onAddDepartmentMapping={handleAddDepartmentMapping}
-          onDeleteDepartmentMapping={handleDeleteDepartmentMapping}
-          onSyncLocationMappings={handleSyncLocationMappings}
-          onUpsertLocations={handleUpsertLocations}
-          onSetDeptTotalsFromMapping={handleSetDeptTotalsFromMapping}
-          onUpdateUninspectedAssets={handleUpdateUninspectedAssetCounts}
+
           locations={locations}
           buildings={buildings}
-          locationMappings={appData.locationMappings}
-          onAddLocationMapping={handleAddLocationMapping}
-          onDeleteLocationMapping={handleDeleteLocationMapping}
-          onSyncLocationNotes={handleSyncLocationNotes}
-          onAddAuditGroup={handleAddAuditGroup}
-          onUpdateAuditGroup={handleUpdateAuditGroup}
-          onDeleteAuditGroup={handleDeleteAuditGroup}
-          onAutoConsolidate={handleAutoConsolidate}
-          onRunStrategicPairing={handleRunStrategicPairing}
-          auditGroups={auditGroups}
-          feasibilityReport={appData.feasibilityReport}
-          onSaveFeasibilityReport={handleSaveFeasibilityReport}
-          currentUser={currentUser}
-          isGroupSimulatorActive={appData.isGroupSimulatorActive}
-          simulatedGroups={appData.simulatedGroups}
-          onCommitGroups={handleCommitGroups}
-          onCancelGroupSimulation={handleCancelGroupSimulation}
-          onUpdateSimulatedGroups={appData.setSimulatedGroups}
-          onResetOnlyPermissions={handleResetOnlyPermissions}
+
           assignmentMode={assignmentMode}
           onUpdateAssignmentMode={handleUpdateAssignmentMode}
           openAuditThreshold={openAuditThreshold}
           onUpdateOpenAuditThreshold={handleUpdateOpenAuditThreshold}
-          onMergeLocations={handleMergeLocations}
+
           onRestoreLocation={handleRejectArchive}
           onPurgeLocation={handlePurgeLoc}
         />

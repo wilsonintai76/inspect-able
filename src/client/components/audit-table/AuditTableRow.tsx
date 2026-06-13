@@ -5,7 +5,7 @@ import {
 import { AuditorAssignmentSlot } from '../AuditorAssignmentSlot';
 import {
   Calendar, Lock, Unlock, Building, Layers, Package,
-  AlertTriangle, Phone, UserCheck, RotateCcw, FileText, ExternalLink, Upload, Mail,
+  AlertTriangle, Phone, UserCheck, RotateCcw, FileText, ExternalLink, Upload, Mail, Boxes,
 } from 'lucide-react';
 
 export interface AuditTableRowProps {
@@ -30,35 +30,34 @@ export interface AuditTableRowProps {
   isInspector: boolean;
   hasFieldRole: boolean;
   isCertified: boolean;
-  assignmentMode: 'cross-audit' | 'open-audit';
   canSendApprovalReminder: boolean;
   hasSentApprovalReminder: boolean;
   // Helper functions
   isAuditLocked: (audit: AuditSchedule) => boolean;
   isDateInValidPhase: (dateStr: string, phaseId: string) => boolean;
   getBuildingAbbr: (buildingId?: string | null, buildingName?: string) => string;
-  getEntityName: (deptId: string) => string;
   getUserContact: (userId: string) => string | undefined;
   canAuditDepartment: (targetDeptId: string) => boolean;
   getStatusBadgeStyles: (status: string) => string;
   // Event handlers
   onDateChange: (id: string, newDate: string, phaseId: string) => void;
-  onSendEmail: (id: string) => void;
   onToggleLock: (id: string) => void;
   onAssign: (auditId: string, slot: 1 | 2, date: string, phaseId: string, manualUserId?: string) => void;
   onUnassign: (id: string, slot: 1 | 2) => void;
   onSetReportAudit: (audit: AuditSchedule) => void;
   onSetUploadAudit: (audit: AuditSchedule) => void;
+  onSetStatusAudit: (audit: AuditSchedule) => void;
+  onDeleteAudit?: (id: string) => void;
 }
 
 export const AuditTableRow: React.FC<AuditTableRowProps> = ({
   audit, users, currentUser, allDepartments, allLocations, buildings, schedules,
   todayStr, canEditDates, canSelfAssignPerm, canAssignOthers, hasPhases, auditPhases,
   maxAssetsPerDay, canSelfAssignSelf, isAdmin, isCoordinator, isSupervisor, isInspector,
-  hasFieldRole, isCertified, assignmentMode, canSendApprovalReminder, hasSentApprovalReminder,
-  isAuditLocked, isDateInValidPhase, getBuildingAbbr, getEntityName, getUserContact,
+  hasFieldRole, isCertified, canSendApprovalReminder, hasSentApprovalReminder,
+  isAuditLocked, isDateInValidPhase, getBuildingAbbr, getUserContact,
   canAuditDepartment, getStatusBadgeStyles,
-  onDateChange, onSendEmail, onToggleLock, onAssign, onUnassign, onSetReportAudit, onSetUploadAudit,
+  onDateChange, onToggleLock, onAssign, onUnassign, onSetReportAudit, onSetUploadAudit, onSetStatusAudit, onDeleteAudit,
 }) => {
   const loc = allLocations.find(l => l.id === audit.locationId);
   const isCurrentUserAssigned = audit.auditor1Id === currentUser?.id || audit.auditor2Id === currentUser?.id;
@@ -70,7 +69,9 @@ export const AuditTableRow: React.FC<AuditTableRowProps> = ({
   // Per-row date permission: any user who can view the matrix may pick dates;
   // Privileged roles (Admin/Coordinator/Supervisor) can always edit dates even on locked rows;
   // other users are blocked when the row is locked / In-Progress / Completed.
-  const canEditThisDate = canEditDates && (!isEffectivelyLocked || isAdmin || isCoordinator || isSupervisor);
+  const isPrivileged = isAdmin || isCoordinator || isSupervisor;
+  const userCanAudit = canAuditDepartment(audit.departmentId);
+  const canEditThisDate = canEditDates && (!isEffectivelyLocked || isPrivileged) && (isPrivileged || userCanAudit);
 
   // ── Date display format (DD/MM/YYYY – Malaysia standard) ──────────────
   const formatDateDisplay = (dateStr: string | null | undefined): string => {
@@ -106,8 +107,6 @@ export const AuditTableRow: React.FC<AuditTableRowProps> = ({
   const isUserOverLimit = !isCurrentUserAssigned && (totalAssetsOnDate + (loc?.totalAssets || 0) > maxAssetsPerDay);
 
   const isPast = !!(audit.date && audit.date < todayStr);
-  const userCanAudit = canAuditDepartment(audit.departmentId);
-
   // Date picker constraints: global range across ALL phases (matches mobile behaviour —
   // handleDateChange auto-reassigns the phaseId when the picked date falls in a different phase)
   const dateMin = auditPhases.length > 0
@@ -352,7 +351,6 @@ export const AuditTableRow: React.FC<AuditTableRowProps> = ({
               audit={audit}
               users={users}
               currentUser={currentUser ?? null}
-              allDepartments={allDepartments}
               canManageAssignments={(canEditDates || canSelfAssignPerm || canAssignOthers || canSelfAssignSelf) && !isLocked}
               canAssignOthers={canAssignOthers && !isLocked}
               isAdmin={isAdmin}
@@ -371,9 +369,7 @@ export const AuditTableRow: React.FC<AuditTableRowProps> = ({
               onAssign={onAssign}
               onUnassign={onUnassign}
               getUserContact={getUserContact}
-              getEntityName={getEntityName}
               maxAssetsPerDay={maxAssetsPerDay}
-              assignmentMode={assignmentMode}
             />
           ))}
         </div>
@@ -390,58 +386,6 @@ export const AuditTableRow: React.FC<AuditTableRowProps> = ({
               <span className={`inline-flex items-center px-3 py-1.5 rounded-xl text-[10px] font-black uppercase border tracking-widest whitespace-nowrap ${getStatusBadgeStyles(audit.status)}`}>
                 {audit.status}
               </span>
-
-              {/* Awaiting Approval: lock action */}
-              {audit.status === 'Awaiting Approval' && (
-                <>
-                  {canApprove ? (
-                    <button
-                      onClick={() => {
-                        if (!window.confirm(`Lock & approve inspection for "${loc?.name || audit.locationId}"?\n\nStatus will change to "In Progress".`)) return;
-                        onToggleLock(audit.id);
-                      }}
-                      className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500 text-white rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-emerald-600 transition-all shadow-md shadow-emerald-500/25 active:scale-95 whitespace-nowrap"
-                      title="Lock this inspection to approve it — sets status to In Progress"
-                    >
-                      <Lock className="w-3 h-3" />
-                      Lock to Approve
-                    </button>
-                  ) : (
-                    <div className="flex items-center gap-1 px-2 py-1 bg-amber-50 text-amber-600 border border-amber-100 rounded-lg text-[9px] font-bold whitespace-nowrap">
-                      <Lock className="w-2.5 h-2.5 shrink-0" />
-                      <span>Awaiting supervisor approval</span>
-                    </div>
-                  )}
-
-                  {canSendApprovalReminder && (
-                    (() => {
-                      const daysUntilDate = audit.date
-                        ? Math.ceil((new Date(audit.date + 'T00:00:00').getTime() - new Date(todayStr + 'T00:00:00').getTime()) / (1000 * 60 * 60 * 24))
-                        : 999;
-                      const isLastDay = daysUntilDate <= 1;
-                      return (
-                        <button
-                          onClick={() => {
-                            if (!isLastDay) return;
-                            if (!window.confirm(`Send an approval reminder email to the supervisor for "${loc?.name || audit.locationId}"?`)) return;
-                            onSendEmail(audit.id);
-                          }}
-                          disabled={!isLastDay}
-                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
-                            isLastDay
-                              ? 'bg-white border border-slate-200 text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200 active:scale-95'
-                              : 'bg-slate-50 border border-slate-100 text-slate-300 cursor-not-allowed'
-                          }`}
-                          title={isLastDay ? 'Send approval reminder email to supervisor' : `Reminder available 1 day before schedule (${audit.date || 'date not set'})`}
-                        >
-                          <Mail className="w-3 h-3" />
-                          {isLastDay ? 'Send Reminder' : 'Reminder Later'}
-                        </button>
-                      );
-                    })()
-                  )}
-                </>
-              )}
 
               {/* In Progress: upload action */}
               {audit.status === 'In Progress' && (
@@ -481,7 +425,7 @@ export const AuditTableRow: React.FC<AuditTableRowProps> = ({
       {/* ── Actions Cell ── */}
       <td className="px-5 py-4 align-top text-center">
         <div className="flex items-center justify-center gap-2">
-          {audit.reportPath && (
+          {audit.status === 'Completed' && audit.reportPath && (
             <a
               href={audit.reportPath}
               target="_blank"
@@ -493,13 +437,22 @@ export const AuditTableRow: React.FC<AuditTableRowProps> = ({
             </a>
           )}
           {audit.status === 'Completed' && (
-            <button
-              onClick={() => onSetReportAudit(audit)}
-              className="w-8 h-8 flex items-center justify-center rounded-lg bg-slate-50 text-slate-400 hover:bg-blue-50 hover:text-blue-600 transition-colors border border-slate-100 hover:border-blue-100 shadow-sm"
-              title="Generate Formal Completion Report (AI)"
-            >
-              <FileText className="w-4 h-4" />
-            </button>
+            <>
+              <button
+                onClick={() => onSetStatusAudit(audit)}
+                className="w-8 h-8 flex items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100 hover:text-emerald-700 transition-colors border border-emerald-100 hover:border-emerald-200 shadow-sm"
+                title="Edit Asset Status Breakdown"
+              >
+                <Boxes className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => onSetReportAudit(audit)}
+                className="w-8 h-8 flex items-center justify-center rounded-lg bg-slate-50 text-slate-400 hover:bg-blue-50 hover:text-blue-600 transition-colors border border-slate-100 hover:border-blue-100 shadow-sm"
+                title="Generate Formal Completion Report (AI)"
+              >
+                <FileText className="w-4 h-4" />
+              </button>
+            </>
           )}
         </div>
       </td>

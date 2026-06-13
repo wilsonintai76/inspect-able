@@ -56,27 +56,7 @@ export const authService = {
       await serverLogout();
 
       // 2. Clear local storage
-      const PERSIST_KEYS = [
-        'cross_audit_simulator_active',
-        'cross_audit_simulator_pairings',
-        'group_builder_threshold',
-        'group_builder_standalone_cutoff',
-        'pairing_lock_active',
-        'pairing_lock_info',
-        'cross_audit_pairing_mode',
-        'cross_audit_respect_manual',
-        'cross_audit_simulate_staff',
-        'cross_audit_mutual',
-      ];
-      const preserved: Record<string, string> = {};
-      for (const key of PERSIST_KEYS) {
-        const val = localStorage.getItem(key);
-        if (val !== null) preserved[key] = val;
-      }
       localStorage.clear();
-      for (const [key, val] of Object.entries(preserved)) {
-        localStorage.setItem(key, val);
-      }
       sessionStorage.clear();
 
       // 3. Clear token
