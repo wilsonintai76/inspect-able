@@ -285,6 +285,7 @@ const App: React.FC = () => {
       <AutoUpdater />
       {activeView === 'dashboard' && (
         <InstitutionalSection
+          currentUser={currentUser}
           users={users}
           departments={departmentsWithAssets}
           locations={locations}
@@ -296,6 +297,9 @@ const App: React.FC = () => {
           activities={activities}
           buildings={buildings}
           openAuditThreshold={openAuditThreshold}
+          onUpdateAudit={handleUpdateAudit}
+          onToggleStatus={handleToggleStatus}
+          onToggleLock={handleToggleLock}
         />
       )}
       {activeView === 'schedule' && (
