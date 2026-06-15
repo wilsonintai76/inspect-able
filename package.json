@@ -12,7 +12,7 @@
     "lint": "tsc --noEmit",
     "deploy": "npm version patch && npm run build && npx wrangler deploy",
     "version": "npm run lint",
-    "postversion": "git push && git push --tags"
+    "postversion": "git push && git push --tags || echo Warning: Git push failed (repository may be archived). Proceeding with local build..."
   },
   "dependencies": {
     "@ant-design/icons": "^5.6.1",
