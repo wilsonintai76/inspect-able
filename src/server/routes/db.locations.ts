@@ -149,6 +149,27 @@ router.patch('/locations/:id', requirePolicy('location.manage', emptyContextBuil
       return c.json({ error: `Supervisors cannot modify: ${disallowed.join(', ')}` }, 403);
     }
   }
+
+  // Inspectors can only update location if they are the assigned auditor for an In Progress schedule
+  const isAssignedAuditor = await c.env.DB.prepare(
+    `SELECT id FROM audit_schedules 
+     WHERE location_id = ? AND status = 'In Progress' 
+     AND (auditor1_id = ? OR auditor2_id = ?)`
+  ).bind(id, caller?.id || '', caller?.id || '').first<{ id: string }>();
+
+  if (!isAdmin && !isCoordinator && !isSupervisor && !isAssignedAuditor) {
+    return c.json({ error: 'Forbidden: you must be an administrator, coordinator, supervisor, or the assigned inspector for this location to edit it.' }, 403);
+  }
+
+  // Certified inspector (who is the assigned auditor) can only update totalAssets and uninspectedAssetCount
+  if (isAssignedAuditor && !isAdmin && !isCoordinator && !isSupervisor) {
+    const allowedFields = ['totalAssets', 'uninspectedAssetCount'];
+    const disallowed = Object.keys(updates).filter(k => !allowedFields.includes(k));
+    if (disallowed.length > 0) {
+      return c.json({ error: `Inspectors can only modify: ${allowedFields.join(', ')}` }, 403);
+    }
+  }
+
   const fields: string[] = [];
   const values: any[] = [];
 

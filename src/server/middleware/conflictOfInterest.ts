@@ -64,6 +64,8 @@ export const auditAssignmentGuard = async (
 
   // ── Resolve the audit's target department and check concurrency ──────────
   // Fetch all needed audit fields in ONE query (department, auditors, supervisor)
+  let finalAuditor1 = updates.auditor1Id;
+  let finalAuditor2 = updates.auditor2Id;
   let targetDeptId: string | null = updates.departmentId ?? null;
   let supervisorId: string | null = (updates as any).supervisorId ?? null;
   const auditId = c.req.param('id'); // undefined on POST, present on PATCH
@@ -78,6 +80,8 @@ export const auditAssignmentGuard = async (
     if (existing) {
       if (!targetDeptId) targetDeptId = existing.department_id;
       if (!supervisorId) supervisorId = existing.supervisor_id;
+      if (updates.auditor1Id === undefined) finalAuditor1 = existing.auditor1_id;
+      if (updates.auditor2Id === undefined) finalAuditor2 = existing.auditor2_id;
 
       // ATOMIC CONCURRENCY CHECK (Race Condition Guard)
       if (!canAssignOthers) {
@@ -89,6 +93,11 @@ export const auditAssignmentGuard = async (
         }
       }
     }
+  }
+
+  // Check if Auditor 1 and Auditor 2 are the same non-null user
+  if (finalAuditor1 && finalAuditor2 && finalAuditor1 === finalAuditor2) {
+    return c.json({ error: 'Conflict of interest: the same auditor cannot be assigned to both auditor slots on the same schedule', code: 'SAME_AUDITOR' }, 409);
   }
 
   if (!targetDeptId) {

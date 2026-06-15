@@ -71,7 +71,7 @@ export const AuditTableRow: React.FC<AuditTableRowProps> = ({
   // other users are blocked when the row is locked / In-Progress / Completed.
   const isPrivileged = isAdmin || isCoordinator || isSupervisor;
   const userCanAudit = canAuditDepartment(audit.departmentId);
-  const canEditThisDate = canEditDates && (!isEffectivelyLocked || isPrivileged) && (isPrivileged || userCanAudit);
+  const canEditThisDate = canEditDates && (isPrivileged || (!isLocked && audit.status !== 'Completed' && (audit.status !== 'In Progress' || isCurrentUserAssigned))) && (isPrivileged || userCanAudit);
 
   // ── Date display format (DD/MM/YYYY – Malaysia standard) ──────────────
   const formatDateDisplay = (dateStr: string | null | undefined): string => {

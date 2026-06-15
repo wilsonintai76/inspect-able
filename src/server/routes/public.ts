@@ -502,7 +502,12 @@ pub.patch('/kiosk/schedules/:id/date', async (c) => {
       'SELECT date, location_id, auditor1_id, auditor2_id, is_locked FROM audit_schedules WHERE id = ?'
     ).bind(scheduleId).first<{ date: string | null; location_id: string; auditor1_id: string | null; auditor2_id: string | null; is_locked: number | null }>();
 
-    const isLocked = existing && (existing.is_locked === 0 ? false : !!(existing.is_locked || (existing.date && existing.auditor1_id && existing.auditor2_id)));
+    const isExplicitlyLocked = existing && existing.is_locked === 1;
+    const isFullyStaffed = existing && !!(existing.date && existing.auditor1_id && existing.auditor2_id);
+    const isAssignedAuditor = existing && (existing.auditor1_id === sessionUserId || existing.auditor2_id === sessionUserId);
+
+    // Block if explicitly locked, or if fully staffed and the caller is NOT the assigned auditor
+    const isLocked = isExplicitlyLocked || (isFullyStaffed && !isAssignedAuditor);
     if (isLocked) {
       return c.json({ error: 'ACTION BLOCKED: This audit is locked. Dates can only be modified or unlocked from the main site after unlocking.' }, 403);
     }
