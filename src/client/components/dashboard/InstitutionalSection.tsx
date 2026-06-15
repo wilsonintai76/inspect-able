@@ -10,17 +10,7 @@ import {
   MapPin, 
   CheckCircle2, 
   History,
-  FileText,
-  Lock,
-  Unlock,
-  ExternalLink,
-  Activity,
-  ArrowRight,
-  ShieldCheck,
-  Check,
-  ChevronRight,
-  UserCheck,
-  Building2
+  Activity
 } from 'lucide-react';
 import { 
   User, 
@@ -37,6 +27,11 @@ import { StatCard } from './Widgets';
 import { KPIStatsWidget } from '../KPIStatsWidget';
 import { InspectorRosterGaps } from './widgets/InspectorRosterGaps';
 import { InspectionStatusTable } from './widgets/InspectionStatusTable';
+
+// Role-scoped views
+import { CoordinatorView } from './views/CoordinatorView';
+import { SupervisorView } from './views/SupervisorView';
+import { InspectorView } from './views/InspectorView';
 
 interface InstitutionalSectionProps {
   currentUser: User;
@@ -78,7 +73,7 @@ export const InstitutionalSection: React.FC<InstitutionalSectionProps> = ({
   const activeLocations = useMemo(() => locations.filter(l => l.status !== 'Archived'), [locations]);
 
   // ───────────────────────────────────────────────────────────────────
-  // ── INSTITUTION VIEW LOGIC (ORIGINAL METRICS) ──────────────────────
+  // ── INSTITUTION VIEW METRICS & DATA ────────────────────────────────
   // ───────────────────────────────────────────────────────────────────
   const allOfficers = useMemo(() => {
     const certified = users.filter(u => u.certificationExpiry && u.certificationExpiry >= today);
@@ -232,7 +227,7 @@ export const InstitutionalSection: React.FC<InstitutionalSectionProps> = ({
   const deptsWithGaps = staffingGaps.length;
 
   // ───────────────────────────────────────────────────────────────────
-  // ── COORDINATOR DASHBOARD LOGIC (SCOPED TO DEPT) ───────────────────
+  // ── COORDINATOR WORKSPACE DATA ─────────────────────────────────────
   // ───────────────────────────────────────────────────────────────────
   const coordDeptId = currentUser.departmentId;
   const coordDept = useMemo(() => departments.find(d => d.id === coordDeptId), [departments, coordDeptId]);
@@ -309,7 +304,7 @@ export const InstitutionalSection: React.FC<InstitutionalSectionProps> = ({
   }, [coordDeptId, users, schedules, locations, openAuditThreshold, today]);
 
   // ───────────────────────────────────────────────────────────────────
-  // ── SUPERVISOR DASHBOARD LOGIC (SCOPED TO SUPERVISED LOCATIONS) ─────
+  // ── SUPERVISOR WORKSPACE DATA ──────────────────────────────────────
   // ───────────────────────────────────────────────────────────────────
   const isSupervisorOf = useCallback((locSupervisorId: string | null) => {
     if (!locSupervisorId) return false;
@@ -347,7 +342,6 @@ export const InstitutionalSection: React.FC<InstitutionalSectionProps> = ({
   }, [supLocations, supSchedules, schedules]);
 
   const supPendingApprovals = useMemo(() => {
-    // Shows completed inspections at their supervised locations waiting for HOD verification / locking
     return schedules
       .filter(s => s.status === 'Completed' && supLocationIds.has(s.locationId))
       .map(s => {
@@ -368,7 +362,7 @@ export const InstitutionalSection: React.FC<InstitutionalSectionProps> = ({
   }, [schedules, supLocationIds, locations, departments, users]);
 
   // ───────────────────────────────────────────────────────────────────
-  // ── INSPECTOR DASHBOARD LOGIC (SCOPED TO ASSIGNMENTS) ──────────────
+  // ── INSPECTOR WORKSPACE DATA ───────────────────────────────────────
   // ───────────────────────────────────────────────────────────────────
   const mySchedules = useMemo(() => {
     return schedules
@@ -431,33 +425,9 @@ export const InstitutionalSection: React.FC<InstitutionalSectionProps> = ({
 
   const [activeTab, setActiveTab] = useState<string>(defaultTab);
 
-  // Helper formatting for asset statuses breakdown
-  const renderAssetBreakdownSummary = (statuses: Record<string, number> | null | undefined) => {
-    if (!statuses || Object.keys(statuses).length === 0) return <span className="text-slate-400 font-medium">No details</span>;
-    return (
-      <div className="flex flex-wrap gap-1.5 justify-center">
-        {Object.entries(statuses).map(([key, val]) => {
-          if (!val) return null;
-          let badgeColor = "bg-slate-50 text-slate-600 border-slate-100";
-          if (key === 'In Use') badgeColor = "bg-emerald-50 text-emerald-700 border-emerald-100";
-          if (key === 'Broken') badgeColor = "bg-rose-50 text-rose-700 border-rose-100";
-          if (key === 'Under Maintenance') badgeColor = "bg-amber-50 text-amber-700 border-amber-100";
-          if (key === 'Borrowed') badgeColor = "bg-blue-50 text-blue-700 border-blue-100";
-          if (key === 'Missing') badgeColor = "bg-red-50 text-red-700 border-red-100";
-          
-          return (
-            <span key={key} className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[9px] font-extrabold border ${badgeColor}`}>
-              {key[0]}:{val}
-            </span>
-          );
-        })}
-      </div>
-    );
-  };
-
   return (
     <div className="space-y-6">
-      {/* ── Tabs Navigation ── */}
+      {/* Tab Navigation */}
       <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200/80 pb-4">
         <div className="bg-slate-100/90 backdrop-blur-md border border-slate-200/60 p-1 rounded-2xl flex flex-wrap gap-1 shadow-inner">
           {tabOptions.filter(t => t.visible).map(tab => {
@@ -495,9 +465,7 @@ export const InstitutionalSection: React.FC<InstitutionalSectionProps> = ({
         </div>
       </div>
 
-      {/* ───────────────────────────────────────────────────────────────────
-          ── TAB CONTENT: INSTITUTION OVERVIEW ─────────────────────────────
-          ─────────────────────────────────────────────────────────────────── */}
+      {/* Tab content rendering */}
       {activeTab === 'institution' && (
         <div className="space-y-6">
           {/* KPI Progress */}
@@ -686,597 +654,35 @@ export const InstitutionalSection: React.FC<InstitutionalSectionProps> = ({
         </div>
       )}
 
-      {/* ───────────────────────────────────────────────────────────────────
-          ── TAB CONTENT: COORDINATOR VIEW (DEPT SCOPED) ───────────────────
-          ─────────────────────────────────────────────────────────────────── */}
       {activeTab === 'department' && (
-        <div className="space-y-6">
-          {!coordDeptId ? (
-            <div className="rounded-3xl border border-dashed border-slate-300 p-8 text-center bg-slate-50">
-              <ShieldAlert className="w-12 h-12 text-slate-400 mx-auto mb-3" />
-              <h3 className="text-lg font-bold text-slate-800 mb-1">No Department Scope</h3>
-              <p className="text-sm text-slate-500 max-w-md mx-auto">
-                You are currently not assigned to any department. Please contact the system administrator to set your department assignment.
-              </p>
-            </div>
-          ) : (
-            <>
-              {/* Department Info Header */}
-              <div className="bg-slate-900 text-white rounded-3xl p-6 relative overflow-hidden shadow-xl">
-                <div className="absolute top-0 right-0 p-8 opacity-10">
-                  <Users className="w-32 h-32 text-white" />
-                </div>
-                <div className="relative z-10">
-                  <span className="text-[10px] font-black text-indigo-300 uppercase tracking-widest bg-indigo-950/60 px-2.5 py-1 rounded-md">
-                    Coordinator Workspace
-                  </span>
-                  <h2 className="text-2xl font-black mt-2 tracking-tight">
-                    {coordDept?.name || 'Loading Department'} ({coordDept?.abbr || 'N/A'})
-                  </h2>
-                  <p className="text-xs text-slate-300 mt-1 max-w-xl">
-                    Scoped insights and staffing matrices for {coordLocations.length} active locations and {coordStats.totalAssets.toLocaleString()} department assets.
-                  </p>
-                  
-                  {/* Department progress line */}
-                  <div className="mt-6">
-                    <div className="flex justify-between items-center text-xs mb-1">
-                      <span className="font-bold text-slate-400">Department Audit Progress</span>
-                      <span className="font-black text-white">{coordStats.progress}% Completed</span>
-                    </div>
-                    <div className="w-full bg-slate-800 rounded-full h-3">
-                      <div 
-                        className="bg-indigo-500 h-3 rounded-full transition-all duration-500" 
-                        style={{ width: `${coordStats.progress}%` }}
-                      ></div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Coordinator Stat Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <StatCard icon={MapPin} label="Dept Locations" value={coordStats.totalLocs} color="text-slate-800" />
-                <StatCard icon={Package} label="Dept Assets" value={coordStats.totalAssets.toLocaleString()} color="text-blue-600" />
-                <StatCard icon={Users} label="Registered Officers" value={coordOfficers.length} color="text-indigo-600" />
-              </div>
-
-              {/* Status Breakdown Bar */}
-              <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-sm">
-                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Audit Schedules Status</h4>
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="p-3 bg-slate-50 border border-slate-100 rounded-2xl flex items-center justify-between">
-                    <div>
-                      <p className="text-[9px] font-bold text-slate-400 uppercase">Pending Staffing</p>
-                      <p className="text-lg font-black text-slate-800">{coordStats.pending}</p>
-                    </div>
-                    <span className="w-2.5 h-2.5 rounded-full bg-slate-400"></span>
-                  </div>
-                  <div className="p-3 bg-amber-50/50 border border-amber-100 rounded-2xl flex items-center justify-between">
-                    <div>
-                      <p className="text-[9px] font-bold text-amber-600 uppercase">In Progress</p>
-                      <p className="text-lg font-black text-amber-700">{coordStats.inProgress}</p>
-                    </div>
-                    <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse"></span>
-                  </div>
-                  <div className="p-3 bg-emerald-50/50 border border-emerald-100 rounded-2xl flex items-center justify-between">
-                    <div>
-                      <p className="text-[9px] font-bold text-emerald-600 uppercase">Completed</p>
-                      <p className="text-lg font-black text-emerald-700">{coordStats.completed}</p>
-                    </div>
-                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Staffing/Capacity Gaps Warnings */}
-              {coordStaffGaps.length > 0 && (
-                <div className="bg-amber-50/60 border border-amber-100 rounded-3xl p-6">
-                  <div className="flex gap-4">
-                    <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center text-amber-600 shrink-0">
-                      <AlertTriangle className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <h4 className="text-sm font-black text-amber-800 uppercase tracking-wider mb-2">Department Capacity Deficits</h4>
-                      <ul className="space-y-1.5 text-xs text-amber-700 font-medium">
-                        {coordStaffGaps.map((gap, i) => (
-                          <li key={i} className="flex items-center gap-2">
-                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
-                            {gap}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Department Officers Roster */}
-              <div className="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm">
-                <div className="p-5 border-b border-slate-100 flex justify-between items-center">
-                  <h3 className="text-sm font-black text-slate-800 flex items-center gap-2">
-                    <Users className="w-4 h-4 text-indigo-500" />
-                    Registered QAIs & Staff Workload
-                  </h3>
-                  <span className="text-[10px] text-slate-400 font-bold">{coordOfficers.length} total staff</span>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs">
-                    <thead className="bg-slate-50 text-[10px] font-black text-slate-400 uppercase">
-                      <tr>
-                        <th className="px-5 py-3">Officer Name</th>
-                        <th className="px-4 py-3">Designation</th>
-                        <th className="px-4 py-3 text-center">Certification Status</th>
-                        <th className="px-4 py-3 text-center">Assigned Audits</th>
-                        <th className="px-4 py-3 text-center">Total Assigned Assets</th>
-                        <th className="px-5 py-3 text-right">Workload Risk</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {coordOfficers.length === 0 ? (
-                        <tr>
-                          <td colSpan={6} className="px-5 py-6 text-center text-slate-400">
-                            No registered staff in this department.
-                          </td>
-                        </tr>
-                      ) : (
-                        coordOfficers.map(officer => (
-                          <tr key={officer.id} className="hover:bg-slate-50/50 transition-colors">
-                            <td className="px-5 py-3">
-                              <div className="font-bold text-slate-800">{officer.name}</div>
-                              <div className="text-[10px] text-slate-400">{officer.email}</div>
-                            </td>
-                            <td className="px-4 py-3 font-medium text-slate-500">
-                              {officer.designation || 'Staff'}
-                            </td>
-                            <td className="px-4 py-3 text-center">
-                              {officer.isCertified ? (
-                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-emerald-50 text-emerald-700 rounded-full text-[10px] font-extrabold border border-emerald-100">
-                                  <Check className="w-2.5 h-2.5" /> Certified
-                                </span>
-                              ) : officer.certificationExpiry ? (
-                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-rose-50 text-rose-700 rounded-full text-[10px] font-extrabold border border-rose-100">
-                                  Expired ({officer.certificationExpiry})
-                                </span>
-                              ) : (
-                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-slate-100 text-slate-500 rounded-full text-[10px] font-extrabold border border-slate-200">
-                                  Not Certified
-                                </span>
-                              )}
-                            </td>
-                            <td className="px-4 py-3 text-center font-bold text-slate-800">
-                              {officer.assignedSchedules}
-                            </td>
-                            <td className="px-4 py-3 text-center font-bold text-slate-800">
-                              {officer.assignedAssets.toLocaleString()}
-                            </td>
-                            <td className="px-5 py-3 text-right">
-                              {officer.isOverloaded ? (
-                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-red-50 text-red-600 rounded-lg text-[10px] font-bold border border-red-100">
-                                  <ShieldAlert className="w-3 h-3" /> Overloaded
-                                </span>
-                              ) : officer.assignedAssets > 0 ? (
-                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-emerald-50 text-emerald-600 rounded-lg text-[10px] font-bold border border-emerald-100">
-                                  <UserCheck className="w-3 h-3" /> Optimal
-                                </span>
-                              ) : (
-                                <span className="text-[10px] font-medium text-slate-400">No workload</span>
-                              )}
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </>
-          )}
-        </div>
+        <CoordinatorView
+          coordDeptId={coordDeptId}
+          coordDept={coordDept}
+          coordLocations={coordLocations}
+          coordStats={coordStats}
+          coordStaffGaps={coordStaffGaps}
+          coordOfficers={coordOfficers}
+        />
       )}
 
-      {/* ───────────────────────────────────────────────────────────────────
-          ── TAB CONTENT: SUPERVISOR VIEW (SUPERVISED LOCS SCOPED) ──────────
-          ─────────────────────────────────────────────────────────────────── */}
       {activeTab === 'supervisor' && (
-        <div className="space-y-6">
-          {supLocations.length === 0 ? (
-            <div className="rounded-3xl border border-dashed border-slate-300 p-8 text-center bg-slate-50">
-              <MapPin className="w-12 h-12 text-slate-400 mx-auto mb-3" />
-              <h3 className="text-lg font-bold text-slate-800 mb-1">No Supervised Locations</h3>
-              <p className="text-sm text-slate-500 max-w-md mx-auto">
-                You are currently not listed as the supervisor for any active location assets. Check with your Coordinator to assign supervisor roles on department locations.
-              </p>
-            </div>
-          ) : (
-            <>
-              {/* Supervisor Info Header */}
-              <div className="bg-slate-900 text-white rounded-3xl p-6 relative overflow-hidden shadow-xl">
-                <div className="absolute top-0 right-0 p-8 opacity-10">
-                  <MapPin className="w-32 h-32 text-white" />
-                </div>
-                <div className="relative z-10">
-                  <span className="text-[10px] font-black text-indigo-300 uppercase tracking-widest bg-indigo-950/60 px-2.5 py-1 rounded-md">
-                    Supervisor Workspace
-                  </span>
-                  <h2 className="text-2xl font-black mt-2 tracking-tight">
-                    Supervised Site Management
-                  </h2>
-                  <p className="text-xs text-slate-300 mt-1 max-w-xl">
-                    Verifying completed audits, managing assets and reporting pipelines for your {supLocations.length} supervised locations.
-                  </p>
-                </div>
-              </div>
-
-              {/* Supervisor Stat Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <StatCard icon={MapPin} label="Supervised Sites" value={supStats.totalLocs} color="text-slate-800" />
-                <StatCard icon={Package} label="Supervised Assets" value={supStats.totalAssets.toLocaleString()} color="text-blue-600" />
-                <StatCard icon={CheckCircle2} label="Approved & Completed" value={supStats.completed} color="text-emerald-600" />
-              </div>
-
-              {/* Approval Pipeline Widget */}
-              <div className="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm">
-                <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/30">
-                  <h3 className="text-sm font-black text-slate-800 flex items-center gap-2">
-                    <FileText className="w-4 h-4 text-emerald-500" />
-                    Completed Audits Approval Pipeline
-                  </h3>
-                  <span className="inline-flex px-2 py-0.5 bg-amber-50 text-amber-700 rounded-lg text-[9px] font-black border border-amber-100">
-                    Awaiting HOD Lock: {supPendingApprovals.filter(s => !s.isLocked).length}
-                  </span>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs">
-                    <thead className="bg-slate-50 text-[10px] font-black text-slate-400 uppercase">
-                      <tr>
-                        <th className="px-5 py-3">Location Name</th>
-                        <th className="px-4 py-3">Inspection Date</th>
-                        <th className="px-4 py-3 text-center">Inspectors</th>
-                        <th className="px-4 py-3 text-center">Total Assets</th>
-                        <th className="px-4 py-3 text-center">Verified Assets</th>
-                        <th className="px-4 py-3 text-center">Asset Breakdown</th>
-                        <th className="px-4 py-3 text-center">Report Upload</th>
-                        <th className="px-5 py-3 text-right">Lock Status & Approval</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {supPendingApprovals.length === 0 ? (
-                        <tr>
-                          <td colSpan={8} className="px-5 py-8 text-center text-slate-400 font-medium">
-                            No completed inspections at your supervised locations yet.
-                          </td>
-                        </tr>
-                      ) : (
-                        supPendingApprovals.map(s => {
-                          const hasReport = !!s.reportPath;
-                          const isLocked = s.isLocked === true;
-                          return (
-                            <tr key={s.id} className="hover:bg-slate-50/50 transition-colors">
-                              <td className="px-5 py-3">
-                                <div className="font-bold text-slate-800">{s.locationName}</div>
-                                <div className="text-[10px] text-slate-400">Dept: {s.deptAbbr}</div>
-                              </td>
-                              <td className="px-4 py-3 font-medium text-slate-600">
-                                {s.date ? new Date(s.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
-                              </td>
-                              <td className="px-4 py-3 text-center">
-                                <div className="text-slate-700 font-bold">{s.auditor1Name}</div>
-                                <div className="text-[10px] text-slate-400">{s.auditor2Name}</div>
-                              </td>
-                              <td className="px-4 py-3 text-center font-bold text-slate-800">
-                                {s.totalAssets}
-                              </td>
-                              <td className="px-4 py-3 text-center font-bold text-slate-800">
-                                {s.verifiedAssetCount ?? '—'}
-                              </td>
-                              <td className="px-4 py-3 text-center">
-                                {renderAssetBreakdownSummary(s.assetStatuses)}
-                              </td>
-                              <td className="px-4 py-3 text-center">
-                                {hasReport ? (
-                                  <button
-                                    onClick={() => window.open(s.reportPath!, '_blank')}
-                                    className="inline-flex items-center gap-1.5 px-3 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-[10px] font-black transition-colors"
-                                    title="Open KEW-PA 11 Report"
-                                  >
-                                    <FileText className="w-3 h-3" /> Report.pdf <ExternalLink className="w-2.5 h-2.5" />
-                                  </button>
-                                ) : (
-                                  <span className="text-[10px] text-slate-400 font-semibold italic">No report uploaded</span>
-                                )}
-                              </td>
-                              <td className="px-5 py-3 text-right">
-                                <div className="flex justify-end items-center gap-2">
-                                  {isLocked ? (
-                                    <>
-                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-lg text-[10px] font-black">
-                                        <Lock className="w-2.5 h-2.5" /> Approved
-                                      </span>
-                                      {onToggleLock && (
-                                        <button
-                                          onClick={() => onToggleLock(s.id)}
-                                          className="p-1 hover:bg-slate-100 text-slate-400 hover:text-slate-600 rounded-lg transition-colors"
-                                          title="Unlock schedule"
-                                        >
-                                          <Unlock className="w-3.5 h-3.5" />
-                                        </button>
-                                      )}
-                                    </>
-                                  ) : (
-                                    <>
-                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-50 text-amber-700 border border-amber-100 rounded-lg text-[10px] font-black animate-pulse">
-                                        <Clock className="w-2.5 h-2.5" /> Review
-                                      </span>
-                                      {onToggleLock && (
-                                        <button
-                                          onClick={() => onToggleLock(s.id)}
-                                          className="inline-flex items-center gap-1 px-2.5 py-1 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-[10px] font-bold shadow-sm transition-colors"
-                                          title="Lock & approve inspection"
-                                        >
-                                          Approve
-                                        </button>
-                                      )}
-                                    </>
-                                  )}
-                                </div>
-                              </td>
-                            </tr>
-                          );
-                        })
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </>
-          )}
-        </div>
+        <SupervisorView
+          supLocations={supLocations}
+          supStats={supStats}
+          supPendingApprovals={supPendingApprovals}
+          onToggleLock={onToggleLock}
+        />
       )}
 
-      {/* ───────────────────────────────────────────────────────────────────
-          ── TAB CONTENT: INSPECTOR VIEW (MY ASSIGNMENTS) ──────────────────
-          ─────────────────────────────────────────────────────────────────── */}
       {activeTab === 'assignments' && (
-        <div className="space-y-6">
-          {/* Certification Card */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 bg-slate-900 text-white rounded-3xl p-6 relative overflow-hidden shadow-xl">
-              <div className="absolute top-0 right-0 p-8 opacity-10">
-                <CalendarDays className="w-32 h-32 text-white" />
-              </div>
-              <div className="relative z-10 flex flex-col justify-between h-full min-h-36">
-                <div>
-                  <span className="text-[10px] font-black text-indigo-300 uppercase tracking-widest bg-indigo-950/60 px-2.5 py-1 rounded-md">
-                    Auditor Console
-                  </span>
-                  <h2 className="text-2xl font-black mt-2 tracking-tight">
-                    My Inspection Tasks
-                  </h2>
-                  <p className="text-xs text-slate-300 mt-1">
-                    Manage your assigned inspections, report progress, and launch mobile audit environments directly.
-                  </p>
-                </div>
-                
-                <div className="flex gap-4 mt-6">
-                  <div className="bg-slate-800/80 px-4 py-2.5 rounded-2xl border border-slate-700/50">
-                    <span className="text-[9px] font-black text-slate-400 uppercase block tracking-wider">Total Audits</span>
-                    <span className="text-xl font-black text-white">{inspectorStats.totalAssigned}</span>
-                  </div>
-                  <div className="bg-slate-800/80 px-4 py-2.5 rounded-2xl border border-slate-700/50">
-                    <span className="text-[9px] font-black text-slate-400 uppercase block tracking-wider">Total Assets</span>
-                    <span className="text-xl font-black text-white">{inspectorStats.totalAssets.toLocaleString()}</span>
-                  </div>
-                  <div className="bg-emerald-950/40 px-4 py-2.5 rounded-2xl border border-emerald-900/40">
-                    <span className="text-[9px] font-black text-emerald-400 uppercase block tracking-wider">Completed</span>
-                    <span className="text-xl font-black text-emerald-400">{inspectorStats.completed}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Certification Status widget */}
-            <div className={`rounded-3xl p-6 flex flex-col justify-between border ${
-              isQAIActive 
-                ? 'bg-emerald-50 border-emerald-200 text-emerald-950'
-                : currentUser.certificationExpiry 
-                  ? 'bg-red-50 border-red-200 text-red-950'
-                  : 'bg-slate-50 border-slate-200 text-slate-700'
-            }`}>
-              <div>
-                <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 flex items-center gap-1.5">
-                  <ShieldCheck className="w-3.5 h-3.5 text-indigo-500" /> Certification Status
-                </h4>
-                {isQAIActive ? (
-                  <>
-                    <h3 className="text-base font-black text-emerald-900 flex items-center gap-1">
-                      Active QAI Status
-                    </h3>
-                    <p className="text-xs text-emerald-700 font-semibold mt-1">
-                      Verified Quality Asset Inspector until <span className="font-extrabold">{currentUser.certificationExpiry}</span>.
-                    </p>
-                  </>
-                ) : currentUser.certificationExpiry ? (
-                  <>
-                    <h3 className="text-base font-black text-red-900 flex items-center gap-1">
-                      Certification Expired
-                    </h3>
-                    <p className="text-xs text-red-700 font-semibold mt-1">
-                      Your inspector certificate expired on <span className="font-extrabold">{currentUser.certificationExpiry}</span>. Contact HOD to renew.
-                    </p>
-                  </>
-                ) : (
-                  <>
-                    <h3 className="text-base font-black text-slate-800 flex items-center gap-1">
-                      No Inspector Certificate
-                    </h3>
-                    <p className="text-xs text-slate-500 font-semibold mt-1">
-                      You do not have a registered auditor certification. You can still perform open audits when assigned.
-                    </p>
-                  </>
-                )}
-              </div>
-
-              <div className="mt-4 pt-4 border-t border-slate-200/50">
-                <button
-                  onClick={() => window.open('/mobile.html', '_blank')}
-                  className="w-full flex items-center justify-center gap-2 py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-2xl text-xs font-black uppercase tracking-wider transition-all duration-200 shadow-md hover:shadow-lg active:scale-98"
-                >
-                  Launch Mobile Layout <ExternalLink className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Assigned Schedules Workload List */}
-          <div className="space-y-4">
-            <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
-              <Clock className="w-4 h-4 text-indigo-500" />
-              Inspection Task Pipeline ({mySchedules.length})
-            </h3>
-
-            {mySchedules.length === 0 ? (
-              <div className="rounded-3xl border border-dashed border-slate-300 p-8 text-center bg-slate-50">
-                <CalendarDays className="w-12 h-12 text-slate-400 mx-auto mb-3" />
-                <h4 className="text-base font-bold text-slate-800 mb-1">No Active Inspections</h4>
-                <p className="text-xs text-slate-500 max-w-sm mx-auto">
-                  You are not currently assigned to any pending or in-progress inspections. Use the Schedules page to find audits or request self-assignment.
-                </p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {mySchedules.map(s => {
-                  const isPending = s.status === 'Pending';
-                  const isInProgress = s.status === 'In Progress';
-                  const isCompleted = s.status === 'Completed';
-                  const isLocked = s.isLocked === true;
-                  
-                  return (
-                    <div 
-                      key={s.id} 
-                      className={`rounded-3xl border p-5 flex flex-col justify-between transition-all duration-200 bg-white ${
-                        isCompleted 
-                          ? 'border-emerald-100 hover:shadow-md' 
-                          : isInProgress 
-                            ? 'border-amber-200 shadow-sm shadow-amber-50 hover:shadow-md'
-                            : 'border-slate-200 hover:shadow-md'
-                      }`}
-                    >
-                      <div>
-                        {/* Title bar */}
-                        <div className="flex items-start justify-between gap-4">
-                          <div>
-                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">
-                              Location
-                            </span>
-                            <h4 className="text-base font-bold text-slate-800 leading-snug">
-                              {s.locationName}
-                            </h4>
-                          </div>
-                          
-                          {/* Status Badge */}
-                          {isCompleted ? (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-full text-[9px] font-black">
-                              Completed
-                            </span>
-                          ) : isInProgress ? (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-amber-50 text-amber-700 border border-amber-100 rounded-full text-[9px] font-black animate-pulse">
-                              In Progress
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-slate-100 text-slate-600 border border-slate-200 rounded-full text-[9px] font-black">
-                              Pending
-                            </span>
-                          )}
-                        </div>
-
-                        {/* Metadata row */}
-                        <div className="grid grid-cols-2 gap-4 my-4 pt-3 border-t border-slate-100">
-                          <div>
-                            <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider block">Target Date</span>
-                            <span className="text-xs font-semibold text-slate-700">
-                              {s.date ? new Date(s.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Unscheduled'}
-                            </span>
-                          </div>
-                          <div>
-                            <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider block">Asset Volume</span>
-                            <span className="text-xs font-semibold text-slate-700">
-                              {s.totalAssets.toLocaleString()} Assets
-                            </span>
-                          </div>
-                        </div>
-
-                        <div className="mb-4">
-                          <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider block">Audit Partner</span>
-                          <span className="text-xs font-semibold text-slate-700">
-                            {s.partnerName}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Actions footer */}
-                      <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between gap-3">
-                        <div>
-                          {isCompleted && s.reportPath && (
-                            <button
-                              onClick={() => window.open(s.reportPath!, '_blank')}
-                              className="inline-flex items-center gap-1 text-[10px] font-black text-indigo-600 hover:text-indigo-800 uppercase"
-                            >
-                              <FileText className="w-3.5 h-3.5" /> View Report
-                            </button>
-                          )}
-                        </div>
-                        
-                        <div className="flex gap-2">
-                          {isPending && onUpdateAudit && (
-                            <button
-                              onClick={async () => {
-                                try {
-                                  await onUpdateAudit(s.id, { status: 'In Progress' });
-                                } catch (e) {
-                                  console.error("Failed to start inspection:", e);
-                                }
-                              }}
-                              className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-[10px] font-black uppercase tracking-wider shadow-sm transition-all"
-                            >
-                              Start Audit
-                            </button>
-                          )}
-                          
-                          {isInProgress && (
-                            <div className="flex items-center gap-2">
-                              {onToggleStatus && (
-                                <button
-                                  onClick={() => onToggleStatus(s.id)}
-                                  className="px-3 py-1.5 border border-slate-300 hover:border-slate-400 text-slate-700 rounded-xl text-[9px] font-black uppercase transition-colors"
-                                  title="Mark inspection as complete"
-                                >
-                                  Mark Done
-                                </button>
-                              )}
-                              <button
-                                onClick={() => window.open('/mobile.html', '_blank')}
-                                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-[10px] font-black uppercase tracking-wider shadow-sm flex items-center gap-1.5"
-                              >
-                                Launch Mobile <ExternalLink className="w-3 h-3" />
-                              </button>
-                            </div>
-                          )}
-                          
-                          {isCompleted && (
-                            <span className="text-[10px] font-extrabold text-slate-400 flex items-center gap-1">
-                              {isLocked ? <Lock className="w-3 h-3 text-emerald-500" /> : <Unlock className="w-3 h-3 text-slate-300" />}
-                              {isLocked ? 'Approved & Locked' : 'Audit Finished'}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </div>
+        <InspectorView
+          currentUser={currentUser}
+          mySchedules={mySchedules}
+          inspectorStats={inspectorStats}
+          isQAIActive={isQAIActive}
+          onUpdateAudit={onUpdateAudit}
+          onToggleStatus={onToggleStatus}
+        />
       )}
     </div>
   );
