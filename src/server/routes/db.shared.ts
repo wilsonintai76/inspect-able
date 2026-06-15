@@ -228,8 +228,8 @@ export const patchAuditPermissionGuard = async (c: Context<{ Bindings: Bindings;
   const updates = (c.req as any).valid('json') as Record<string, any>;
 
   const existing = await c.env.DB.prepare(
-    'SELECT department_id, supervisor_id, auditor1_id, auditor2_id, status FROM audit_schedules WHERE id = ?'
-  ).bind(id).first<{ department_id: string | null; supervisor_id: string | null; auditor1_id: string | null; auditor2_id: string | null; status: string }>();
+    'SELECT department_id, supervisor_id, auditor1_id, auditor2_id, status, is_locked FROM audit_schedules WHERE id = ?'
+  ).bind(id).first<{ department_id: string | null; supervisor_id: string | null; auditor1_id: string | null; auditor2_id: string | null; status: string; is_locked: number | null }>();
 
   if (!existing) return next();
 
@@ -298,12 +298,20 @@ export const patchAuditPermissionGuard = async (c: Context<{ Bindings: Bindings;
     updates.auditor2Id === caller.id;
 
   if (updates.date !== undefined) {
-    const isDesignatedSupervisor = existing.supervisor_id === caller.id;
-    // Allow certified field workers (assign:self) to set the date on Pending audits
-    // where they are also self-assigning to a slot in the same request.
-    const isSelfAssigningToPending = caps.has('assign:self') && existing.status === 'Pending';
-    if (!isDesignatedSupervisor && !isAssignedAuditor && !isSupervisorPrivileged && !canAudit && !isSelfAssigningToPending) {
-      return c.json({ error: 'Forbidden: you must be the assigned site supervisor, a Supervisor, an assigned auditor, or a qualified asset inspector to modify the date' }, 403);
+    // 1. Lock check: If locked, block regular users from changing the date
+    const isLocked = existing.is_locked === 1;
+    if (isLocked) {
+      return c.json({ error: 'Forbidden: Locked audits cannot have their dates modified.' }, 403);
+    }
+
+    // 2. Phase check: Verify the date falls within an active phase
+    if (updates.date !== null && updates.date !== '') {
+      const matchingPhase = await c.env.DB.prepare(
+        'SELECT id FROM audit_phases WHERE start_date <= ? AND end_date >= ? LIMIT 1'
+      ).bind(updates.date, updates.date).first<{ id: string }>();
+      if (!matchingPhase) {
+        return c.json({ error: 'Forbidden: Selected date falls outside of all configured inspection phases.' }, 422);
+      }
     }
   }
 

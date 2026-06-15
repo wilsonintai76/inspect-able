@@ -510,8 +510,8 @@ pub.patch('/kiosk/schedules/:id/date', async (c) => {
     const isFullyStaffed = existing && !!(existing.date && existing.auditor1_id && existing.auditor2_id);
     const isAssignedAuditor = existing && (existing.auditor1_id === sessionUserId || existing.auditor2_id === sessionUserId);
 
-    // Block if (locked or fully staffed) AND the caller is not the assigned auditor
-    const isLocked = (isExplicitlyLocked || isFullyStaffed) && !isAssignedAuditor;
+    // Block if explicitly locked or fully staffed
+    const isLocked = isExplicitlyLocked || isFullyStaffed;
     if (isLocked) {
       return c.json({ error: 'ACTION BLOCKED: This audit is locked. Dates can only be modified or unlocked from the main site after unlocking.' }, 403);
     }

@@ -72,7 +72,7 @@ export const AuditTableRow: React.FC<AuditTableRowProps> = ({
   const isOwnDept = currentUser?.departmentId === audit.departmentId;
   const isPrivileged = isAdmin || ((isCoordinator || isSupervisor) && isOwnDept);
   const userCanAudit = canAuditDepartment(audit.departmentId);
-  const canEditThisDate = canEditDates && (isPrivileged || (audit.status !== 'Completed' && (!isLocked || isCurrentUserAssigned))) && (isPrivileged || userCanAudit);
+  const canEditThisDate = canEditDates && (isPrivileged || (!isLocked && audit.status !== 'Completed'));
 
   // ── Date display format (DD/MM/YYYY – Malaysia standard) ──────────────
   const formatDateDisplay = (dateStr: string | null | undefined): string => {
