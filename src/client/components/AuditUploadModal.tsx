@@ -37,10 +37,6 @@ export const AuditUploadModal: React.FC<AuditUploadModalProps> = ({
   const [extracting, setExtracting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // HEAD State
-  const [totalAssets, setTotalAssets] = useState<number | ''>('');
-  const [assetStatus, setAssetStatus] = useState<string>('');
-
   // Legacy/main State
   const [extractedCount, setExtractedCount] = useState<number | null>(null);
   const [extractedStatuses, setExtractedStatuses] = useState<Record<string, number> | null>(null);
@@ -108,25 +104,7 @@ export const AuditUploadModal: React.FC<AuditUploadModalProps> = ({
     try {
       const fullText = await parsePdfText(selectedFile);
 
-      // 1. Local Parsing Heuristics (HEAD)
-      const assetMatches = fullText.match(/KPT\/PKS\//gi);
-      let extractedTotal = 0;
-      if (assetMatches && assetMatches.length > 0) {
-        // Divide by 2 because the PDF usually repeats the registration number under "Rekod" and "Sebenar"
-        extractedTotal = Math.ceil(assetMatches.length / 2);
-      }
-      
-      let statusSummary = "Semua aset dalam keadaan baik (Sedang Digunakan)";
-      if (fullText.toLowerCase().includes("rosak")) {
-        statusSummary = "Terdapat aset yang rosak. Sila semak laporan.";
-      } else if (fullText.toLowerCase().includes("hilang")) {
-        statusSummary = "Terdapat aset yang hilang. Sila semak laporan.";
-      }
-      
-      setTotalAssets(extractedTotal > 0 ? extractedTotal : '');
-      setAssetStatus(statusSummary);
-
-      // 2. AI Extraction (legacy/main)
+      // AI Extraction (legacy/main)
       if (fullText.length > 50) {
         const res = await fetch('/api/ai/extract-report-data', {
           method: 'POST',
@@ -152,9 +130,6 @@ export const AuditUploadModal: React.FC<AuditUploadModalProps> = ({
       }
     } catch (err) {
       console.error("PDF Extraction Error:", err);
-      // Fallback silently
-      setTotalAssets('');
-      setAssetStatus('');
     } finally {
       setExtracting(false);
       setIsExtracting(false);
@@ -181,14 +156,6 @@ export const AuditUploadModal: React.FC<AuditUploadModalProps> = ({
   const handleUploadAndComplete = async () => {
     if (!file) {
       setError('Please select a KEW-PA 11 PDF file to upload.');
-      return;
-    }
-    if (totalAssets === '' || totalAssets < 0) {
-      setError('Please provide a valid total asset count.');
-      return;
-    }
-    if (!assetStatus.trim()) {
-      setError('Please provide the asset status summary.');
       return;
     }
 
@@ -238,11 +205,18 @@ export const AuditUploadModal: React.FC<AuditUploadModalProps> = ({
         }
       }
 
+      let computedStatus = "Semua aset dalam keadaan baik (Sedang Digunakan)";
+      const brokenCount = parseInt(manualStatuses['Broken'] || '0', 10);
+      const missingCount = parseInt(manualStatuses['Missing'] || '0', 10);
+      if ((!isNaN(brokenCount) && brokenCount > 0) || (!isNaN(missingCount) && missingCount > 0)) {
+        computedStatus = "Terdapat kerosakan/kehilangan aset. Sila semak laporan.";
+      }
+
       await onComplete(
         audit.id, 
         data.url, 
-        Number(totalAssets), 
-        assetStatus,
+        finalCount, 
+        computedStatus,
         isNaN(finalCount!) ? null : finalCount, 
         hasStatuses ? finalStatuses : (extractedStatuses ?? null),
         totalStatusCount !== locationTotalAssets ? totalStatusCount : undefined
@@ -424,47 +398,7 @@ export const AuditUploadModal: React.FC<AuditUploadModalProps> = ({
             )}
           </div>
 
-          {/* Verification Fields */}
-          {file && (
-            <div className="bg-blue-50/50 border border-blue-100 rounded-2xl p-4 space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
-              <div className="flex items-center gap-2 mb-2">
-                <Sparkles className="w-4 h-4 text-blue-500" />
-                <h4 className="text-xs font-black uppercase tracking-wider text-blue-900">Extracted Summary</h4>
-              </div>
-              
-              {extracting ? (
-                <div className="flex flex-col items-center justify-center py-6 gap-3">
-                  <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-                  <div className="text-[10px] font-black uppercase tracking-widest text-blue-500 animate-pulse">Reading Document...</div>
-                </div>
-              ) : (
-                <>
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Total Assets Inspected</label>
-                    <input 
-                      type="number" 
-                      value={totalAssets}
-                      onChange={(e) => setTotalAssets(e.target.value === '' ? '' : Number(e.target.value))}
-                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                      placeholder="e.g. 45"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Overall Asset Status</label>
-                    <textarea 
-                      value={assetStatus}
-                      onChange={(e) => setAssetStatus(e.target.value)}
-                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all min-h-[60px] resize-y"
-                      placeholder="e.g. Semua aset dalam keadaan baik"
-                    />
-                  </div>
-                  <p className="text-[10px] text-slate-500 leading-relaxed font-medium">
-                    The system attempted to auto-extract this data from the PDF. Please verify and correct the values if necessary before saving.
-                  </p>
-                </>
-              )}
-            </div>
-          )}
+
 
           {error && (
             <div className="p-3.5 bg-rose-50 border border-rose-100 rounded-2xl flex items-start gap-2.5 text-rose-600 animate-in fade-in duration-150">
@@ -485,7 +419,7 @@ export const AuditUploadModal: React.FC<AuditUploadModalProps> = ({
           </button>
           <button 
             onClick={handleUploadAndComplete}
-            disabled={!file || uploading || extracting || totalAssets === '' || !assetStatus.trim()}
+            disabled={!file || uploading || extracting}
             className="px-5 py-2.5 rounded-xl font-black text-white bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-500/20 active:scale-95 transition-all text-xs uppercase tracking-widest flex items-center gap-2 disabled:opacity-50 disabled:pointer-events-none disabled:shadow-none"
           >
             {uploading ? (
