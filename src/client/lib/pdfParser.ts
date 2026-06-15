@@ -1,7 +1,7 @@
 import * as pdfjsLib from 'pdfjs-dist';
 
 // Since we are using Vite, we need to point to the worker explicitly.
-import pdfjsWorker from 'pdfjs-dist/build/pdf.worker?url';
+import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
 
 export async function parsePdfText(file: File): Promise<string> {

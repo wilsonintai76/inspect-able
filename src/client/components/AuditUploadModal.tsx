@@ -1,11 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { AuditSchedule } from '@shared/types';
 import { X, UploadCloud, FileText, CheckCircle2, AlertTriangle, ExternalLink, Sparkles } from 'lucide-react';
-import * as pdfjsLib from 'pdfjs-dist';
-
-// Configure the worker for PDF.js using Vite's URL feature
-pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).toString();
-
 import { parsePdfText } from '../lib/pdfParser';
 
 interface AuditUploadModalProps {
