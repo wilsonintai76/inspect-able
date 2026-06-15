@@ -361,6 +361,26 @@ export const InstitutionalSection: React.FC<InstitutionalSectionProps> = ({
       .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
   }, [schedules, supLocationIds, locations, departments, users]);
 
+  const supUpcomingInspections = useMemo(() => {
+    return schedules
+      .filter(s => s.status !== 'Completed' && supLocationIds.has(s.locationId) && activeLocationIds.has(s.locationId))
+      .map(s => {
+        const loc = locations.find(l => l.id === s.locationId);
+        const dept = departments.find(d => d.id === s.departmentId);
+        const a1 = users.find(u => u.id === s.auditor1Id);
+        const a2 = users.find(u => u.id === s.auditor2Id);
+        return {
+          ...s,
+          locationName: loc?.name || 'Unknown',
+          deptAbbr: dept?.abbr || dept?.name || 'N/A',
+          auditor1Name: a1?.name || '—',
+          auditor2Name: a2?.name || '—',
+          totalAssets: loc?.totalAssets || 0,
+        };
+      })
+      .sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+  }, [schedules, supLocationIds, locations, departments, users, activeLocationIds]);
+
   // ───────────────────────────────────────────────────────────────────
   // ── INSPECTOR WORKSPACE DATA ───────────────────────────────────────
   // ───────────────────────────────────────────────────────────────────
@@ -411,10 +431,10 @@ export const InstitutionalSection: React.FC<InstitutionalSectionProps> = ({
     return [
       { id: 'institution', label: 'Institution Overview', icon: Trophy, visible: true, count: null },
       { id: 'department', label: 'My Department', icon: Users, visible: isCoordinator, count: coordStaffGaps.length },
-      { id: 'supervisor', label: 'My Supervised Sites', icon: MapPin, visible: isSupervisor, count: supPendingApprovals.length },
+      { id: 'supervisor', label: 'My Supervised Sites', icon: MapPin, visible: isSupervisor, count: supPendingApprovals.length + supUpcomingInspections.filter(s => s.status === 'In Progress').length },
       { id: 'assignments', label: 'My Assignments', icon: CalendarDays, visible: true, count: mySchedules.filter(s => s.status !== 'Completed').length },
     ];
-  }, [currentUser, coordStaffGaps, supPendingApprovals, mySchedules]);
+  }, [currentUser, coordStaffGaps, supPendingApprovals, supUpcomingInspections, mySchedules]);
 
   const defaultTab = useMemo(() => {
     if (currentUser.roles.includes('Admin')) return 'institution';
@@ -670,6 +690,7 @@ export const InstitutionalSection: React.FC<InstitutionalSectionProps> = ({
           supLocations={supLocations}
           supStats={supStats}
           supPendingApprovals={supPendingApprovals}
+          supUpcomingInspections={supUpcomingInspections}
           onToggleLock={onToggleLock}
         />
       )}

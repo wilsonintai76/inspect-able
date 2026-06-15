@@ -7,7 +7,8 @@ import {
   Clock, 
   Lock, 
   Unlock, 
-  ExternalLink 
+  ExternalLink,
+  CalendarDays
 } from 'lucide-react';
 import { Location } from '@shared/types';
 import { StatCard } from '../Widgets';
@@ -23,6 +24,7 @@ interface SupervisorViewProps {
     progress: number;
   };
   supPendingApprovals: any[];
+  supUpcomingInspections: any[];
   onToggleLock?: (id: string) => Promise<void>;
 }
 
@@ -30,6 +32,7 @@ export const SupervisorView: React.FC<SupervisorViewProps> = ({
   supLocations,
   supStats,
   supPendingApprovals,
+  supUpcomingInspections,
   onToggleLock,
 }) => {
   const renderAssetBreakdownSummary = (statuses: Record<string, number> | null | undefined) => {
@@ -206,6 +209,73 @@ export const SupervisorView: React.FC<SupervisorViewProps> = ({
               )}
             </tbody>
           </table>
+        </div>
+      </div>
+
+      {/* Upcoming Inspections Widget */}
+      <div className="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm">
+        <div className="p-5 border-b border-slate-100 flex justify-between items-center">
+          <h3 className="text-sm font-black text-slate-800 flex items-center gap-2">
+            <CalendarDays className="w-4 h-4 text-indigo-500" />
+            Upcoming Supervised Inspections
+          </h3>
+          <span className="text-[10px] text-slate-400 font-bold">
+            {supUpcomingInspections.length} pending / active
+          </span>
+        </div>
+        <div className="divide-y divide-slate-100 max-h-96 overflow-y-auto">
+          {supUpcomingInspections.length === 0 ? (
+            <div className="p-8 text-center text-slate-400 font-medium text-xs">
+              No upcoming inspections scheduled at your supervised sites.
+            </div>
+          ) : (
+            supUpcomingInspections.map(s => {
+              const d = s.date ? new Date(s.date + 'T00:00:00') : null;
+              const month = d ? d.toLocaleString('default', { month: 'short' }).toUpperCase() : '—';
+              const day = d ? d.getDate() : '—';
+              const isInProgress = s.status === 'In Progress';
+              
+              return (
+                <div key={s.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-5 py-4 hover:bg-slate-50/50 transition-colors">
+                  <div className="flex items-center gap-4">
+                    {/* Date Block */}
+                    <div className="w-12 h-12 rounded-xl bg-slate-50 border border-slate-200 flex flex-col items-center justify-center shrink-0">
+                      <span className="text-[9px] font-black text-indigo-600 uppercase leading-none">{month}</span>
+                      <span className="text-lg font-black text-slate-800 leading-none mt-0.5">{day}</span>
+                    </div>
+                    {/* Details */}
+                    <div>
+                      <div className="font-bold text-slate-850 text-sm leading-snug">{s.locationName}</div>
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-1 text-[11px] text-slate-400 font-medium">
+                        <span>Dept: {s.deptAbbr}</span>
+                        <span className="text-slate-300">•</span>
+                        <span className="inline-flex px-1.5 py-0.5 bg-indigo-50 text-indigo-600 rounded-md text-[9px] font-extrabold">
+                          {s.totalAssets.toLocaleString()} Assets
+                        </span>
+                        <span className="text-slate-300">•</span>
+                        <span>Inspectors: {s.auditor1Name} & {s.auditor2Name}</span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Status Badge */}
+                  <div className="flex items-center gap-2 self-start sm:self-center shrink-0">
+                    {isInProgress ? (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-50 text-amber-700 border border-amber-100 rounded-lg text-[10px] font-black animate-pulse">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                        Active In Progress
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-slate-100 text-slate-650 border border-slate-200 rounded-lg text-[10px] font-black">
+                        <span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+                        Awaiting Inspector
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })
+          )}
         </div>
       </div>
     </div>
