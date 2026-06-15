@@ -69,7 +69,8 @@ export const AuditTableRow: React.FC<AuditTableRowProps> = ({
   // Per-row date permission: any user who can view the matrix may pick dates;
   // Privileged roles (Admin/Coordinator/Supervisor) can always edit dates even on locked rows;
   // other users are blocked when the row is locked / In-Progress / Completed.
-  const isPrivileged = isAdmin || isCoordinator || isSupervisor;
+  const isOwnDept = currentUser?.departmentId === audit.departmentId;
+  const isPrivileged = isAdmin || ((isCoordinator || isSupervisor) && isOwnDept);
   const userCanAudit = canAuditDepartment(audit.departmentId);
   const canEditThisDate = canEditDates && (isPrivileged || (!isLocked && audit.status !== 'Completed' && (audit.status !== 'In Progress' || isCurrentUserAssigned))) && (isPrivileged || userCanAudit);
 

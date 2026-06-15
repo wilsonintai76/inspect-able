@@ -66,7 +66,11 @@ export const ScheduleCard: React.FC<Props> = ({
   };
 
   const currentUser = users.find(u => u.id === currentUserId);
-  const isPrivileged = currentUserRoles.includes('Admin') || currentUserRoles.includes('Coordinator') || currentUserRoles.includes('Supervisor');
+  const isAdmin = currentUserRoles.includes('Admin');
+  const isCoSupervisor = currentUserRoles.includes('Coordinator') || currentUserRoles.includes('Supervisor');
+  const isOwnDept = currentUser?.departmentId === schedule.departmentId;
+  const isPrivileged = isAdmin || (isCoSupervisor && isOwnDept);
+  
   const userCanAudit = currentUser?.departmentId !== schedule.departmentId;
   const isCertified = !!(currentUser?.certificationExpiry && currentUser.certificationExpiry >= today);
   const canEditThisDate = isPrivileged || (isCertified && userCanAudit);
