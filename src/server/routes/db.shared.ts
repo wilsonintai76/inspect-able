@@ -262,13 +262,30 @@ export const patchAuditPermissionGuard = async (c: Context<{ Bindings: Bindings;
     return c.json({ error: 'Forbidden: only Admins and Coordinators can modify location, department, or phase' }, 403);
   }
 
+  if (updates.auditor1Id !== undefined) {
+    const isSelfAssign = updates.auditor1Id === caller.id;
+    const isSelfUnassign = updates.auditor1Id === null && existing.auditor1_id === caller.id;
+    if (!isSelfAssign && !isSelfUnassign) {
+      return c.json({ error: 'Forbidden: only Admins and Coordinators of the department can assign or remove other inspectors' }, 403);
+    }
+  }
+
+  if (updates.auditor2Id !== undefined) {
+    const isSelfAssign = updates.auditor2Id === caller.id;
+    const isSelfUnassign = updates.auditor2Id === null && existing.auditor2_id === caller.id;
+    if (!isSelfAssign && !isSelfUnassign) {
+      return c.json({ error: 'Forbidden: only Admins and Coordinators of the department can assign or remove other inspectors' }, 403);
+    }
+  }
+
   if (updates.supervisorId !== undefined) {
     const isSelfAssignment = updates.supervisorId === caller.id;
     const isSelfUnassignment = updates.supervisorId === null && existing.supervisor_id === caller.id;
-    if (!isSelfAssignment && !isSelfUnassignment && !canAudit) {
-      return c.json({ error: 'Forbidden: only Admins and Coordinators can assign or remove other users as supervisor' }, 403);
+    if (!isSelfAssignment && !isSelfUnassignment) {
+      return c.json({ error: 'Forbidden: only Admins and Coordinators of the department can assign or remove other supervisors' }, 403);
     }
   }
+
 
   const isAssignedAuditor = 
     existing.auditor1_id === caller.id || 
