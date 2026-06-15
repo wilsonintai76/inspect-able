@@ -620,7 +620,7 @@ export const AuditTable: React.FC<AuditTableProps> = ({
               verifiedAssetCount,
               assetStatuses
             });
-            if (newLocationTotal !== undefined && onUpdateLocation) {
+            if (newLocationTotal !== undefined && onUpdateLocation && (isAdmin || isCoordinator || isSupervisor)) {
               await onUpdateLocation(uploadAudit.locationId, { totalAssets: newLocationTotal });
             }
           }}
@@ -635,7 +635,7 @@ export const AuditTable: React.FC<AuditTableProps> = ({
           onClose={() => setStatusAudit(null)}
           onSave={async (id, verifiedAssetCount, assetStatuses, newLocationTotal) => {
             await onUpdateAudit(id, { verifiedAssetCount, assetStatuses });
-            if (newLocationTotal !== undefined && onUpdateLocation) {
+            if (newLocationTotal !== undefined && onUpdateLocation && (isAdmin || isCoordinator || isSupervisor)) {
               await onUpdateLocation(statusAudit.locationId, { totalAssets: newLocationTotal });
             }
           }}

@@ -325,17 +325,6 @@ function REQUIRE_CAPABILITY(capability: string, reasonCode?: string): PolicyDefi
  */
 const CAN_ASSIGN_OTHERS = REQUIRE_CAPABILITY('assign:others', 'MISSING_CAPABILITY');
 
-const CAN_MANAGE_LOCATIONS: PolicyDefinition = {
-  name: 'CAN_MANAGE_LOCATIONS',
-  description: 'User must hold manage:locations or be a certified asset inspector',
-  evaluate(user, _ctx) {
-    const caps = deriveCapabilities(user);
-    if (caps.has('manage:locations') || caps.has('asset_inspector')) {
-      return { allowed: true };
-    }
-    return { allowed: false, reason: 'MISSING_CAPABILITY' };
-  },
-};
 
 /**
  * CAN_UPDATE_USER — Self-Update or Admin/Coordinator Gate
@@ -453,8 +442,9 @@ const ACTION_POLICIES: Record<PbacAction, PolicyDefinition[]> = {
     REQUIRE_CAPABILITY('manage:departments', 'MISSING_CAPABILITY'),
   ],
   'location.manage': [
-    CAN_MANAGE_LOCATIONS,
+    REQUIRE_CAPABILITY('manage:locations', 'MISSING_CAPABILITY'),
   ],
+
   'group.manage': [
     REQUIRE_CAPABILITY('manage:groups', 'MISSING_CAPABILITY'),
   ],

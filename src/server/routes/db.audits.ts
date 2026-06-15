@@ -310,6 +310,22 @@ router.patch('/audits/:id', zValidator('json', patchAuditSchema), patchAuditPerm
       `UPDATE audit_schedules SET ${fields.join(', ')} WHERE id = ?`
     ).bind(...values, id).run();
 
+
+    // Automatically synchronize location totalAssets and uninspectedAssetCount if status is 'Completed'
+    const finalStatus = updates.status !== undefined ? updates.status : existingForActivation?.status;
+    if (finalStatus === 'Completed') {
+      const sched = await c.env.DB.prepare(
+        'SELECT location_id, verified_asset_count FROM audit_schedules WHERE id = ?'
+      ).bind(id).first<{ location_id: string | null; verified_asset_count: number | null }>();
+
+      if (sched?.location_id && sched.verified_asset_count !== null) {
+        await c.env.DB.prepare(
+          'UPDATE locations SET total_assets = ?, uninspected_asset_count = 0 WHERE id = ?'
+        ).bind(sched.verified_asset_count, sched.location_id).run();
+      }
+    }
+
+
     // Fire-and-forget email when status just became 'In Progress'
     const previousStatus = existingForActivation?.status;
     const newStatus = updates.status;
