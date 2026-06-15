@@ -224,28 +224,37 @@ export const patchAuditPermissionGuard = async (c: Context<{ Bindings: Bindings;
     return c.json({ error: 'Forbidden: unauthorized role' }, 403);
   }
 
-  // ── PBAC: Coordinator department scoping ──────────────────────────────
-  if (isCoordinator) {
-    const id = c.req.param('id');
-    const existing = await c.env.DB.prepare(
-      'SELECT department_id FROM audit_schedules WHERE id = ?'
-    ).bind(id).first<{ department_id: string | null }>();
-    
-    if (existing?.department_id && (caller as any).departmentId && existing.department_id !== (caller as any).departmentId) {
-      return c.json({ error: 'Forbidden: Coordinator can only modify audits in their own department', code: 'DEPT_SCOPE_VIOLATION' }, 403);
-    }
-  }
-
-  if (isAdmin || isCoordinator) return next();
-
   const id = c.req.param('id');
   const updates = (c.req as any).valid('json') as Record<string, any>;
 
   const existing = await c.env.DB.prepare(
-    'SELECT supervisor_id, auditor1_id, auditor2_id, status FROM audit_schedules WHERE id = ?'
-  ).bind(id).first<{ supervisor_id: string | null; auditor1_id: string | null; auditor2_id: string | null; status: string }>();
+    'SELECT department_id, supervisor_id, auditor1_id, auditor2_id, status FROM audit_schedules WHERE id = ?'
+  ).bind(id).first<{ department_id: string | null; supervisor_id: string | null; auditor1_id: string | null; auditor2_id: string | null; status: string }>();
 
   if (!existing) return next();
+
+  const isOwnDept = existing.department_id && (caller as any).departmentId && existing.department_id === (caller as any).departmentId;
+
+  // ── PBAC: Coordinator department scoping ──────────────────────────────
+  if (isCoordinator && !isOwnDept) {
+    // If they are also a certified inspector, and only modifying inspector-allowed fields, we let them proceed.
+    // Otherwise, they are blocked by coordinator department scoping.
+    if (canAudit) {
+      const adminOnlyFields = ['phaseId', 'departmentId', 'locationId'];
+      const hasAdminOnlyFields = adminOnlyFields.some(f => updates[f] !== undefined);
+      if (hasAdminOnlyFields) {
+        return c.json({ error: 'Forbidden: Coordinator can only modify audits in their own department', code: 'DEPT_SCOPE_VIOLATION' }, 403);
+      }
+    } else {
+      return c.json({ error: 'Forbidden: Coordinator can only modify audits in their own department', code: 'DEPT_SCOPE_VIOLATION' }, 403);
+    }
+  }
+
+  // A Supervisor is only privileged within their own department
+  const isSupervisorPrivileged = isSupervisor && isOwnDept;
+
+  // Early return for Admin or Coordinator within their own department
+  if (isAdmin || (isCoordinator && isOwnDept)) return next();
 
   const adminOnlyFields = ['phaseId', 'departmentId', 'locationId'];
   const hasAdminOnlyFields = adminOnlyFields.some(f => updates[f] !== undefined);
@@ -272,10 +281,11 @@ export const patchAuditPermissionGuard = async (c: Context<{ Bindings: Bindings;
     // Allow certified field workers (assign:self) to set the date on Pending audits
     // where they are also self-assigning to a slot in the same request.
     const isSelfAssigningToPending = caps.has('assign:self') && existing.status === 'Pending';
-    if (!isDesignatedSupervisor && !isAssignedAuditor && !isSupervisor && !canAudit && !isSelfAssigningToPending) {
+    if (!isDesignatedSupervisor && !isAssignedAuditor && !isSupervisorPrivileged && !canAudit && !isSelfAssigningToPending) {
       return c.json({ error: 'Forbidden: you must be the assigned site supervisor, a Supervisor, an assigned auditor, or a qualified asset inspector to modify the date' }, 403);
     }
   }
+
 
   if (updates.status !== undefined || updates.reportPath !== undefined) {
     if (!isAssignedAuditor) {
