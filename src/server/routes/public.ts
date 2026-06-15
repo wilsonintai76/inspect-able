@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { Bindings, Variables } from '../types';
 import { verifyNativeJwt } from '../middleware/auth';
 import { D1Database } from '@cloudflare/workers-types';
+import { checkLocationYearConflict } from './db.shared';
 
 const pub = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 
@@ -401,20 +402,32 @@ pub.patch('/kiosk/schedules/:id', async (c) => {
 
       // Auto-activation check (Pending -> In Progress once assignments are complete)
       const updatedSchedule = await c.env.DB.prepare(
-        'SELECT status, date, supervisor_id, auditor1_id, auditor2_id FROM audit_schedules WHERE id = ?'
-      ).bind(scheduleId).first<{ status: string; date: string | null; supervisor_id: string | null; auditor1_id: string | null; auditor2_id: string | null }>();
+        'SELECT status, date, supervisor_id, auditor1_id, auditor2_id, phase_id FROM audit_schedules WHERE id = ?'
+      ).bind(scheduleId).first<{ status: string; date: string | null; supervisor_id: string | null; auditor1_id: string | null; auditor2_id: string | null; phase_id: string | null }>();
 
       if (updatedSchedule) {
         if (updatedSchedule.status === 'Pending') {
           if (updatedSchedule.date && updatedSchedule.supervisor_id && updatedSchedule.auditor1_id && updatedSchedule.auditor2_id) {
+            // Auto-resolve phaseId from the date when all fields are complete
+            let phaseUpdate = '';
+            const phaseValues: any[] = [];
+            if (!updatedSchedule.phase_id && updatedSchedule.date) {
+              const matchingPhase = await c.env.DB.prepare(
+                'SELECT id FROM audit_phases WHERE start_date <= ? AND end_date >= ? LIMIT 1'
+              ).bind(updatedSchedule.date, updatedSchedule.date).first<{ id: string }>();
+              if (matchingPhase) {
+                phaseUpdate = ', phase_id = ?';
+                phaseValues.push(matchingPhase.id);
+              }
+            }
             await c.env.DB.prepare(
-              "UPDATE audit_schedules SET status = 'In Progress', is_locked = 1 WHERE id = ?"
-            ).bind(scheduleId).run();
+              `UPDATE audit_schedules SET status = 'In Progress', is_locked = 1${phaseUpdate} WHERE id = ?`
+            ).bind(...phaseValues, scheduleId).run();
           }
         } else if (updatedSchedule.status === 'In Progress') {
           if (!updatedSchedule.date || !updatedSchedule.supervisor_id || !updatedSchedule.auditor1_id || !updatedSchedule.auditor2_id) {
             await c.env.DB.prepare(
-              "UPDATE audit_schedules SET status = 'Pending' WHERE id = ?"
+              "UPDATE audit_schedules SET status = 'Pending', is_locked = 0 WHERE id = ?"
             ).bind(scheduleId).run();
           }
         }
@@ -453,7 +466,7 @@ pub.patch('/kiosk/schedules/:id', async (c) => {
       if (remaining && remaining.status === 'In Progress') {
         if (!remaining.date || !remaining.supervisor_id || !remaining.auditor1_id || !remaining.auditor2_id) {
           await c.env.DB.prepare(
-            `UPDATE audit_schedules SET status = 'Pending' WHERE id = ?`
+            `UPDATE audit_schedules SET status = 'Pending', is_locked = 0 WHERE id = ?`
           ).bind(scheduleId).run();
           return c.json({ success: true, revertedToPending: true });
         }
@@ -486,8 +499,8 @@ pub.patch('/kiosk/schedules/:id/date', async (c) => {
 
     // Prevent date updates/unlocks from the kiosk if a date is already set
     const existing = await c.env.DB.prepare(
-      'SELECT date, auditor1_id, auditor2_id, is_locked FROM audit_schedules WHERE id = ?'
-    ).bind(scheduleId).first<{ date: string | null; auditor1_id: string | null; auditor2_id: string | null; is_locked: number | null }>();
+      'SELECT date, location_id, auditor1_id, auditor2_id, is_locked FROM audit_schedules WHERE id = ?'
+    ).bind(scheduleId).first<{ date: string | null; location_id: string; auditor1_id: string | null; auditor2_id: string | null; is_locked: number | null }>();
 
     const isLocked = existing && (existing.is_locked === 0 ? false : !!(existing.is_locked || (existing.date && existing.auditor1_id && existing.auditor2_id)));
     if (isLocked) {
@@ -504,6 +517,19 @@ pub.patch('/kiosk/schedules/:id/date', async (c) => {
       }
     }
 
+    if (existing && existing.location_id) {
+      const conflictErr = await checkLocationYearConflict(
+        c.env.DB,
+        existing.location_id,
+        scheduleId,
+        date || null,
+        phaseId || null
+      );
+      if (conflictErr) {
+        return c.json({ error: conflictErr, code: 'LOCATION_YEAR_CONFLICT' }, 422);
+      }
+    }
+
     if (phaseId) {
       await c.env.DB.prepare(
         `UPDATE audit_schedules SET date = ?, phase_id = ? WHERE id = ?`
@@ -516,20 +542,32 @@ pub.patch('/kiosk/schedules/:id/date', async (c) => {
 
     // Auto-activation check (Pending -> In Progress once assignments are complete)
     const updatedSchedule = await c.env.DB.prepare(
-      'SELECT status, date, supervisor_id, auditor1_id, auditor2_id FROM audit_schedules WHERE id = ?'
-    ).bind(scheduleId).first<{ status: string; date: string | null; supervisor_id: string | null; auditor1_id: string | null; auditor2_id: string | null }>();
+      'SELECT status, date, supervisor_id, auditor1_id, auditor2_id, phase_id FROM audit_schedules WHERE id = ?'
+    ).bind(scheduleId).first<{ status: string; date: string | null; supervisor_id: string | null; auditor1_id: string | null; auditor2_id: string | null; phase_id: string | null }>();
 
     if (updatedSchedule) {
       if (updatedSchedule.status === 'Pending') {
         if (updatedSchedule.date && updatedSchedule.supervisor_id && updatedSchedule.auditor1_id && updatedSchedule.auditor2_id) {
+          // Auto-resolve phaseId from the date when all fields are complete
+          let phaseUpdate = '';
+          const phaseValues: any[] = [];
+          if (!updatedSchedule.phase_id && updatedSchedule.date) {
+            const matchingPhase = await c.env.DB.prepare(
+              'SELECT id FROM audit_phases WHERE start_date <= ? AND end_date >= ? LIMIT 1'
+            ).bind(updatedSchedule.date, updatedSchedule.date).first<{ id: string }>();
+            if (matchingPhase) {
+              phaseUpdate = ', phase_id = ?';
+              phaseValues.push(matchingPhase.id);
+            }
+          }
           await c.env.DB.prepare(
-            "UPDATE audit_schedules SET status = 'In Progress', is_locked = 1 WHERE id = ?"
-          ).bind(scheduleId).run();
+            `UPDATE audit_schedules SET status = 'In Progress', is_locked = 1${phaseUpdate} WHERE id = ?`
+          ).bind(...phaseValues, scheduleId).run();
         }
       } else if (updatedSchedule.status === 'In Progress') {
         if (!updatedSchedule.date || !updatedSchedule.supervisor_id || !updatedSchedule.auditor1_id || !updatedSchedule.auditor2_id) {
           await c.env.DB.prepare(
-            "UPDATE audit_schedules SET status = 'Pending' WHERE id = ?"
+            "UPDATE audit_schedules SET status = 'Pending', is_locked = 0 WHERE id = ?"
           ).bind(scheduleId).run();
         }
       }

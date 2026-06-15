@@ -9,8 +9,7 @@ import {
   KPITierTarget, 
   InstitutionKPITarget, 
   DepartmentMapping, 
-  SystemActivity, 
-  AuditGroup, 
+  SystemActivity,
 
   DashboardConfig,
   AppView,
@@ -22,7 +21,7 @@ import { gateway } from '../services/dataGateway';
 import { awaitSessionRegistered } from '../services/honoClient';
 import { ToastMessage } from '../components/Toast';
 import { authService } from '../services/auth';
-import { CrossAuditPermission, AssignmentMode } from '@shared/types';
+import { AssignmentMode } from '@shared/types';
 import { SOFTWARE_DEV_DEPT_NAME, BRANDING } from '../constants';
 
 export const useAppData = () => {
@@ -99,12 +98,10 @@ export const useAppData = () => {
   const [institutionKPIs, setInstitutionKPIs] = useState<InstitutionKPITarget[]>([]);
   const [departmentMappings, setDepartmentMappings] = useState<DepartmentMapping[]>([]);
   const [locationMappings, setLocationMappings] = useState<LocationMapping[]>([]);
-  const [auditGroups, setAuditGroups] = useState<AuditGroup[]>([]);
   const [buildings, setBuildings] = useState<Building[]>([]);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const [activities, setActivities] = useState<SystemActivity[]>([]);
-  const [crossAuditPermissions, setCrossAuditPermissions] = useState<CrossAuditPermission[]>([]);
   const [publicStats, setPublicStats] = useState<any>(null);
   const [simulatedGroups, setSimulatedGroups] = useState<any[]>([]);
   const [isGroupSimulatorActive, setIsGroupSimulatorActive] = useState<boolean>(false);
@@ -143,17 +140,17 @@ export const useAppData = () => {
 
   const loadAllData = useCallback(async () => {
     try {
-      const [auditsData, usersData, deptsData, locsData, phasesData, kpiTiersData, departmentMappingsData, activitiesData, auditGroupsData, institutionKPIsData, buildingsData, permsData] = await Promise.all([
+      const [auditsData, usersData, deptsData, locsData, phasesData, kpiTiersData, departmentMappingsData, activitiesData, institutionKPIsData, buildingsData] = await Promise.all([
         gateway.getAudits(), gateway.getUsers(), gateway.getDepartments(), gateway.getLocations(),
         gateway.getAuditPhases(), gateway.getKPITiers(), gateway.getDepartmentMappings(),
-        gateway.getSystemActivity(), gateway.getAuditGroups(), gateway.getInstitutionKPIs(),
-        gateway.getBuildings(), gateway.getPermissions()
+        gateway.getSystemActivity(), gateway.getInstitutionKPIs(),
+        gateway.getBuildings()
       ]);
       
       setSchedules(auditsData); setUsers(usersData); setDepartments(deptsData); setLocations(locsData);
       setAuditPhases(phasesData); setKpiTiers(kpiTiersData); setDepartmentMappings(departmentMappingsData);
-      setActivities(activitiesData); setAuditGroups(auditGroupsData); setInstitutionKPIs(institutionKPIsData);
-      setBuildings(buildingsData); setCrossAuditPermissions(permsData);
+      setActivities(activitiesData); setInstitutionKPIs(institutionKPIsData);
+      setBuildings(buildingsData);
       
       try { setLocationMappings(await gateway.getLocationMappings()); } catch (e) { console.warn(e); }
       try {
@@ -439,8 +436,8 @@ export const useAppData = () => {
     auditPhases, setAuditPhases, kpiTiers, setKpiTiers, kpiTierTargets, setKpiTierTargets,
     institutionKPIs, setInstitutionKPIs, departmentMappings, setDepartmentMappings,
     locationMappings, setLocationMappings,
-    auditGroups, setAuditGroups, buildings, setBuildings, notifications, setNotifications,
-    toasts, setToasts, activities, setActivities, crossAuditPermissions, setCrossAuditPermissions,
+    buildings, setBuildings, notifications, setNotifications,
+    toasts, setToasts, activities, setActivities,
     publicStats, setPublicStats, selectedDept, setSelectedDept, selectedStatus, setSelectedStatus,
     selectedPhaseId, setSelectedPhaseId, isSidebarOpen, setIsSidebarOpen,
     confirmState, setConfirmState, feasibilityReport, setFeasibilityReport,

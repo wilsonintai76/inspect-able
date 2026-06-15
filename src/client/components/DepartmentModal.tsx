@@ -20,7 +20,6 @@ interface DepartmentModalProps {
   users: User[];
   isAdmin: boolean;
   isCoordinator?: boolean;
-  auditGroups?: AuditGroup[];
 }
 
 export const DepartmentModal: React.FC<DepartmentModalProps> = ({
@@ -30,8 +29,7 @@ export const DepartmentModal: React.FC<DepartmentModalProps> = ({
   initialData,
   users,
   isAdmin,
-  isCoordinator = false,
-  auditGroups = []
+  isCoordinator = false
 }) => {
   const [formData, setFormData] = useState({
     name: '',
@@ -39,7 +37,6 @@ export const DepartmentModal: React.FC<DepartmentModalProps> = ({
     headOfDeptId: '',
     description: '',
     totalAssets: 0,
-    auditGroupId: '',
     auditorsRequiredOverride: undefined as number | undefined
   });
 
@@ -54,7 +51,6 @@ export const DepartmentModal: React.FC<DepartmentModalProps> = ({
         headOfDeptId: initialData.headOfDeptId || '',
         description: initialData.description || '',
         totalAssets: initialData.totalAssets || 0,
-        auditGroupId: initialData.auditGroupId || '',
         auditorsRequiredOverride: initialData.auditorsRequiredOverride
       });
     } else {
@@ -64,7 +60,6 @@ export const DepartmentModal: React.FC<DepartmentModalProps> = ({
         headOfDeptId: '',
         description: '',
         totalAssets: 0,
-        auditGroupId: '',
         auditorsRequiredOverride: undefined
       });
     }
@@ -146,24 +141,7 @@ export const DepartmentModal: React.FC<DepartmentModalProps> = ({
               </div>
             </div>
             
-            <div className="space-y-1.5">
-              <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Consolidation Group (Audit Group)</Label>
-              <Select 
-                value={formData.auditGroupId} 
-                onValueChange={val => setFormData({ ...formData, auditGroupId: val })}
-              >
-                <SelectTrigger className="w-full h-12 pl-11 bg-slate-50 border-slate-200 rounded-2xl text-sm font-bold">
-                  <Layers className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 w-4 h-4" />
-                  <SelectValue placeholder="No Group (Independent Unit)" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">No Group (Independent Unit)</SelectItem>
-                  {auditGroups.map(group => (
-                    <SelectItem key={group.id} value={group.id}>{group.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+
 
             <div className="space-y-1.5 relative">
               <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Head Of Department</Label>

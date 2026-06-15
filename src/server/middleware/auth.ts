@@ -170,6 +170,7 @@ export const authMiddleware = async (
     roles,
     departmentId,
     sessionId,
+    certificationExpiry,
   });
 
   await next();

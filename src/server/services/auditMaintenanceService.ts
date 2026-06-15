@@ -159,6 +159,6 @@ export async function unassignSpecificAuditorFromFutureAudits(
  */
 export async function cleanupAuditsForArchivedLocation(db: D1Database, locationId: string) {
   await db.prepare(
-    `DELETE FROM audit_schedules WHERE location_id = ? AND status != 'Completed'`
+    `DELETE FROM audit_schedules WHERE location_id = ? AND status NOT IN ('Completed')`
   ).bind(locationId).run();
 }

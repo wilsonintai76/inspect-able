@@ -28,22 +28,13 @@ interface AppActionsProps {
   setKpiTierTargets: React.Dispatch<React.SetStateAction<any[]>>;
   setInstitutionKPIs: React.Dispatch<React.SetStateAction<any[]>>;
   setDepartmentMappings: React.Dispatch<React.SetStateAction<any[]>>;
-  setAuditGroups: React.Dispatch<React.SetStateAction<any[]>>;
   setBuildings: React.Dispatch<React.SetStateAction<any[]>>;
   setActivities: React.Dispatch<React.SetStateAction<SystemActivity[]>>;
   setNotifications: React.Dispatch<React.SetStateAction<any[]>>;
   setToasts: React.Dispatch<React.SetStateAction<ToastMessage[]>>;
-  setPairingLocked: React.Dispatch<React.SetStateAction<boolean>>;
-  setPairingLockInfo: React.Dispatch<React.SetStateAction<any>>;
   setIsSidebarOpen: React.Dispatch<React.SetStateAction<boolean>>;
   setConfirmState: React.Dispatch<React.SetStateAction<any>>;
-  setFeasibilityReport: React.Dispatch<React.SetStateAction<any>>;
-  setCrossAuditPermissions: React.Dispatch<React.SetStateAction<any[]>>;
   setLocationMappings: React.Dispatch<React.SetStateAction<any[]>>;
-  isGroupSimulatorActive: boolean;
-  setIsGroupSimulatorActive: React.Dispatch<React.SetStateAction<boolean>>;
-  simulatedGroups: any[];
-  setSimulatedGroups: React.Dispatch<React.SetStateAction<any[]>>;
   isProcessing: boolean;
   setIsProcessing: React.Dispatch<React.SetStateAction<boolean>>;
   certRenewalModalUser: User | null;
@@ -71,9 +62,6 @@ interface AppActionsProps {
   setOpenAuditThreshold: React.Dispatch<React.SetStateAction<number>>;
   locationMappings: any[];
   buildings: any[];
-  pairingLocked: boolean;
-  pairingLockInfo: any;
-  setPairingLockedGlobal?: any;
   assignmentMode?: any;
   openAuditThreshold?: number;
 }
@@ -83,11 +71,10 @@ export const useAppActions = (props: AppActionsProps) => {
     currentUser, setCurrentUser, setViewState, setActiveView,
     schedules, setSchedules, users, setUsers, departments, setDepartments,
     locations, setLocations, setAuditPhases, setKpiTiers, setKpiTierTargets,
-    setInstitutionKPIs, setDepartmentMappings, setAuditGroups, setBuildings,
+    setInstitutionKPIs, setDepartmentMappings, setBuildings,
     setActivities, setNotifications, setToasts,
-    setPairingLocked, setPairingLockInfo, setIsSidebarOpen, setConfirmState,
-    setFeasibilityReport, setCrossAuditPermissions, setLocationMappings,
-    isGroupSimulatorActive, setIsGroupSimulatorActive, simulatedGroups, setSimulatedGroups,
+    setIsSidebarOpen, setConfirmState,
+    setLocationMappings,
     isProcessing, setIsProcessing, certRenewalModalUser, setCertRenewalModalUser,
     setShowForcePasswordModal, setShowProfileCompleteModal,
     loadAllData, loadPublicStats, setConnectionErrorMessage,
@@ -98,7 +85,7 @@ export const useAppActions = (props: AppActionsProps) => {
     setDailyInspectionCapacity, setStandaloneThresholdAssets,
     setGroupingMargin, setGroupingAuditorMargin,
     setAssignmentMode, setOpenAuditThreshold,
-    locationMappings, buildings, pairingLocked, pairingLockInfo,
+    locationMappings, buildings,
   } = props;
 
   // ── Core utilities ────────────────────────────────────────────────────
@@ -132,7 +119,7 @@ export const useAppActions = (props: AppActionsProps) => {
   const handleLoginSuccess = useCallback(async (userProfile: User) => {
     setCurrentUser(userProfile); setViewState('app'); setActiveView('dashboard');
     sessionStorage.setItem('audit_pro_session', JSON.stringify(userProfile));
-    if ((userProfile.roles || []).some(r => r === 'Admin' || r === 'Coordinator')) await gateway.initializeDefaults();
+    if ((userProfile.roles || []).some(r => r === 'Admin' || r === 'Coordinator')) { /* defaults removed */ }
     loadAllData();
   }, [setCurrentUser, setViewState, setActiveView, loadAllData]);
 
@@ -151,8 +138,8 @@ export const useAppActions = (props: AppActionsProps) => {
   // ── Sub-hooks ─────────────────────────────────────────────────────────
 
   const auditActions = useAuditActions({ schedules, setSchedules, users, auditPhases, setActivities, setIsProcessing, showToast, showError, customConfirm });
-  const entityActions = useEntityActions({ locations, departments, users, setLocations, setDepartments, setUsers, setSchedules, setCrossAuditPermissions, setAuditPhases, setAuditGroups, setBuildings, setDepartmentMappings, setLocationMappings, showToast, showError, customConfirm, refreshDepartmentTotals });
-  const systemActions = useSystemActions({ schedules, setSchedules, setAuditPhases, setKpiTiers, setKpiTierTargets, setInstitutionKPIs, setDepartments, setLocations, setUsers, setCrossAuditPermissions, setPairingLocked, setPairingLockInfo, pairingLocked, pairingLockInfo, currentUser, maxAssetsPerDay, setMaxAssetsPerDay, setMaxLocationsPerDay, setMinAuditorsPerLocation, setDailyInspectionCapacity, setStandaloneThresholdAssets, setGroupingMargin, setGroupingAuditorMargin, setAssignmentMode, setOpenAuditThreshold, setSimulatedGroups, setIsGroupSimulatorActive, setFeasibilityReport, showToast, showError, customConfirm });
+  const entityActions = useEntityActions({ locations, departments, users, setLocations, setDepartments, setUsers, setSchedules, setAuditPhases, setBuildings, setDepartmentMappings, setLocationMappings, showToast, showError, customConfirm, refreshDepartmentTotals });
+  const systemActions = useSystemActions({ schedules, setSchedules, setAuditPhases, setKpiTiers, setKpiTierTargets, setInstitutionKPIs, setDepartments, setLocations, setUsers, currentUser, maxAssetsPerDay, setMaxAssetsPerDay, setMaxLocationsPerDay, setMinAuditorsPerLocation, setDailyInspectionCapacity, setStandaloneThresholdAssets, setGroupingMargin, setGroupingAuditorMargin, setAssignmentMode, setOpenAuditThreshold, showToast, showError, customConfirm });
 
   // ── User / Profile ────────────────────────────────────────────────────
 

@@ -8,7 +8,7 @@ import { hashPassword } from '../services/authService';
 import { 
   DEFAULT_USER_PASSWORD, SCHEDULE_CACHE_KEY, getRolesForDesignation, logApprovalReminderActivity, invalidateScheduleCache,
   edgeCache, auditLockGuard, zeroAssetGuard, statusTransitionGuard, patchAuditPermissionGuard,
-  auditSchema, patchAuditSchema, userSchema, patchUserSchema
+  auditSchema, patchAuditSchema, userSchema, patchUserSchema, checkLocationYearConflict
 } from './db.shared';
 import { 
   unassignExpiredAuditors, handleLocationDepartmentTransfer, refreshDepartmentAssetTotals,
@@ -20,8 +20,32 @@ const router = new Hono<{ Bindings: Bindings, Variables: Variables }>();
 // Audits
 router.get('/audits', async (c) => {
   try {
+    // ─── Idempotent Schema Updates ───
+    await c.env.DB.prepare('ALTER TABLE audit_schedules ADD COLUMN verified_asset_count INTEGER').run().catch(() => {});
+    await c.env.DB.prepare('ALTER TABLE audit_schedules ADD COLUMN asset_statuses TEXT').run().catch(() => {});
+
+    // ─── KV Read-Through Cache ───
+    const cached = await c.env.SETTINGS.get(SCHEDULE_CACHE_KEY, 'json').catch(() => null) as any[];
+    if (cached) {
+      return c.json(cached);
+    }
+
+    // Sweep: auto-lock and set status to 'In Progress' for any Pending records that already have all required fields set.
+    await c.env.DB.prepare(
+      `UPDATE audit_schedules SET status = 'In Progress', is_locked = 1
+       WHERE status = 'Pending' AND date IS NOT NULL AND supervisor_id IS NOT NULL
+       AND auditor1_id IS NOT NULL AND auditor2_id IS NOT NULL`
+    ).run();
+
+    // Sweep: unlock and demote any In Progress records that are missing required fields
+    await c.env.DB.prepare(
+      `UPDATE audit_schedules SET status = 'Pending', is_locked = 0
+       WHERE status = 'In Progress' AND (date IS NULL OR supervisor_id IS NULL
+       OR auditor1_id IS NULL OR auditor2_id IS NULL)`
+    ).run();
+
     const { results } = await c.env.DB.prepare(
-      'SELECT id, department_id, location_id, supervisor_id, auditor1_id, auditor2_id, date, status, phase_id, report_path, is_locked FROM audit_schedules'
+      'SELECT id, department_id, location_id, supervisor_id, auditor1_id, auditor2_id, date, status, phase_id, report_path, is_locked, total_assets_inspected, asset_status_summary, verified_asset_count, asset_statuses FROM audit_schedules'
     ).all();
     
     const data = (results || []).map((a: any) => ({
@@ -35,7 +59,11 @@ router.get('/audits', async (c) => {
       status: a.status,
       phaseId: a.phase_id,
       reportPath: a.report_path,
-      isLocked: a.is_locked === null ? undefined : (a.is_locked === 1)
+      isLocked: a.is_locked === null ? undefined : (a.is_locked === 1),
+      totalAssetsInspected: a.total_assets_inspected ?? null,
+      assetStatusSummary: a.asset_status_summary ?? null,
+      verifiedAssetCount: a.verified_asset_count ?? null,
+      assetStatuses: a.asset_statuses ? JSON.parse(a.asset_statuses) : null
     }));
     
     return c.json(data);
@@ -58,6 +86,13 @@ router.post('/audits', zValidator('json', auditSchema), requirePolicy('audit.cre
     }
   } else {
     phaseId = null;
+  }
+
+  if (audit.locationId) {
+    const conflictErr = await checkLocationYearConflict(c.env.DB, audit.locationId, id, audit.date || null, phaseId || null);
+    if (conflictErr) {
+      return c.json({ error: conflictErr, code: 'LOCATION_YEAR_CONFLICT' }, 422);
+    }
   }
 
   try {
@@ -94,6 +129,7 @@ router.post('/audits', zValidator('json', auditSchema), requirePolicy('audit.cre
 router.patch('/audits/:id', zValidator('json', patchAuditSchema), patchAuditPermissionGuard, auditLockGuard, statusTransitionGuard, auditAssignmentGuard, async (c) => {
   const id = c.req.param('id');
   const updates = c.req.valid('json');
+  const isExplicitLockChange = updates.isLocked !== undefined;
 
   // Date-driven phase auto-routing
   if (updates.date !== undefined) {
@@ -147,12 +183,58 @@ router.patch('/audits/:id', zValidator('json', patchAuditSchema), patchAuditPerm
 
   // Automatic status transitions between Pending and In Progress based on assignment completeness
   const existingForActivation = await c.env.DB.prepare(
-    'SELECT status, date, supervisor_id, auditor1_id, auditor2_id, phase_id FROM audit_schedules WHERE id = ?'
-  ).bind(id).first<{ status: string; date: string | null; supervisor_id: string | null; auditor1_id: string | null; auditor2_id: string | null; phase_id: string | null }>();
+    'SELECT status, date, supervisor_id, auditor1_id, auditor2_id, phase_id, location_id FROM audit_schedules WHERE id = ?'
+  ).bind(id).first<{ status: string; date: string | null; supervisor_id: string | null; auditor1_id: string | null; auditor2_id: string | null; phase_id: string | null; location_id: string }>();
 
   if (existingForActivation) {
-    const currentStatus = updates.status || existingForActivation.status;
+    const finalLocation = updates.locationId !== undefined ? updates.locationId : existingForActivation.location_id;
     const finalDate = updates.date !== undefined ? updates.date : existingForActivation.date;
+    const finalPhaseId = updates.phaseId !== undefined ? updates.phaseId : existingForActivation.phase_id;
+
+    if (
+      (updates.date !== undefined || updates.locationId !== undefined || updates.phaseId !== undefined) &&
+      finalLocation
+    ) {
+      const conflictErr = await checkLocationYearConflict(
+        c.env.DB,
+        finalLocation,
+        id,
+        finalDate || null,
+        finalPhaseId || null
+      );
+      if (conflictErr) {
+        return c.json({ error: conflictErr, code: 'LOCATION_YEAR_CONFLICT' }, 422);
+      }
+    }
+
+    // Synchronous department update auditor check
+    if (updates.departmentId !== undefined && updates.departmentId !== null) {
+      const finalAuditor1 = updates.auditor1Id !== undefined ? updates.auditor1Id : existingForActivation.auditor1_id;
+      const finalAuditor2 = updates.auditor2Id !== undefined ? updates.auditor2Id : existingForActivation.auditor2_id;
+      let clearedAny = false;
+
+      if (finalAuditor1) {
+        const u1 = await c.env.DB.prepare('SELECT department_id FROM users WHERE id = ?').bind(finalAuditor1).first<{ department_id: string }>();
+        if (u1 && u1.department_id === updates.departmentId) {
+          updates.auditor1Id = null;
+          clearedAny = true;
+        }
+      }
+      if (finalAuditor2) {
+        const u2 = await c.env.DB.prepare('SELECT department_id FROM users WHERE id = ?').bind(finalAuditor2).first<{ department_id: string }>();
+        if (u2 && u2.department_id === updates.departmentId) {
+          updates.auditor2Id = null;
+          clearedAny = true;
+        }
+      }
+
+      if (clearedAny) {
+        updates.status = 'Pending';
+        updates.isLocked = false;
+      }
+    }
+
+    const currentStatus = updates.status || existingForActivation.status;
     const finalSupervisor = updates.supervisorId !== undefined ? updates.supervisorId : existingForActivation.supervisor_id;
     const finalAuditor1 = updates.auditor1Id !== undefined ? updates.auditor1Id : existingForActivation.auditor1_id;
     const finalAuditor2 = updates.auditor2Id !== undefined ? updates.auditor2Id : existingForActivation.auditor2_id;
@@ -162,11 +244,22 @@ router.patch('/audits/:id', zValidator('json', patchAuditSchema), patchAuditPerm
         if (updates.isLocked !== false) {
           updates.status = 'In Progress';
           updates.isLocked = true;
+
+          // Auto-resolve phaseId from the date when all fields complete
+          if (updates.phaseId === undefined && !existingForActivation.phase_id && finalDate) {
+            const matchingPhase = await c.env.DB.prepare(
+              'SELECT id FROM audit_phases WHERE start_date <= ? AND end_date >= ? LIMIT 1'
+            ).bind(finalDate, finalDate).first<{ id: string }>();
+            if (matchingPhase) {
+              updates.phaseId = matchingPhase.id;
+            }
+          }
         }
       }
     } else if (currentStatus === 'In Progress') {
       if (!finalDate || !finalSupervisor || !finalAuditor1 || !finalAuditor2 || updates.isLocked === false) {
         updates.status = 'Pending';
+        updates.isLocked = false;
       }
     }
   }
@@ -185,6 +278,8 @@ router.patch('/audits/:id', zValidator('json', patchAuditSchema), patchAuditPerm
   if (updates.reportPath !== undefined) { fields.push('report_path = ?'); values.push(updates.reportPath); }
   if (updates.totalAssetsInspected !== undefined) { fields.push('total_assets_inspected = ?'); values.push(updates.totalAssetsInspected); }
   if (updates.assetStatusSummary !== undefined) { fields.push('asset_status_summary = ?'); values.push(updates.assetStatusSummary); }
+  if (updates.verifiedAssetCount !== undefined) { fields.push('verified_asset_count = ?'); values.push(updates.verifiedAssetCount); }
+  if (updates.assetStatuses !== undefined) { fields.push('asset_statuses = ?'); values.push(updates.assetStatuses ? JSON.stringify(updates.assetStatuses) : null); }
   if (updates.isLocked !== undefined) {
     const callerRoles = (c.get('user') as any)?.roles || [];
     const caps = deriveCapabilities({ id: (c.get('user') as any)?.id || '', email: (c.get('user') as any)?.email || '', role: (c.get('user') as any)?.role || '', roles: callerRoles, departmentId: (c.get('user') as any)?.departmentId || null, certificationExpiry: (c.get('user') as any)?.certificationExpiry || null });
@@ -282,7 +377,6 @@ router.patch('/audits/:id', zValidator('json', patchAuditSchema), patchAuditPerm
         })();
       }
     }
-
     invalidateScheduleCache(c.env.SETTINGS);
     return c.json({ success: true });
   } catch (err: any) {
@@ -301,20 +395,8 @@ router.delete('/audits/:id', requirePolicy('audit.delete', auditPatchContextBuil
   }
 });
 
-// â”€â”€â”€ Maintenance: Unassign Expired/Revoked Auditors â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-// Admin endpoint to unassign all auditors with expired/revoked certificates from future audits
-router.post('/audits/maintenance/unassign-expired-auditors', requirePolicy('system.reset', emptyContextBuilder()), async (c) => {
-  try {
-    const today = new Date().toISOString().split('T')[0];
-    await unassignExpiredAuditors(c.env.DB, today);
-    invalidateScheduleCache(c.env.SETTINGS);
-    return c.json({ success: true });
-  } catch (err: any) {
-    return c.json({ error: err.message }, 500);
-  }
-});
 
-// â”€â”€â”€ Maintenance: Clean up orphaned audits for archived locations â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Maintenance: Clean up orphaned audits for archived locations ───
 router.post('/audits/maintenance/cleanup-archived-location-audits', requirePolicy('system.reset', emptyContextBuilder()), async (c) => {
   try {
     // Find all archived locations and delete their non-completed audits

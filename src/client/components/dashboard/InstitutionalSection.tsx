@@ -18,7 +18,6 @@ interface InstitutionalSectionProps {
   activities: SystemActivity[];
   buildings: any[];
   openAuditThreshold: number;
-  onSendEmail?: (id: string) => void;
 }
 
 interface OfficerWorkload {
@@ -33,7 +32,7 @@ interface OfficerWorkload {
 
 export const InstitutionalSection: React.FC<InstitutionalSectionProps> = ({
   users, departments, locations, schedules, phases, kpiTiers, kpiTierTargets,
-  institutionKPIs, activities, buildings, openAuditThreshold, onSendEmail,
+  institutionKPIs, activities, buildings, openAuditThreshold,
 }) => {
   const today = new Date().toISOString().split('T')[0];
 
@@ -104,16 +103,6 @@ export const InstitutionalSection: React.FC<InstitutionalSectionProps> = ({
       .sort((a, b) => b.gaps.length - a.gaps.length);
   }, [departments, users, today, activeLocations]);
 
-  // ── Pending Approvals Pipeline ──────────────────────────────────────
-  const pendingApprovals = React.useMemo(() => {
-    return schedules
-      .map(s => {
-        const dept = departments.find(d => d.id === s.departmentId);
-        const loc = locations.find(l => l.id === s.locationId);
-        return { ...s, deptName: dept?.abbr || 'N/A', locName: loc?.name || 'N/A' };
-      })
-      .sort((a, b) => (a.date || '').localeCompare(b.date || ''));
-  }, [schedules, departments, locations]);
 
   // ── Upcoming Schedule (locked slots, not yet in progress) ───────────
   const upcomingSchedules = React.useMemo(() => {
@@ -148,6 +137,7 @@ export const InstitutionalSection: React.FC<InstitutionalSectionProps> = ({
           locationName: loc?.name || 'Unknown',
           deptAbbr: dept?.abbr || dept?.name || 'N/A',
           totalAssets: loc?.totalAssets || 0,
+          assetStatuses: s.assetStatuses || null,
         };
       })
       .sort((a, b) => (b.date || '').localeCompare(a.date || ''))
@@ -238,9 +228,7 @@ export const InstitutionalSection: React.FC<InstitutionalSectionProps> = ({
             <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
             In Progress {auditStats.inProgress}
           </span>
-          <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-orange-50 text-orange-500 rounded-lg text-[10px] font-bold">
-            <span className="w-1.5 h-1.5 rounded-full bg-orange-500"></span>
-          </span>
+
           <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-green-50 text-emerald-600 rounded-lg text-[10px] font-bold">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
             Completed {auditStats.completed}
@@ -275,126 +263,113 @@ export const InstitutionalSection: React.FC<InstitutionalSectionProps> = ({
       {/* ── Inspection Status ─────────────────────────────────────── */}
       <InspectionStatusTable data={inspectionByDept} />
 
-      {/* ── Upcoming Schedule + Pending Approval Status ───────────────── */}
-      {(upcomingSchedules.length > 0 || pendingApprovals.length > 0) && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* ── Upcoming Schedule ──────────────────────────────────── */}
-          {upcomingSchedules.length > 0 && (
-            <div className="rounded-3xl border border-indigo-100 bg-white shadow-sm overflow-hidden">
-              <div className="p-5 border-b border-slate-100 flex items-center justify-between">
-                <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
-                  <CalendarDays className="w-4 h-4 text-indigo-500" />
-                  Upcoming Schedule
-                </h3>
-                <span className="text-[10px] text-slate-400 font-bold">{upcomingSchedules.length} locked</span>
-              </div>
-              <div className="divide-y divide-slate-50 max-h-80 overflow-auto">
-                {upcomingSchedules.map(s => {
-                  const d = s.date ? new Date(s.date + 'T00:00:00') : null;
-                  const month = d ? d.toLocaleString('default', { month: 'short' }).toUpperCase() : '—';
-                  const day = d ? d.getDate() : '—';
-                  return (
-                    <div key={s.id} className="flex items-center gap-4 px-5 py-3 hover:bg-indigo-50/20 transition-colors">
-                      <div className="w-12 h-12 rounded-xl bg-slate-50 border border-slate-200 flex flex-col items-center justify-center shrink-0">
-                        <span className="text-[9px] font-black text-indigo-600 uppercase leading-none">{month}</span>
-                        <span className="text-lg font-black text-slate-800 leading-none">{day}</span>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="font-bold text-slate-800 text-sm truncate">{s.locationName}</div>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          <span className="text-xs text-slate-400 font-medium">{s.deptAbbr}</span>
-                          <span className="inline-flex px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded-full text-[10px] font-bold">{s.totalAssets.toLocaleString()} Assets</span>
-                        </div>
-                      </div>
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-indigo-50 text-indigo-600 rounded-lg text-[10px] font-bold shrink-0">
-                        Ready
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* ── Pending Approval Status ─────────────────────────────── */}
-          {pendingApprovals.length > 0 && (
-            <div className="rounded-3xl border border-orange-100 bg-white shadow-sm overflow-hidden">
-              <div className="p-5 border-b border-slate-100 flex items-center justify-between">
-                <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
-                  <Clock className="w-4 h-4 text-orange-500" />
-                  Pending Approval Status
-                </h3>
-              </div>
-              <div className="divide-y divide-slate-50 max-h-80 overflow-auto">
-                {pendingApprovals.map(a => (
-                  <div key={a.id} className="flex items-center gap-4 px-5 py-3 hover:bg-orange-50/20 transition-colors">
-                    <div className="w-12 h-12 rounded-xl bg-orange-50 border border-orange-200 flex flex-col items-center justify-center shrink-0">
-                      <span className="text-[9px] font-black text-orange-500 uppercase leading-none">
-                        {a.date ? new Date(a.date + 'T00:00:00').toLocaleString('default', { month: 'short' }).toUpperCase() : '—'}
-                      </span>
-                      <span className="text-lg font-black text-slate-800 leading-none">
-                        {a.date ? new Date(a.date + 'T00:00:00').getDate() : '—'}
-                      </span>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="font-bold text-slate-800 text-sm truncate">{a.locName}</div>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <span className="text-xs text-slate-400 font-medium">{a.deptName}</span>
-                        <span className="inline-flex px-2 py-0.5 bg-orange-50 text-orange-600 rounded-full text-[10px] font-bold">{(locations.find(l => l.id === a.locationId)?.totalAssets || 0).toLocaleString()} Assets</span>
-                      </div>
-                    </div>
-                    <span className="inline-flex px-2.5 py-1 bg-orange-50 text-orange-600 rounded-lg text-[10px] font-bold shrink-0">
-                      Pending
-                    </span>
+      {/* ── Upcoming Schedule ─────────────────────────────────────── */}
+      {upcomingSchedules.length > 0 && (
+        <div className="rounded-3xl border border-indigo-100 bg-white shadow-sm overflow-hidden">
+          <div className="p-5 border-b border-slate-100 flex items-center justify-between">
+            <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
+              <CalendarDays className="w-4 h-4 text-indigo-500" />
+              Upcoming Schedule
+            </h3>
+            <span className="text-[10px] text-slate-400 font-bold">{upcomingSchedules.length} locked</span>
+          </div>
+          <div className="divide-y divide-slate-50 max-h-80 overflow-auto">
+            {upcomingSchedules.map(s => {
+              const d = s.date ? new Date(s.date + 'T00:00:00') : null;
+              const month = d ? d.toLocaleString('default', { month: 'short' }).toUpperCase() : '—';
+              const day = d ? d.getDate() : '—';
+              return (
+                <div key={s.id} className="flex items-center gap-4 px-5 py-3 hover:bg-indigo-50/20 transition-colors">
+                  <div className="w-12 h-12 rounded-xl bg-slate-50 border border-slate-200 flex flex-col items-center justify-center shrink-0">
+                    <span className="text-[9px] font-black text-indigo-600 uppercase leading-none">{month}</span>
+                    <span className="text-lg font-black text-slate-800 leading-none">{day}</span>
                   </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* If only one section has content, it gets full width naturally */}
-          {(upcomingSchedules.length === 0 || pendingApprovals.length === 0) && (
-            <div className="hidden lg:block" />
-          )}
+                  <div className="flex-1 min-w-0">
+                    <div className="font-bold text-slate-800 text-sm truncate">{s.locationName}</div>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className="text-xs text-slate-400 font-medium">{s.deptAbbr}</span>
+                      <span className="inline-flex px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded-full text-[10px] font-bold">{s.totalAssets.toLocaleString()} Assets</span>
+                    </div>
+                  </div>
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-indigo-50 text-indigo-600 rounded-lg text-[10px] font-bold shrink-0">
+                    Ready
+                  </span>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 
       {/* ── Recently Completed ────────────────────────────────────────── */}
       {completedSchedules.length > 0 && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="rounded-3xl border border-emerald-100 bg-white shadow-sm overflow-hidden">
-            <div className="p-5 border-b border-slate-100 flex items-center justify-between">
-              <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                Recently Completed
-              </h3>
-              <span className="text-[10px] text-slate-400 font-bold">{completedSchedules.length} locations</span>
-            </div>
-            <div className="divide-y divide-slate-50 max-h-80 overflow-auto">
-              {completedSchedules.map(s => {
-                const d = s.date ? new Date(s.date + 'T00:00:00') : null;
-                const month = d ? d.toLocaleString('default', { month: 'short' }).toUpperCase() : '—';
-                const day = d ? d.getDate() : '—';
-                return (
-                  <div key={s.id} className="flex items-center gap-4 px-5 py-3 hover:bg-emerald-50/20 transition-colors">
-                    <div className="w-12 h-12 rounded-xl bg-emerald-50 border border-emerald-200 flex flex-col items-center justify-center shrink-0">
-                      <span className="text-[9px] font-black text-emerald-500 uppercase leading-none">{month}</span>
-                      <span className="text-lg font-black text-slate-800 leading-none">{day}</span>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="font-bold text-slate-800 text-sm truncate">{s.locationName}</div>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <span className="text-xs text-slate-400 font-medium">{s.deptAbbr}</span>
-                        <span className="inline-flex px-2 py-0.5 bg-emerald-50 text-emerald-600 rounded-full text-[10px] font-bold">{s.totalAssets.toLocaleString()} Assets</span>
-                      </div>
-                    </div>
-                    <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
-                  </div>
-                );
-              })}
-            </div>
+        <div className="rounded-3xl border border-emerald-100 bg-white shadow-sm overflow-hidden lg:max-w-5xl">
+          <div className="p-5 border-b border-slate-100 flex items-center justify-between">
+            <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+              Recently Completed Asset Statuses
+            </h3>
+            <span className="text-[10px] text-slate-400 font-bold">{completedSchedules.length} locations</span>
           </div>
-          <div className="hidden lg:block" />
+          <div className="overflow-x-auto max-h-96 overflow-y-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-slate-50 sticky top-0 z-10">
+                <tr>
+                  <th className="px-4 py-3 text-[10px] font-black uppercase text-slate-400">Location</th>
+                  <th className="px-3 py-3 text-[10px] font-black uppercase text-slate-400">Dept</th>
+                  <th className="px-3 py-3 text-[10px] font-black uppercase text-slate-400 text-center">Total</th>
+                  <th className="px-2 py-3 text-[10px] font-black uppercase text-emerald-500 text-center" title="In Use">A</th>
+                  <th className="px-2 py-3 text-[10px] font-black uppercase text-slate-400 text-center" title="Not In Use">B</th>
+                  <th className="px-2 py-3 text-[10px] font-black uppercase text-rose-500 text-center" title="Broken">C</th>
+                  <th className="px-2 py-3 text-[10px] font-black uppercase text-amber-500 text-center" title="Under Maintenance">D</th>
+                  <th className="px-2 py-3 text-[10px] font-black uppercase text-blue-500 text-center" title="Borrowed">E</th>
+                  <th className="px-4 py-3 text-[10px] font-black uppercase text-rose-600 text-right" title="Missing">F</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {completedSchedules.map(s => {
+                  const d = s.date ? new Date(s.date + 'T00:00:00') : null;
+                  const dateStr = d ? d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+                  const st = s.assetStatuses || {};
+                  const inUse = st['In Use'] || 0;
+                  const notInUse = st['Not In Use'] || 0;
+                  const broken = st['Broken'] || 0;
+                  const maint = st['Under Maintenance'] || 0;
+                  const borrow = st['Borrowed'] || 0;
+                  const missing = st['Missing'] || 0;
+                  
+                  return (
+                    <tr key={s.id} className="hover:bg-emerald-50/20 transition-colors">
+                      <td className="px-4 py-3">
+                        <div className="font-bold text-slate-800">{s.locationName}</div>
+                        <div className="text-[10px] text-slate-400 font-medium">{dateStr}</div>
+                      </td>
+                      <td className="px-3 py-3 font-bold text-slate-600">{s.deptAbbr}</td>
+                      <td className="px-3 py-3 text-center">
+                        <span className="inline-flex px-2 py-0.5 bg-emerald-50 text-emerald-600 rounded-lg text-[10px] font-bold">
+                          {s.totalAssets}
+                        </span>
+                      </td>
+                      <td className={`px-2 py-3 text-center font-bold ${inUse > 0 ? 'text-emerald-600' : 'text-slate-300'}`}>{inUse || '—'}</td>
+                      <td className={`px-2 py-3 text-center font-bold ${notInUse > 0 ? 'text-slate-500' : 'text-slate-300'}`}>{notInUse || '—'}</td>
+                      <td className={`px-2 py-3 text-center font-bold ${broken > 0 ? 'text-rose-500' : 'text-slate-300'}`}>{broken || '—'}</td>
+                      <td className={`px-2 py-3 text-center font-bold ${maint > 0 ? 'text-amber-500' : 'text-slate-300'}`}>{maint || '—'}</td>
+                      <td className={`px-2 py-3 text-center font-bold ${borrow > 0 ? 'text-blue-500' : 'text-slate-300'}`}>{borrow || '—'}</td>
+                      <td className={`px-4 py-3 text-right font-bold ${missing > 0 ? 'text-rose-600' : 'text-slate-300'}`}>{missing || '—'}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <div className="p-4 bg-slate-50 border-t border-slate-100 flex flex-wrap items-center gap-x-6 gap-y-2">
+            <span className="text-[9px] text-slate-500 font-medium"><span className="font-bold text-emerald-600">A</span> = In Use</span>
+            <span className="text-[9px] text-slate-500 font-medium"><span className="font-bold text-slate-600">B</span> = Not In Use</span>
+            <span className="text-[9px] text-slate-500 font-medium"><span className="font-bold text-rose-600">C</span> = Broken</span>
+            <span className="text-[9px] text-slate-500 font-medium"><span className="font-bold text-amber-600">D</span> = Under Maintenance</span>
+            <span className="text-[9px] text-slate-500 font-medium"><span className="font-bold text-blue-600">E</span> = Borrowed</span>
+            <span className="text-[9px] text-slate-500 font-medium"><span className="font-bold text-rose-600">F</span> = Missing</span>
+          </div>
         </div>
       )}
 

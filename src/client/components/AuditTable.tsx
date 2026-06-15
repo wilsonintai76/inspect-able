@@ -1,10 +1,10 @@
-
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { AuditSchedule, User, UserRole, Department, Location, CrossAuditPermission, AuditPhase, Building as BuildingType, SystemActivity } from '@shared/types';
+import { AuditSchedule, User, UserRole, Department, Location, AuditPhase, Building as BuildingType, SystemActivity } from '@shared/types';
 import { hasCapability } from '../lib/pbacUtils';
 
 import { AuditReportModal } from './AuditReportModal';
 import { AuditUploadModal } from './AuditUploadModal';
+import { AssetStatusModal } from './AssetStatusModal';
 import { Search, Calendar, Zap, FileSpreadsheet } from 'lucide-react';
 import { PrintButton } from './PrintButton';
 import { printInspectionSchedule, exportInspectionSchedule } from '../lib/printUtils';
@@ -33,26 +33,26 @@ interface AuditTableProps {
   onToggleLock: (id: string) => void;
   allDepartments: Department[];
   allLocations: Location[];
-  crossAuditPermissions: CrossAuditPermission[];
   auditPhases: AuditPhase[];
   activities: SystemActivity[];
   maxAssetsPerDay: number;
   buildings?: BuildingType[];
-  assignmentMode?: 'cross-audit' | 'open-audit';
-  onSendEmail: (id: string) => void;
+  onDeleteAudit?: (id: string) => void;
+  onUpdateLocation?: (id: string, updates: Partial<Location>) => Promise<void>;
 }
 
 export const AuditTable: React.FC<AuditTableProps> = ({ 
   schedules, users, currentUserName, userRoles, departments, selectedDept, onDeptChange, selectedStatus, onStatusChange,
   selectedPhaseId, onPhaseChange, onAssign, onUnassign, onUpdateDate, onUpdateAudit, onToggleStatus, onToggleLock,
-  allDepartments, allLocations, crossAuditPermissions, auditPhases, activities,
+  allDepartments, allLocations, auditPhases, activities,
   maxAssetsPerDay,
   buildings = [],
-  assignmentMode = 'cross-audit',
-  onSendEmail,
+  onDeleteAudit,
+  onUpdateLocation,
 }) => {
   const [reportAudit, setReportAudit] = useState<AuditSchedule | null>(null);
   const [uploadAudit, setUploadAudit] = useState<AuditSchedule | null>(null);
+  const [statusAudit, setStatusAudit] = useState<AuditSchedule | null>(null);
   const [selectedBlock, setSelectedBlock] = useState('All');
   const [selectedLevel, setSelectedLevel] = useState('All');
 
@@ -69,7 +69,8 @@ export const AuditTable: React.FC<AuditTableProps> = ({
   
   const isCertified = React.useMemo(() => {
     if (!currentUser?.certificationExpiry) return false;
-    return currentUser.certificationExpiry >= new Date().toISOString().split('T')[0];
+    const today = new Date().toISOString().split('T')[0];
+    return currentUser.certificationExpiry >= today;
   }, [currentUser]);
 
   // PBAC: any role + valid cert = can self-assign
@@ -139,49 +140,17 @@ export const AuditTable: React.FC<AuditTableProps> = ({
     return ['All', ...Array.from(levels)].sort();
   }, [availableLocations, selectedBlock]);
 
-  const getEntityName = (deptId: string) => {
-    const dept = allDepartments.find(d => d.id === deptId);
-    return dept?.auditGroupId || deptId;
-  };
-
-  /**
-   * Checks if a cross-audit permission exists between two entities (dept or group).
-   * Matches the server-side auditAssignmentGuard logic:
-   *   - Department-level direct & mutual
-   *   - Group-level direct & mutual
-   */
-  const hasCrossAuditPermission = (auditorEntityId: string, targetEntityId: string) => {
-    return crossAuditPermissions.some(p => {
-      if (!p.isActive) return false;
-      // Dept-level: direct
-      if (p.auditorDeptId === auditorEntityId && p.targetDeptId === targetEntityId) return true;
-      // Dept-level: mutual (reverse)
-      if (p.isMutual && p.auditorDeptId === targetEntityId && p.targetDeptId === auditorEntityId) return true;
-      // Group-level: direct
-      if (p.auditorGroupId === auditorEntityId && p.targetGroupId === targetEntityId) return true;
-      // Group-level: mutual (reverse)
-      if (p.isMutual && p.auditorGroupId === targetEntityId && p.targetGroupId === auditorEntityId) return true;
-      return false;
-    });
-  };
-
   const getPhaseName = (phaseId: string) => {
     return auditPhases.find(p => p.id === phaseId)?.name || 'Unknown Phase';
   };
 
   const canAuditDepartment = (targetDeptId: string) => {
-    const myEntityId = getEntityName(currentUser?.departmentId || '');
-    const targetEntityId = getEntityName(targetDeptId);
+    const myDeptId = currentUser?.departmentId || '';
 
-    // 1. COI Rule (ABSOLUTE): Cannot audit own department — top management policy
-    if (myEntityId === targetEntityId) return false;
+    // COI: Cannot audit own department (no exemptions — server enforces this unconditionally)
+    if (myDeptId === targetDeptId) return false;
 
-    // 2. Check if a pairing exists in crossAuditPermissions (only if in cross-audit mode)
-    if (assignmentMode === 'cross-audit') {
-      return isAdmin || hasCrossAuditPermission(myEntityId, targetEntityId);
-    }
-
-    // 3. In Open Audit mode, any certified officer can audit any department (except COI)
+    // In Open Audit mode, any certified officer can audit any department (except COI)
     return true;
   };
 
@@ -263,15 +232,16 @@ export const AuditTable: React.FC<AuditTableProps> = ({
       return;
     }
 
-
-
-    // Explicit Pairing Check (Defense in Depth)
-    const officerDeptId = assignUser?.departmentId || '';
-    const myEntityId = getEntityName(officerDeptId);
-    const targetEntityId = getEntityName(audit.departmentId);
-
-    if (myEntityId === targetEntityId) {
-      alert(`PAIRING RESTRICTION: ${isSelf ? 'You' : 'The selected officer'} cannot inspect ${isSelf ? 'your' : 'their'} own department. This is an institutional integrity rule with no exemptions.`);
+    // ── Audit permission check (COI) ────────────────────────────────────
+    // Delegates to canAuditDepartment which enforces COI (no self-audit, per server)
+    if (!canAuditDepartment(audit.departmentId)) {
+      const officerDeptId = assignUser?.departmentId || '';
+      const isOwnDept = officerDeptId === audit.departmentId;
+      if (isOwnDept) {
+        alert(`COI RESTRICTION: ${isSelf ? 'You' : 'The selected officer'} cannot inspect ${isSelf ? 'your' : 'their'} own department.`);
+      } else {
+        alert(`PAIRING RESTRICTION: This asset location is outside the assigned inspection matrix for ${isSelf ? 'you' : 'the selected officer'}.`);
+      }
       return;
     }
 
@@ -282,31 +252,56 @@ export const AuditTable: React.FC<AuditTableProps> = ({
       return;
     }
 
-    if (assignmentMode === 'cross-audit') {
-      const hasCrossPerm = isAdmin || hasCrossAuditPermission(myEntityId, targetEntityId);
-
-      if (!hasCrossPerm) {
-        alert(`PAIRING RESTRICTION: This asset location is outside the assigned inspection matrix for ${isSelf ? 'you' : 'the selected officer'}.`);
-        return;
+    // Auto-resolve date when empty: inspectors can't set dates alone (patchAuditPermissionGuard
+    // blocks non-assigned auditors), so we bundle date + slot assignment into a single call.
+    let resolvedDate = date;
+    let resolvedPhaseId = phaseId;
+    if (!resolvedDate) {
+      const today = new Date().toISOString().split('T')[0];
+      const matchingPhase = auditPhases.find(p => {
+        const d = new Date(today);
+        const start = new Date(p.startDate); start.setHours(0,0,0,0);
+        const end = new Date(p.endDate); end.setHours(23,59,59,999);
+        return d >= start && d <= end;
+      });
+      if (matchingPhase) {
+        resolvedDate = today;
+        resolvedPhaseId = matchingPhase.id;
+      } else {
+        // Today falls outside all phases — use the earliest active phase's start date
+        const sortedPhases = [...auditPhases].sort((a, b) => a.startDate.localeCompare(b.startDate));
+        const futurePhase = sortedPhases.find(p => p.startDate >= today) || sortedPhases[0];
+        if (futurePhase) {
+          resolvedDate = futurePhase.startDate;
+          resolvedPhaseId = futurePhase.id;
+        }
       }
     }
-
-    if (!date) {
-      alert("Please select a valid audit date before assigning yourself.");
-      return;
-    }
-    // Phase is a projection guideline — accept any phase as long as date falls in one
-    const matchingPhase = auditPhases.find(p => {
-      const d = new Date(date);
+    // Phase resolution: ensure phaseId matches the resolved date
+    const datePhase = auditPhases.find(p => {
+      const d = new Date(resolvedDate);
       const start = new Date(p.startDate); start.setHours(0,0,0,0);
       const end = new Date(p.endDate); end.setHours(23,59,59,999);
       return d >= start && d <= end;
     });
-    if (matchingPhase && matchingPhase.id !== phaseId) {
-      // Auto-update phaseId to match the date
-      await onUpdateAudit(auditId, { date, phaseId: matchingPhase.id });
+    if (datePhase && datePhase.id !== resolvedPhaseId) {
+      resolvedPhaseId = datePhase.id;
     }
-    onAssign(auditId, slot, assignUserId);
+
+    // Bundle date + slot assignment into a single PATCH so the server sees an
+    // incoming auditor (isAssignedAuditor) alongside the date change — this
+    // satisfies patchAuditPermissionGuard's date-guard for self-assigning inspectors.
+    const slotUpdate: Partial<AuditSchedule> = slot === 1 ? { auditor1Id: assignUserId } : { auditor2Id: assignUserId };
+    const needsFullUpdate = resolvedDate !== (audit.date || undefined);
+    if (needsFullUpdate) {
+      await onUpdateAudit(auditId, {
+        ...slotUpdate,
+        date: resolvedDate,
+        phaseId: resolvedPhaseId,
+      });
+    } else {
+      onAssign(auditId, slot, assignUserId);
+    }
   };
 
   const handleAutoAssign = async () => {
@@ -341,15 +336,10 @@ export const AuditTable: React.FC<AuditTableProps> = ({
 
         // Find best candidate for this slot
         const candidates = eligibleOfficers.filter(officer => {
-          const myEntityId = getEntityName(officer.departmentId || '');
-          const targetEntityId = getEntityName(targetDeptId);
-          if (myEntityId === targetEntityId) return false;
+          // COI: cannot audit own department (server enforces unconditionally)
+          if (officer.departmentId === targetDeptId) return false;
 
-          if (assignmentMode === 'cross-audit') {
-            if (!isAdmin && !hasCrossAuditPermission(myEntityId, targetEntityId)) return false;
-          }
-
-          // 3. ABSOLUTE LOCK: Supervisor cannot be the Auditor for the same location
+          // ABSOLUTE LOCK: Supervisor cannot be the Auditor for the same location
           const supervisorIds = audit.supervisorId ? audit.supervisorId.split(',').map(id => id.trim()).filter(Boolean) : [];
           if (supervisorIds.includes(officer.id)) return false;
 
@@ -383,10 +373,9 @@ export const AuditTable: React.FC<AuditTableProps> = ({
     if (assignmentCount > 0) {
       alert(`Auto-assignment complete. Successfully assigned ${assignmentCount} slots.`);
     } else {
-      alert("Auto-assignment could not find eligible officers for the remaining slots based on the audit matrix and daily limits.");
+      alert("Auto-assignment could not find eligible officers for the remaining slots based on the daily limits.");
     }
   };
-
 
   const getStatusBadgeStyles = (status: string) => {
     switch(status) {
@@ -397,7 +386,7 @@ export const AuditTable: React.FC<AuditTableProps> = ({
   };
 
   // Filter based on selected filters AND RBAC Scope
-  const displaySchedules = useMemo(() => {
+  const filteredSchedules = useMemo(() => {
     return schedules.filter(s => {
       // 1. RBAC Scope Filtering
       let isVisible = false;
@@ -408,7 +397,7 @@ export const AuditTable: React.FC<AuditTableProps> = ({
       // Own Dept Permission
       if (canViewOwnSchedule && s.departmentId === currentUser?.departmentId) isVisible = true;
       
-      // Matrix-Based Permission — show all cross-audit targets (own-dept disabled per-row)
+      // Matrix-Based Permission
       if (canViewMatrixSchedule) isVisible = true;
 
       if (!isVisible) return false;
@@ -420,7 +409,18 @@ export const AuditTable: React.FC<AuditTableProps> = ({
       
       return true;
     });
-  }, [schedules, selectedBlock, selectedLevel, allLocations, canViewAllSchedule, canViewOwnSchedule, canViewMatrixSchedule, currentUser, canAuditDepartment]);
+  }, [schedules, selectedBlock, selectedLevel, allLocations, canViewAllSchedule, canViewOwnSchedule, canViewMatrixSchedule, currentUser]);
+
+  // Phase filter: "Unscheduled" = Pending status, otherwise filter by phaseId
+  const displaySchedules = useMemo(() => {
+    if (selectedPhaseId === 'Unscheduled') {
+      return filteredSchedules.filter(s => s.status === 'Pending' && !s.isLocked);
+    }
+    if (selectedPhaseId !== 'All') {
+      return filteredSchedules.filter(s => s.phaseId === selectedPhaseId && s.status !== 'Pending');
+    }
+    return filteredSchedules;
+  }, [filteredSchedules, selectedPhaseId]);
 
   const isAuditLocked = (audit: AuditSchedule) => {
     return audit.isLocked === true;
@@ -553,23 +553,22 @@ export const AuditTable: React.FC<AuditTableProps> = ({
                   isInspector={isInspector}
                   hasFieldRole={hasFieldRole}
                   isCertified={isCertified}
-                  assignmentMode={assignmentMode}
                   canSendApprovalReminder={canSendApprovalReminder}
                   hasSentApprovalReminder={approvalReminderAuditIds.has(audit.id)}
                   isAuditLocked={isAuditLocked}
                   isDateInValidPhase={isDateInValidPhase}
                   getBuildingAbbr={getBuildingAbbr}
-                  getEntityName={getEntityName}
                   getUserContact={getUserContact}
                   canAuditDepartment={canAuditDepartment}
                   getStatusBadgeStyles={getStatusBadgeStyles}
                   onDateChange={handleDateChange}
-                  onSendEmail={onSendEmail}
                   onToggleLock={onToggleLock}
                   onAssign={handleSelfAssign}
                   onUnassign={onUnassign}
                   onSetReportAudit={setReportAudit}
                   onSetUploadAudit={setUploadAudit}
+                  onSetStatusAudit={setStatusAudit}
+                  onDeleteAudit={onDeleteAudit}
                 />
               ))}
               {displaySchedules.length === 0 && (
@@ -599,6 +598,8 @@ export const AuditTable: React.FC<AuditTableProps> = ({
             auditor1Name: users.find(u => u.id === reportAudit.auditor1Id)?.name || reportAudit.auditor1Id || 'N/A',
             auditor2Name: users.find(u => u.id === reportAudit.auditor2Id)?.name || reportAudit.auditor2Id || 'N/A',
             supervisorName: reportAudit.supervisorId?.split(',').map(id => users.find(u => u.id === id.trim())?.name || id).join(', ') || 'N/A',
+            totalAssets: allLocations.find(l => l.id === reportAudit.locationId)?.totalAssets,
+            uninspectedAssets: allLocations.find(l => l.id === reportAudit.locationId)?.uninspectedAssetCount,
           }}
           onClose={() => setReportAudit(null)}
         />
@@ -608,17 +609,39 @@ export const AuditTable: React.FC<AuditTableProps> = ({
         <AuditUploadModal
           audit={uploadAudit}
           locationName={allLocations.find(l => l.id === uploadAudit.locationId)?.name || uploadAudit.locationId}
+          locationTotalAssets={allLocations.find(l => l.id === uploadAudit.locationId)?.totalAssets || 0}
           onClose={() => setUploadAudit(null)}
-          onComplete={async (id, reportPath, totalAssets, statusSummary) => {
+          onComplete={async (id, reportPath, totalAssetsInspected, assetStatusSummary, verifiedAssetCount, assetStatuses, newLocationTotal) => {
             await onUpdateAudit(id, { 
               status: 'Completed', 
               reportPath,
-              totalAssetsInspected: totalAssets,
-              assetStatusSummary: statusSummary
+              totalAssetsInspected,
+              assetStatusSummary,
+              verifiedAssetCount,
+              assetStatuses
             });
+            if (newLocationTotal !== undefined && onUpdateLocation) {
+              await onUpdateLocation(uploadAudit.locationId, { totalAssets: newLocationTotal });
+            }
+          }}
+        />
+      )}
+
+      {statusAudit && (
+        <AssetStatusModal
+          audit={statusAudit}
+          locationName={allLocations.find(l => l.id === statusAudit.locationId)?.name || statusAudit.locationId}
+          locationTotalAssets={allLocations.find(l => l.id === statusAudit.locationId)?.totalAssets || 0}
+          onClose={() => setStatusAudit(null)}
+          onSave={async (id, verifiedAssetCount, assetStatuses, newLocationTotal) => {
+            await onUpdateAudit(id, { verifiedAssetCount, assetStatuses });
+            if (newLocationTotal !== undefined && onUpdateLocation) {
+              await onUpdateLocation(statusAudit.locationId, { totalAssets: newLocationTotal });
+            }
           }}
         />
       )}
     </div>
   );
 };
+export default AuditTable;

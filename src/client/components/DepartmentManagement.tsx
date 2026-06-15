@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Department, Location, User, AuditGroup, UserRole } from '@shared/types';
-import { Plus, Layers, UserRound, Boxes, Pencil, Archive, ArchiveRestore, UserPlus, Printer, Flame } from 'lucide-react';
+import { Plus, Layers, UserRound, Boxes, Pencil, Archive, ArchiveRestore, UserPlus, Printer, Flame, AlertTriangle } from 'lucide-react';
 import { AuditPhase } from '@shared/types';
 import { hasCapability, CAP_PURGE_DATA } from '../lib/pbacUtils';
 
@@ -12,13 +12,14 @@ interface DepartmentManagementProps {
   locations: Location[];
   departmentMappings?: unknown[];
   users: User[];
+  schedules?: any[]; // using any for AuditSchedule if not imported, or import it
+  onUpdateLocation?: (id: string, loc: Partial<Location>) => void;
   onAdd: (dept: Omit<Department, 'id'>) => void;
   onUpdate: (id: string, dept: Partial<Department>) => void;
   onBulkUpdate?: (updates: { id: string; data: Partial<Department> }[]) => void;
   onDelete: (id: string) => void;
   onPurge: (id: string) => void;
   phases?: AuditPhase[];
-  auditGroups?: AuditGroup[];
   onAddGroup?: (group: Omit<AuditGroup, 'id'>) => Promise<AuditGroup | void>;
   onUpdateGroup?: (id: string, group: Partial<AuditGroup>) => void;
   onDeleteGroup?: (id: string) => void;
@@ -36,8 +37,9 @@ export const DepartmentManagement: React.FC<DepartmentManagementProps> = ({
   onDelete,
   onPurge,
   users,
+  schedules = [],
+  onUpdateLocation,
   phases = [],
-  auditGroups = [],
   onAddInspector,
   currentUserRoles = [],
   openAuditThreshold = 500,
@@ -53,6 +55,32 @@ export const DepartmentManagement: React.FC<DepartmentManagementProps> = ({
   const [editingDept, setEditingDept] = useState<Department | null>(null);
   const [showArchived, setShowArchived] = useState(false);
   const [purgeTarget, setPurgeTarget] = useState<Department | null>(null);
+
+  // Compute discrepancies
+  const discrepancies = React.useMemo(() => {
+    const list: Array<{ location: Location, auditId: string, reportedCount: number, deptName: string }> = [];
+    if (!onUpdateLocation) return list; // If not provided, don't show
+
+    locations.forEach(loc => {
+      // Find latest completed audit for this location
+      const locAudits = schedules.filter((s: any) => s.locationId === loc.id && s.status === 'Completed' && s.verifiedAssetCount !== null);
+      if (locAudits.length === 0) return;
+      
+      // Sort by date descending
+      locAudits.sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      const latest = locAudits[0];
+      
+      if (latest.verifiedAssetCount !== loc.totalAssets) {
+        list.push({
+          location: loc,
+          auditId: latest.id,
+          reportedCount: latest.verifiedAssetCount,
+          deptName: departments.find(d => d.id === loc.departmentId)?.name || 'Unknown'
+        });
+      }
+    });
+    return list;
+  }, [locations, schedules, departments, onUpdateLocation]);
 
   const deptLocationCounts = React.useMemo(() => {
     const counts: Record<string, number> = {};
@@ -97,7 +125,7 @@ export const DepartmentManagement: React.FC<DepartmentManagementProps> = ({
     const activeDepts = departments.filter(d => !d.isArchived);
     const rows = activeDepts.map(dept => {
       const headUser = users.find(u => u.id === dept.headOfDeptId);
-      const groupName = auditGroups.find(g => g.id === dept.auditGroupId)?.name || '—';
+      const groupName = '—';
       const locCount = (locations || []).filter(l => l.departmentId === dept.id).length;
       
       return `
@@ -109,7 +137,6 @@ export const DepartmentManagement: React.FC<DepartmentManagementProps> = ({
           </td>
           <td class="center">${(dept.totalAssets || 0).toLocaleString()}</td>
           <td class="center">${locCount || '—'}</td>
-          <td>${groupName !== '—' ? `<span class="badge-blue">${groupName}</span>` : '—'}</td>
         </tr>`;
     }).join('');
 
@@ -171,7 +198,6 @@ export const DepartmentManagement: React.FC<DepartmentManagementProps> = ({
         <th class="center">Required Inspectors</th>
         <th class="center">Total Assets</th>
         <th class="center">Locations</th>
-        <th>Audit Group</th>
       </tr>
     </thead>
     <tbody>${rows}</tbody>
@@ -248,7 +274,6 @@ export const DepartmentManagement: React.FC<DepartmentManagementProps> = ({
                 <th className="px-6 py-5 text-[10px] font-black uppercase text-slate-400 tracking-widest text-center">Required Inspectors</th>
                 <th className="px-6 py-5 text-[10px] font-black uppercase text-slate-400 tracking-widest">Total Asset</th>
                 <th className="px-6 py-5 text-[10px] font-black uppercase text-slate-400 tracking-widest text-center">Locations</th>
-                <th className="px-6 py-5 text-[10px] font-black uppercase text-slate-400 tracking-widest">Tier & Group</th>
                 <th className="px-6 py-5 text-[10px] font-black uppercase text-slate-400 tracking-widest text-left">Actions</th>
               </tr>
             </thead>
@@ -323,21 +348,7 @@ export const DepartmentManagement: React.FC<DepartmentManagementProps> = ({
                         {deptLocationCounts[dept.id] || 0}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        {dept.totalAssets !== undefined && (
-                          <div className="px-2 py-0.5 rounded bg-blue-50 text-[9px] text-blue-600 border border-blue-100 font-bold uppercase tracking-tighter">
-                            Tier Detected
-                          </div>
-                        )}
-                        {(dept.auditGroupId) && (
-                          <span className="px-2 py-0.5 rounded-md bg-indigo-50 text-[9px] text-indigo-600 border border-indigo-100 font-bold flex items-center gap-1" title="Consolidated Audit Group">
-                            <Layers className="w-3 h-3" />
-                            {auditGroups.find(g => g.id === dept.auditGroupId)?.name || 'Unknown Group'}
-                          </span>
-                        )}
-                      </div>
-                    </td>
+
                     <td className="px-6 py-4 text-left align-middle">
                       {canManage && (
                         <div className="flex gap-1 justify-start">
@@ -359,12 +370,81 @@ export const DepartmentManagement: React.FC<DepartmentManagementProps> = ({
                 );
               })}
               {(!visibleDepts || visibleDepts.length === 0) && (
-                <tr><td colSpan={8} className="px-6 py-12 text-center text-slate-400"><div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto mb-3"><Layers className="w-6 h-6" /></div>No departments defined.</td></tr>
+                <tr><td colSpan={7} className="px-6 py-12 text-center text-slate-400"><div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto mb-3"><Layers className="w-6 h-6" /></div>No departments defined.</td></tr>
               )}
             </tbody>
           </table>
         </div>
       </div>
+
+      {discrepancies.length > 0 && (
+        <div className="bg-white rounded-[32px] p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-rose-100 mt-8 relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-2 h-full bg-gradient-to-b from-rose-400 to-rose-600"></div>
+          
+          <div className="flex items-center gap-3 mb-6 pl-4">
+            <div className="w-10 h-10 bg-rose-50 border border-rose-100 flex items-center justify-center rounded-xl text-rose-500 shadow-inner">
+              <AlertTriangle className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-lg font-black text-slate-800 tracking-tight">Asset Discrepancies Detected</h2>
+              <p className="text-[11px] text-slate-500 font-bold uppercase tracking-widest mt-0.5">
+                {discrepancies.length} Location(s) require review
+              </p>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto rounded-2xl border border-rose-100">
+            <table className="w-full">
+              <thead>
+                <tr className="bg-rose-50/50 border-b border-rose-100">
+                  <th className="px-6 py-4 text-left text-[10px] font-black text-rose-800 uppercase tracking-widest w-[20%]">Department</th>
+                  <th className="px-6 py-4 text-left text-[10px] font-black text-rose-800 uppercase tracking-widest w-[30%]">Location</th>
+                  <th className="px-6 py-4 text-center text-[10px] font-black text-rose-800 uppercase tracking-widest w-[20%]">System Assets</th>
+                  <th className="px-6 py-4 text-center text-[10px] font-black text-rose-800 uppercase tracking-widest w-[20%]">Reported Assets</th>
+                  <th className="px-6 py-4 w-[10%]"></th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-rose-50 bg-white">
+                {discrepancies.map((d, i) => (
+                  <tr key={i} className="group hover:bg-rose-50/30 transition-colors">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className="text-xs font-bold text-slate-700">{d.deptName}</span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-black text-slate-900">{d.location.name}</span>
+                        <span className="px-2 py-0.5 bg-slate-100 text-slate-500 text-[9px] font-bold uppercase tracking-wider rounded-md">
+                          {d.location.abbr}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-center">
+                      <span className="text-sm font-bold text-slate-400 line-through">
+                        {d.location.totalAssets}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-center">
+                      <span className="text-sm font-black text-rose-600">
+                        {d.reportedCount}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      {canManage && onUpdateLocation && (
+                        <button
+                          onClick={() => onUpdateLocation(d.location.id, { totalAssets: d.reportedCount })}
+                          className="px-3 py-1.5 bg-rose-600 text-white text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-rose-700 hover:shadow-lg hover:shadow-rose-500/20 active:scale-95 transition-all whitespace-nowrap"
+                        >
+                          Sync Location
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       <DepartmentModal
         isOpen={isModalOpen}
@@ -374,7 +454,6 @@ export const DepartmentManagement: React.FC<DepartmentManagementProps> = ({
         users={users}
         isAdmin={isAdmin}
         isCoordinator={isCoordinator}
-        auditGroups={auditGroups}
       />
 
       <PurgeConfirmModal

@@ -86,7 +86,10 @@ ai.post('/report', zValidator('json', z.object({ audit: z.any(), resolvedData: z
   const deptName = resolvedData?.departmentName || audit.departmentId;
   const a1Name = resolvedData?.auditor1Name || audit.auditor1Id || 'N/A';
   const a2Name = resolvedData?.auditor2Name || audit.auditor2Id || 'N/A';
-  const supName = resolvedData?.supervisorName || audit.supervisorId;
+  const supName = resolvedData?.supervisorName || audit.supervisorId || 'N/A';
+  const assetStatus = resolvedData?.totalAssets !== undefined
+    ? `${resolvedData.totalAssets - (resolvedData.uninspectedAssets || 0)} out of ${resolvedData.totalAssets} assets formally inspected and verified`
+    : 'N/A';
 
   try {
     const result = await c.env.AI.run(MODEL, {
@@ -100,11 +103,13 @@ Context:
 - Date Completed: ${audit.date}
 - Auditors: ${a1Name} and ${a2Name}
 - Supervisor (Site): ${supName}
+- Asset Status: ${assetStatus}
+- ID: ${audit.id}
 
 Format:
 - Start with "OFFICIAL MOVABLE ASSET INSPECTION RECORD" as the header.
 - Include a "Certification Statement" declaring the assets verified.
-- Include a "Scope of Verification" section.
+- Include a "Scope of Verification" section detailing the asset status (how many were inspected vs total).
 - End with a "Digital Signature" placeholder.
 - Highly professional, bureaucratic tone. Plain text only, no bold or italics.` }
       ]
@@ -147,6 +152,41 @@ Return ONLY: { "assetThreshold": number, "megaTargetThreshold": number, "reasoni
     console.error('Threshold suggestion failed:', err);
     // Fallback to reasonable defaults if AI fails
     return c.json({ assetThreshold: 500, megaTargetThreshold: 3000, reasoning: "Fallback defaults due to AI offline." });
+  }
+});
+
+ai.post('/extract-report-data', zValidator('json', z.object({ text: z.string() })), async (c) => {
+  const { text } = c.req.valid('json');
+  try {
+    const result = await c.env.AI.run(MODEL, {
+      messages: [
+        { role: 'system', content: 'You are an AI document extractor. Respond with valid JSON only, no markdown fences. If you cannot find a value, return null or an empty object.' },
+        { role: 'user', content: `Extract the officially verified total asset count and the breakdown of asset statuses from this KEW-PA 11 inspection report text. Look for numbers near "Total Assets", "Jumlah Aset", "Verified", or "Count".
+Also extract the counts for the following statuses if present:
+- "In Use" (Sedang Digunakan)
+- "Not In Use" (Tidak Digunakan)
+- "Broken" (Rosak)
+- "Under Maintenance" (Sedang Diselenggara)
+- "Borrowed" (Pinjaman)
+- "Missing" (Hilang)
+
+Text:
+${text.slice(0, 4000)}
+
+Return ONLY: { "verifiedAssetCount": number | null, "assetStatuses": { "In Use": number, "Not In Use": number, "Broken": number, "Under Maintenance": number, "Borrowed": number, "Missing": number }, "notes": "string" }
+If a status is not found, omit it from the assetStatuses object or set it to 0.` }
+      ]
+    }) as { response: string };
+
+    const parsed = JSON.parse(stripFences(result.response));
+    return c.json({
+      verifiedAssetCount: typeof parsed.verifiedAssetCount === 'number' ? parsed.verifiedAssetCount : null,
+      assetStatuses: parsed.assetStatuses || null,
+      notes: parsed.notes || ''
+    });
+  } catch (err) {
+    console.error('Extraction failed:', err);
+    return c.json({ verifiedAssetCount: null, notes: 'Failed to extract data via AI.' });
   }
 });
 

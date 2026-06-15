@@ -7,7 +7,7 @@ import { IssueCertificateModal } from './IssueCertificateModal';
 import { gateway } from '../services/dataGateway';
 import { Filter, Plus, User as UserIcon, Check, X, Award, Stamp, Pencil, Trash2, Key, ChevronDown, Printer } from 'lucide-react';
 import { AuditPhase } from '@shared/types';
-import { printTeamList } from '../lib/printUtils';
+
 interface UserManagementProps {
   users: User[];
   onAddMember: (user: User) => void;
@@ -302,14 +302,6 @@ export const UserManagement: React.FC<UserManagementProps> = ({
         </div>
 
         <div className="flex items-center gap-3 flex-wrap">
-          <button 
-            onClick={() => printTeamList(filteredUsers, departments, selectedStatusFilter, selectedDeptFilter, selectedRoleFilter)}
-            className="group px-6 py-3.5 bg-white border border-slate-200 text-slate-700 rounded-[20px] text-xs font-black uppercase tracking-widest shadow-sm hover:bg-slate-50 transition-all flex items-center gap-2 active:scale-95"
-          >
-            <Printer className="w-4 h-4 text-slate-500" />
-            Print List (PDF)
-          </button>
-
           {canEditTeam && (
             <button 
               onClick={() => { resetForm(); setIsFormOpen(true); }}

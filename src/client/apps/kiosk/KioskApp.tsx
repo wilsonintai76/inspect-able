@@ -229,17 +229,6 @@ export const KioskApp: React.FC = () => {
       .sort((a, b) => (a.date || '').localeCompare(b.date || ''));
   }, [schedules, locations, departments, users, activeLocationIds]);
 
-  const pendingApprovals = React.useMemo(() => {
-    return schedules
-      .filter(s => false)
-      .map(s => {
-        const dept = departments.find(d => d.id === s.departmentId);
-        const loc = locations.find(l => l.id === s.locationId);
-        return { ...s, deptName: dept?.abbr || 'N/A', locName: loc?.name || 'N/A' };
-      })
-      .sort((a, b) => (a.date || '').localeCompare(b.date || ''));
-  }, [schedules, departments, locations, activeLocationIds]);
-
   const completedSchedules = React.useMemo(() => {
     return schedules
       .filter(s => s.status === 'Completed' && activeLocationIds.has(s.locationId))
@@ -381,8 +370,6 @@ export const KioskApp: React.FC = () => {
             </Tag>
             <Tag icon={<SyncOutlined spin />} color="processing">
               In Progress {auditStats.inProgress}
-            </Tag>
-            <Tag icon={<ExclamationCircleOutlined />} color="warning">
             </Tag>
             <Tag icon={<CheckCircleOutlined />} color="success">
               Completed {auditStats.completed}
@@ -531,20 +518,18 @@ export const KioskApp: React.FC = () => {
           </Row>
         </Card>
 
-        {/* ── Upcoming + Pending Approval ─────────────────────────── */}
-        <Row gutter={16} style={{ marginBottom: 24 }}>
-          <Col xs={24} lg={12}>
-            <Card
-              title={<Space><CalendarOutlined style={{ color: '#4f46e5' }} />Upcoming Schedule</Space>}
-              extra={<Tag color="processing">{upcomingSchedules.length} locked</Tag>}
-              bordered={false}
-              style={{ borderRadius: 12, height: '100%' }}
-              bodyStyle={{ maxHeight: 360, overflow: 'auto' }}
-            >
-              {upcomingSchedules.length === 0 ? (
-                <Typography.Text type="secondary">No upcoming schedules</Typography.Text>
-              ) : (
-                upcomingSchedules.slice(0, 15).map(s => (
+        {/* ── Upcoming Schedule ─────────────────────────── */}
+        {upcomingSchedules.length > 0 && (
+          <Row gutter={16} style={{ marginBottom: 24 }}>
+            <Col xs={24}>
+              <Card
+                title={<Space><CalendarOutlined style={{ color: '#4f46e5' }} />Upcoming Schedule</Space>}
+                extra={<Tag color="processing">{upcomingSchedules.length} locked</Tag>}
+                bordered={false}
+                style={{ borderRadius: 12 }}
+                bodyStyle={{ maxHeight: 360, overflow: 'auto' }}
+              >
+                {upcomingSchedules.slice(0, 15).map(s => (
                   <Card.Grid key={s.id} style={{ width: '100%', padding: 12 }} hoverable={false}>
                     <Space align="start">
                       <div style={{ textAlign: 'center', minWidth: 44, background: '#f0f5ff', borderRadius: 8, padding: '4px 8px' }}>
@@ -568,48 +553,11 @@ export const KioskApp: React.FC = () => {
                       <Tag color="processing">Ready</Tag>
                     </Space>
                   </Card.Grid>
-                ))
-              )}
-            </Card>
-          </Col>
-          <Col xs={24} lg={12}>
-            <Card
-              title={<Space><ExclamationCircleOutlined style={{ color: '#fa8c16' }} />Pending Approval</Space>}
-              bordered={false}
-              style={{ borderRadius: 12, height: '100%' }}
-              bodyStyle={{ maxHeight: 360, overflow: 'auto' }}
-            >
-              {pendingApprovals.length === 0 ? (
-                <Typography.Text type="secondary">No pending approvals</Typography.Text>
-              ) : (
-                pendingApprovals.slice(0, 15).map(a => (
-                  <Card.Grid key={a.id} style={{ width: '100%', padding: 12 }} hoverable={false}>
-                    <Space align="start">
-                      <div style={{ textAlign: 'center', minWidth: 44, background: '#fff7e6', borderRadius: 8, padding: '4px 8px' }}>
-                        <div style={{ fontSize: 10, color: '#fa8c16', fontWeight: 700 }}>
-                          {a.date ? new Date(a.date + 'T00:00:00').toLocaleString('default', { month: 'short' }).toUpperCase() : '—'}
-                        </div>
-                        <div style={{ fontSize: 20, fontWeight: 900 }}>
-                          {a.date ? new Date(a.date + 'T00:00:00').getDate() : '—'}
-                        </div>
-                      </div>
-                      <div style={{ flex: 1 }}>
-                        <Typography.Text strong style={{ display: 'block' }}>{a.locName}</Typography.Text>
-                        <Space size={4}>
-                          <Typography.Text type="secondary" style={{ fontSize: 12 }}>{a.deptName}</Typography.Text>
-                          <Tag color="orange" style={{ fontSize: 10 }}>
-                            {(locations.find(l => l.id === a.locationId)?.totalAssets || 0).toLocaleString()} Assets
-                          </Tag>
-                        </Space>
-                      </div>
-                      <Tag color="warning">Pending</Tag>
-                    </Space>
-                  </Card.Grid>
-                ))
-              )}
-            </Card>
-          </Col>
-        </Row>
+                ))}
+              </Card>
+            </Col>
+          </Row>
+        )}
 
         {/* ── Inspector Workload Roster ───────────────────────────── */}
         <Row gutter={16} style={{ marginBottom: 24 }}>

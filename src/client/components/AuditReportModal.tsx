@@ -12,6 +12,8 @@ interface AuditReportModalProps {
     auditor1Name: string;
     auditor2Name: string;
     supervisorName: string;
+    totalAssets?: number;
+    uninspectedAssets?: number;
   };
   onClose: () => void;
 }

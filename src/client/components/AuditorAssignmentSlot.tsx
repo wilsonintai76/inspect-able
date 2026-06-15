@@ -1,13 +1,12 @@
 import React from 'react';
 import { Phone, UserCheck, Plus, X } from 'lucide-react';
-import { AuditSchedule, User, Department } from '@shared/types';
+import { AuditSchedule, User } from '@shared/types';
 
 interface AuditorAssignmentSlotProps {
   slotNum: 1 | 2;
   audit: AuditSchedule;
   users: User[];
   currentUser: User | null;
-  allDepartments?: Department[];
   canManageAssignments: boolean;
   canAssignOthers: boolean;
   canSelfAssignSelf: boolean;
@@ -26,9 +25,7 @@ interface AuditorAssignmentSlotProps {
   onAssign: (id: string, slot: 1 | 2, date: string, phaseId: string, userId?: string) => void;
   onUnassign: (id: string, slot: 1 | 2) => void;
   getUserContact: (userId: string) => string | null;
-  getEntityName: (deptId: string) => string;
   maxAssetsPerDay: number;
-  assignmentMode?: 'cross-audit' | 'open-audit';
 }
 
 export const AuditorAssignmentSlot: React.FC<AuditorAssignmentSlotProps> = ({
@@ -36,7 +33,6 @@ export const AuditorAssignmentSlot: React.FC<AuditorAssignmentSlotProps> = ({
   audit,
   users,
   currentUser,
-  allDepartments = [],
   canManageAssignments,
   canAssignOthers,
   canSelfAssignSelf,
@@ -54,9 +50,7 @@ export const AuditorAssignmentSlot: React.FC<AuditorAssignmentSlotProps> = ({
   onAssign,
   onUnassign,
   getUserContact,
-  getEntityName,
   maxAssetsPerDay,
-  assignmentMode = 'cross-audit'
 }) => {
   const [officerQuery, setOfficerQuery] = React.useState('');
   const [isDropdownOpen, setIsDropdownOpen] = React.useState(false);
@@ -97,14 +91,10 @@ export const AuditorAssignmentSlot: React.FC<AuditorAssignmentSlotProps> = ({
         disableReason = "Certification Required: Your inspecting officer certificate is expired or invalid.";
     }
   } else if (!userCanAudit) {
-     const myEnt = getEntityName(currentUser?.departmentId || '');
-     const targetEnt = getEntityName(audit.departmentId);
-     if (myEnt === targetEnt) {
+     if (currentUser?.departmentId === audit.departmentId) {
        disableReason = "Conflict of Interest: You cannot inspect your own department.";
      } else {
-       disableReason = assignmentMode === 'cross-audit' 
-         ? "Unauthorized Target: This asset location is outside your assigned inspection matrix."
-         : "Assignment Locked: Unexpected validation failure.";
+       disableReason = "Assignment Locked: Unexpected validation failure.";
      }
   } else if (isCurrentUserAssigned) {
     disableReason = "Already assigned to a slot in this audit instance.";
@@ -120,31 +110,18 @@ export const AuditorAssignmentSlot: React.FC<AuditorAssignmentSlotProps> = ({
     if (!canAssignOthers) return [];
     
     return users.filter(officer => {
-      // 1. Basic cert/past check (Role is decoupled, Admin decides via RBAC)
+      // 1. Basic cert/past check
       if (!officer.certificationExpiry || new Date(officer.certificationExpiry) <= new Date() || isPast) return false;
 
       // Coordinators can only assign officers from their own department.
       if (isCoordinator && !isAdmin && currentUser?.departmentId && officer.departmentId !== currentUser.departmentId) {
         return false;
       }
-      
-      const myEntityId = getEntityName(officer.departmentId || '');
-      const targetEntityId = getEntityName(audit.departmentId);
 
-      // 2. COI Rule (ABSOLUTE): Cannot audit own department — no exemptions
-      if (myEntityId === targetEntityId) return false;
+      // 2. COI: Cannot audit own department
+      if (officer.departmentId === audit.departmentId) return false;
 
-      // 2b. Matrix Check (only if in cross-audit mode)
-      if (assignmentMode === 'cross-audit') {
-        // We don't have access to crossAuditPermissions here directly, 
-        // but AuditTable should have filtered userCanAudit already.
-        // For the dropdown, we need to be careful.
-        // Actually, AuditTable manages the dropdown for 'canAssignOthers'.
-        // Wait, AuditorAssignmentSlot has its own dropdown logic.
-        // Let's ensure this logic is consistent.
-      }
-
-      // 3. ABSOLUTE LOCK: Supervisor cannot be the Auditor for the same location (Integrity Rule)
+      // 3. ABSOLUTE LOCK: Supervisor cannot be the Auditor for the same location
       const supervisorIds = audit.supervisorId ? audit.supervisorId.split(',').map(id => id.trim()).filter(Boolean) : [];
       if (supervisorIds.includes(officer.id)) return false;
 
@@ -153,7 +130,7 @@ export const AuditorAssignmentSlot: React.FC<AuditorAssignmentSlotProps> = ({
 
       return true;
     });
-  }, [users, canAssignOthers, audit, getEntityName, isPast, isCoordinator, isAdmin, currentUser?.departmentId]);
+  }, [users, canAssignOthers, audit, isPast, isCoordinator, isAdmin, currentUser?.departmentId]);
 
   const filteredEligibleOfficers = React.useMemo(() => {
     const query = officerQuery.trim().toLowerCase();

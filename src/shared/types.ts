@@ -13,6 +13,8 @@ export interface AuditSchedule {
   reportPath?: string | null;
   totalAssetsInspected?: number | null;
   assetStatusSummary?: string | null;
+  verifiedAssetCount?: number | null;
+  assetStatuses?: Record<string, number> | null;
 }
 
 export type AssignmentMode = 'cross-audit' | 'open-audit';

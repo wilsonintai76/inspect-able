@@ -7,7 +7,7 @@ import { Bindings, Variables } from '../types';
 import { deriveCapabilities } from '../utils/policyEngine';
 import { verifyNativeJwt } from '../middleware/auth';
 import { hashPassword } from '../services/authService';
-import { KVNamespace } from '@cloudflare/workers-types';
+import { KVNamespace, D1Database } from '@cloudflare/workers-types';
 import { backupD1ToR2 } from '../services/backupService';
 import { sendSupervisorApprovalEmail } from '../services/emailService';
 import { unassignExpiredAuditors, handleLocationDepartmentTransfer, refreshDepartmentAssetTotals, unassignSpecificAuditorFromFutureAudits, cleanupAuditsForArchivedLocation } from '../services/auditMaintenanceService';
@@ -136,9 +136,9 @@ export const zeroAssetGuard = async (c: Context<{ Bindings: Bindings; Variables:
   return next();
 };
 
-const VALID_TRANSITIONS: Record<string, string[]> = {
+export const VALID_TRANSITIONS: Record<string, string[]> = {
   'Pending':            ['In Progress'],
-    'In Progress':        ['Pending', 'Completed'],
+  'In Progress':        ['Pending', 'Completed'],
   'Completed':          [],
 };
 
@@ -269,7 +269,10 @@ export const patchAuditPermissionGuard = async (c: Context<{ Bindings: Bindings;
 
   if (updates.date !== undefined) {
     const isDesignatedSupervisor = existing.supervisor_id === caller.id;
-    if (!isDesignatedSupervisor && !isAssignedAuditor && !isSupervisor && !canAudit) {
+    // Allow certified field workers (assign:self) to set the date on Pending audits
+    // where they are also self-assigning to a slot in the same request.
+    const isSelfAssigningToPending = caps.has('assign:self') && existing.status === 'Pending';
+    if (!isDesignatedSupervisor && !isAssignedAuditor && !isSupervisor && !canAudit && !isSelfAssigningToPending) {
       return c.json({ error: 'Forbidden: you must be the assigned site supervisor, a Supervisor, an assigned auditor, or a qualified asset inspector to modify the date' }, 403);
     }
   }
@@ -307,6 +310,8 @@ export const auditSchema = z.object({
   phaseId: z.string().nullable(),
   reportPath: z.string().nullable().optional(),
   isLocked: z.boolean().nullable().optional(),
+  verifiedAssetCount: z.number().nullable().optional(),
+  assetStatuses: z.record(z.string(), z.number()).nullable().optional(),
 });
 
 export const patchAuditSchema = z.object({
@@ -322,6 +327,8 @@ export const patchAuditSchema = z.object({
   totalAssetsInspected: z.number().nullable().optional(),
   assetStatusSummary: z.string().nullable().optional(),
   isLocked: z.boolean().nullable().optional(),
+  verifiedAssetCount: z.number().nullable().optional(),
+  assetStatuses: z.record(z.string(), z.number()).nullable().optional(),
 });
 
 export const userSchema = z.object({
@@ -358,3 +365,59 @@ export const patchUserSchema = z.object({
   certificationExpiry: z.string().nullable().optional(),
   renewalRequested: z.string().nullable().optional(),
 });
+
+export async function checkLocationYearConflict(
+  db: D1Database,
+  locationId: string,
+  scheduleId: string | null,
+  date: string | null,
+  phaseId: string | null
+): Promise<string | null> {
+  let targetYear: number | null = null;
+  if (date) {
+    targetYear = new Date(date).getFullYear();
+  } else if (phaseId) {
+    const phase = await db.prepare('SELECT start_date FROM audit_phases WHERE id = ?').bind(phaseId).first<{ start_date: string }>();
+    if (phase?.start_date) {
+      targetYear = new Date(phase.start_date).getFullYear();
+    }
+  }
+
+  if (!targetYear || isNaN(targetYear)) {
+    return null;
+  }
+
+  const startYear = `${targetYear}-01-01`;
+  const endYear = `${targetYear}-12-31`;
+
+  const conflict = await db.prepare(`
+    SELECT s.id, s.date, p.name AS phase_name, p.start_date AS phase_start
+    FROM audit_schedules s
+    JOIN audit_phases p ON s.phase_id = p.id
+    WHERE s.location_id = ?
+      AND s.id != ?
+      AND (
+        (s.date >= ? AND s.date <= ?)
+        OR
+        (s.date IS NULL AND p.start_date >= ? AND p.start_date <= ?)
+      )
+    LIMIT 1
+  `).bind(
+    locationId,
+    scheduleId || '',
+    startYear,
+    endYear,
+    startYear,
+    endYear
+  ).first<{ id: string; date: string | null; phase_name: string }>();
+
+  if (conflict) {
+    const desc = conflict.date 
+      ? `inspected on ${conflict.date}` 
+      : `scheduled in phase '${conflict.phase_name}'`;
+    return `ACTION BLOCKED: This location is already scheduled to be audited in ${targetYear} (conflict with audit ${desc}). A location can only be inspected once per calendar year.`;
+  }
+
+  return null;
+}
+

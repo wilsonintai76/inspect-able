@@ -65,6 +65,12 @@ export const ScheduleCard: React.FC<Props> = ({
     );
   };
 
+  const currentUser = users.find(u => u.id === currentUserId);
+  const isPrivileged = currentUserRoles.includes('system:admin') || currentUserRoles.includes('manage:locations') || currentUserRoles.includes('manage:departments');
+  const userCanAudit = currentUser?.departmentId !== schedule.departmentId;
+  const isCertified = !!(currentUser?.certificationExpiry && currentUser.certificationExpiry >= today);
+  const canEditThisDate = isPrivileged || (isCertified && userCanAudit);
+
   return (
     <CardRoot
       variant="elevated"
@@ -130,7 +136,7 @@ export const ScheduleCard: React.FC<Props> = ({
             Set Date:
           </Text>
           <Box flex={1} minW={0}>
-            {!isCompleted && !isLocked ? (
+            {!isCompleted && !isLocked && canEditThisDate ? (
               <Input
                 type="date"
                 value={schedule.date ?? ''}

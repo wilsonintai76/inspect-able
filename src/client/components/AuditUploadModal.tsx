@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AuditSchedule } from '@shared/types';
 import { X, UploadCloud, FileText, CheckCircle2, AlertTriangle, ExternalLink, Sparkles } from 'lucide-react';
 import * as pdfjsLib from 'pdfjs-dist';
@@ -6,16 +6,28 @@ import * as pdfjsLib from 'pdfjs-dist';
 // Configure the worker for PDF.js using Vite's URL feature
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).toString();
 
+import { parsePdfText } from '../lib/pdfParser';
+
 interface AuditUploadModalProps {
   audit: AuditSchedule;
   locationName: string;
+  locationTotalAssets: number;
   onClose: () => void;
-  onComplete: (id: string, reportPath: string, totalAssets?: number, statusSummary?: string) => Promise<void>;
+  onComplete: (
+    id: string,
+    reportPath: string,
+    totalAssetsInspected: number | null,
+    assetStatusSummary: string | null,
+    verifiedAssetCount: number | null,
+    assetStatuses: Record<string, number> | null,
+    newLocationTotal?: number
+  ) => Promise<void>;
 }
 
 export const AuditUploadModal: React.FC<AuditUploadModalProps> = ({
   audit,
   locationName,
+  locationTotalAssets,
   onClose,
   onComplete,
 }) => {
@@ -24,10 +36,42 @@ export const AuditUploadModal: React.FC<AuditUploadModalProps> = ({
   const [uploading, setUploading] = useState(false);
   const [extracting, setExtracting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
-  // New State for extracted fields
+
+  // HEAD State
   const [totalAssets, setTotalAssets] = useState<number | ''>('');
   const [assetStatus, setAssetStatus] = useState<string>('');
+
+  // Legacy/main State
+  const [extractedCount, setExtractedCount] = useState<number | null>(null);
+  const [extractedStatuses, setExtractedStatuses] = useState<Record<string, number> | null>(null);
+  const [isExtracting, setIsExtracting] = useState(false);
+  const [extractionNote, setExtractionNote] = useState('');
+  const [manualCount, setManualCount] = useState<string>('');
+  const [manualStatuses, setManualStatuses] = useState<Record<string, string>>({
+    'In Use': '',
+    'Not In Use': '',
+    'Broken': '',
+    'Under Maintenance': '',
+    'Borrowed': '',
+    'Missing': ''
+  });
+
+  useEffect(() => {
+    let sum = 0;
+    let hasInput = false;
+    for (const v of Object.values(manualStatuses)) {
+      if (v.trim() !== '') {
+        const val = parseInt(v, 10);
+        if (!isNaN(val)) {
+          sum += val;
+          hasInput = true;
+        }
+      }
+    }
+    if (hasInput) {
+      setManualCount(sum.toString());
+    }
+  }, [manualStatuses]);
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
@@ -56,22 +100,15 @@ export const AuditUploadModal: React.FC<AuditUploadModalProps> = ({
     }
   };
 
-  const extractPdfData = async (fileToRead: File) => {
+  const extractPdfData = async (selectedFile: File) => {
     setExtracting(true);
+    setIsExtracting(true);
+    setExtractionNote('');
+    setExtractedCount(null);
     try {
-      const buffer = await fileToRead.arrayBuffer();
-      const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(buffer) }).promise;
-      
-      let fullText = "";
-      for (let i = 1; i <= pdf.numPages; i++) {
-        const page = await pdf.getPage(i);
-        const textContent = await page.getTextContent();
-        const pageText = textContent.items.map((item: any) => item.str).join(" ");
-        fullText += pageText + "\n";
-      }
+      const fullText = await parsePdfText(selectedFile);
 
-      // Smart Parsing Heuristics
-      // 1. Count Total Assets (e.g., looking for "KPT/PKS/")
+      // 1. Local Parsing Heuristics (HEAD)
       const assetMatches = fullText.match(/KPT\/PKS\//gi);
       let extractedTotal = 0;
       if (assetMatches && assetMatches.length > 0) {
@@ -79,7 +116,6 @@ export const AuditUploadModal: React.FC<AuditUploadModalProps> = ({
         extractedTotal = Math.ceil(assetMatches.length / 2);
       }
       
-      // 2. Assess Overall Status
       let statusSummary = "Semua aset dalam keadaan baik (Sedang Digunakan)";
       if (fullText.toLowerCase().includes("rosak")) {
         statusSummary = "Terdapat aset yang rosak. Sila semak laporan.";
@@ -89,13 +125,39 @@ export const AuditUploadModal: React.FC<AuditUploadModalProps> = ({
       
       setTotalAssets(extractedTotal > 0 ? extractedTotal : '');
       setAssetStatus(statusSummary);
+
+      // 2. AI Extraction (legacy/main)
+      if (fullText.length > 50) {
+        const res = await fetch('/api/ai/extract-report-data', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: fullText }),
+        });
+        if (res.ok) {
+          const data = await res.json() as { verifiedAssetCount: number | null, assetStatuses?: Record<string, number> | null, notes: string };
+          setExtractedCount(data.verifiedAssetCount);
+          if (data.verifiedAssetCount !== null) {
+            setManualCount(data.verifiedAssetCount.toString());
+          }
+          if (data.assetStatuses) {
+            setExtractedStatuses(data.assetStatuses);
+            const ms: Record<string, string> = { ...manualStatuses };
+            for (const [k, v] of Object.entries(data.assetStatuses)) {
+              if (ms[k] !== undefined) ms[k] = v.toString();
+            }
+            setManualStatuses(ms);
+          }
+          setExtractionNote(data.notes || '');
+        }
+      }
     } catch (err) {
       console.error("PDF Extraction Error:", err);
-      // Fallback silently so user can manually input
+      // Fallback silently
       setTotalAssets('');
       setAssetStatus('');
     } finally {
       setExtracting(false);
+      setIsExtracting(false);
     }
   };
 
@@ -149,8 +211,42 @@ export const AuditUploadModal: React.FC<AuditUploadModalProps> = ({
 
       const data = await res.json() as { key: string; url: string };
       
-      // Update audit status to Completed and save report path
-      await onComplete(audit.id, data.url, Number(totalAssets), assetStatus);
+      const finalCount = manualCount.trim() !== '' ? parseInt(manualCount, 10) : (extractedCount ?? null);
+      
+      const finalStatuses: Record<string, number> = {};
+      let hasStatuses = false;
+      let totalStatusCount = 0;
+      for (const [k, v] of Object.entries(manualStatuses)) {
+        if (v.trim() !== '') {
+          const val = parseInt(v, 10);
+          if (!isNaN(val) && val > 0) {
+            finalStatuses[k] = val;
+            hasStatuses = true;
+            totalStatusCount += val;
+          }
+        }
+      }
+
+      if (!hasStatuses || totalStatusCount === 0) {
+        throw new Error('Inspection not completed or wrong PDF format. The asset status breakdown is empty.');
+      }
+
+      if (totalStatusCount !== locationTotalAssets) {
+        if (!window.confirm(`The asset status breakdown total (${totalStatusCount}) does not match the location's total assets (${locationTotalAssets}).\n\nDo you want to proceed and update the location's total assets to ${totalStatusCount}?`)) {
+          setUploading(false);
+          return;
+        }
+      }
+
+      await onComplete(
+        audit.id, 
+        data.url, 
+        Number(totalAssets), 
+        assetStatus,
+        isNaN(finalCount!) ? null : finalCount, 
+        hasStatuses ? finalStatuses : (extractedStatuses ?? null),
+        totalStatusCount !== locationTotalAssets ? totalStatusCount : undefined
+      );
       onClose();
     } catch (err: any) {
       setError(err.message || 'An unexpected error occurred during upload.');
@@ -199,7 +295,7 @@ export const AuditUploadModal: React.FC<AuditUploadModalProps> = ({
           </div>
 
           {/* Current Document if already exists */}
-          {audit.reportPath && (
+          {audit.reportPath && (audit.reportPath.startsWith('http') || audit.reportPath.startsWith('/')) && (
             <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-2xl flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 bg-emerald-100 rounded-lg flex items-center justify-center text-emerald-600">
@@ -208,22 +304,18 @@ export const AuditUploadModal: React.FC<AuditUploadModalProps> = ({
                 <div>
                   <div className="text-[9px] font-black text-emerald-700 uppercase tracking-widest leading-none mb-1">Already Documented</div>
                   <div className="text-[10px] text-emerald-600 font-medium">
-                    {(audit.reportPath.startsWith('http') || audit.reportPath.startsWith('/')) 
-                      ? 'KEW-PA 11 PDF is stored in Cloudflare R2' 
-                      : `Legacy inspection completed at: ${audit.reportPath}`}
+                    KEW-PA 11 PDF is stored in Cloudflare R2
                   </div>
                 </div>
               </div>
-              {(audit.reportPath.startsWith('http') || audit.reportPath.startsWith('/')) && (
-                <a 
-                  href={audit.reportPath}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-white text-emerald-600 border border-emerald-200 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-50 transition-colors shadow-sm"
-                >
-                  View PDF <ExternalLink className="w-3 h-3" />
-                </a>
-              )}
+              <a 
+                href={audit.reportPath}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-white text-emerald-600 border border-emerald-200 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-50 transition-colors shadow-sm"
+              >
+                View PDF <ExternalLink className="w-3 h-3" />
+              </a>
             </div>
           )}
 
@@ -257,6 +349,58 @@ export const AuditUploadModal: React.FC<AuditUploadModalProps> = ({
                 >
                   Change File
                 </button>
+                
+                {isExtracting ? (
+                  <div className="mt-4 flex items-center gap-2 text-[10px] text-blue-600 font-bold bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100">
+                    <div className="w-3 h-3 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                    Extracting asset data via AI...
+                  </div>
+                ) : (
+                  <div className="mt-4 w-full text-left space-y-3 bg-white p-4 rounded-xl border border-slate-200">
+                    <div>
+                      <label className="text-[10px] font-black uppercase text-slate-500 tracking-widest block mb-1">
+                        Total Verified Assets
+                      </label>
+                      <input 
+                        type="number"
+                        value={manualCount}
+                        readOnly
+                        placeholder="Auto-calculated from status breakdown"
+                        className="w-full bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-500 cursor-not-allowed focus:outline-none transition-all"
+                      />
+                      {extractedCount !== null && manualCount === extractedCount.toString() && (
+                         <div className="text-[9px] text-emerald-600 font-bold mt-1.5 flex items-center gap-1">
+                            <CheckCircle2 className="w-3 h-3" /> Auto-extracted by AI
+                         </div>
+                      )}
+                      {extractedCount === null && (
+                         <div className="text-[9px] text-amber-600 font-bold mt-1.5 flex items-start gap-1">
+                            <AlertTriangle className="w-3 h-3 shrink-0 mt-0.5" /> AI could not extract the count. Please enter manually.
+                         </div>
+                      )}
+                    </div>
+
+                    <div className="pt-3 border-t border-slate-100">
+                      <label className="text-[10px] font-black uppercase text-slate-500 tracking-widest block mb-3">
+                        Asset Status Breakdown
+                      </label>
+                      <div className="grid grid-cols-3 gap-2">
+                        {Object.keys(manualStatuses).map(status => (
+                          <div key={status}>
+                            <label className="text-[9px] font-bold text-slate-400 block mb-1">{status}</label>
+                            <input 
+                              type="number"
+                              value={manualStatuses[status]}
+                              onChange={(e) => setManualStatuses(prev => ({ ...prev, [status]: e.target.value }))}
+                              placeholder="0"
+                              className="w-full bg-slate-50 border border-slate-200 rounded-md px-2 py-1 text-xs font-bold text-slate-700 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </>
             ) : (
               <>

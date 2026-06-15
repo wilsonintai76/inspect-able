@@ -330,10 +330,10 @@ export default {
         })
       );
 
-      // ── Daily Backup Retention Cleanup (keep last 30 days) ────────────
+      // ── Daily Backup Retention Cleanup (keep last 7 days) ────────────
       console.log('[Cron] Starting backup retention cleanup...');
       ctx.waitUntil(
-        cleanupOldBackups(env.BACKUP, 30).then((result) => {
+        cleanupOldBackups(env.BACKUP, 7).then((result) => {
           console.log(`[Cron] Backup cleanup: ${result.deleted} deleted, ${result.kept} kept`);
         }).catch((err) => {
           console.error('[Cron] Backup cleanup failed:', err);
