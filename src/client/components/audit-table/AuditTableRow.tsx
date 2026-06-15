@@ -411,7 +411,7 @@ export const AuditTableRow: React.FC<AuditTableRowProps> = ({
       {/* ── Status Cell ── */}
       <td className="px-5 py-4 align-top text-center w-44">
         {(() => {
-          const canComplete = isCertified && (isAdmin || isCoordinator || (isCurrentUserAssigned && isInspector));
+          const canComplete = isAdmin || (isCoordinator && isOwnDept) || (isCertified && isCurrentUserAssigned);
           const canApprove = isAdmin || isCoordinator || isSupervisor; // Admin, Coordinator & Supervisor can lock/approve (main site only)
           return (
             <div className="flex flex-col items-center gap-2">
