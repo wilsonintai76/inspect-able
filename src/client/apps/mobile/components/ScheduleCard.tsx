@@ -74,6 +74,7 @@ export const ScheduleCard: React.FC<Props> = ({
   const userCanAudit = currentUser?.departmentId !== schedule.departmentId;
   const isCertified = !!(currentUser?.certificationExpiry && currentUser.certificationExpiry >= today);
   const canEditThisDate = isPrivileged || (isCertified && userCanAudit);
+  const isCurrentUserAssigned = schedule.auditor1Id === currentUserId || schedule.auditor2Id === currentUserId;
 
   return (
     <CardRoot
@@ -140,7 +141,7 @@ export const ScheduleCard: React.FC<Props> = ({
             Set Date:
           </Text>
           <Box flex={1} minW={0}>
-            {!isCompleted && !isLocked && canEditThisDate ? (
+            {!isCompleted && (!isLocked || isCurrentUserAssigned) && canEditThisDate ? (
               <Input
                 type="date"
                 value={schedule.date ?? ''}

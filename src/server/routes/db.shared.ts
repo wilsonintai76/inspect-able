@@ -100,8 +100,8 @@ export const auditLockGuard = async (c: Context<{ Bindings: Bindings; Variables:
 
   const id = c.req.param('id');
   const updates = (c.req as any).valid('json') as Record<string, any>;
-  const structuralFields = ['phaseId', 'departmentId', 'locationId'];
-  const touchesStructure = structuralFields.some(f => updates[f] !== undefined);
+  const structuralFields = ['departmentId', 'locationId'];
+  const touchesStructure = structuralFields.some(f => updates[f] !== undefined) || (updates.phaseId !== undefined && updates.date === undefined);
 
   if (!touchesStructure) return next();
 
@@ -256,10 +256,14 @@ export const patchAuditPermissionGuard = async (c: Context<{ Bindings: Bindings;
   // Early return for Admin or Coordinator within their own department
   if (isAdmin || (isCoordinator && isOwnDept)) return next();
 
-  const adminOnlyFields = ['phaseId', 'departmentId', 'locationId'];
+  const adminOnlyFields = ['departmentId', 'locationId'];
   const hasAdminOnlyFields = adminOnlyFields.some(f => updates[f] !== undefined);
   if (hasAdminOnlyFields) {
-    return c.json({ error: 'Forbidden: only Admins and Coordinators can modify location, department, or phase' }, 403);
+    return c.json({ error: 'Forbidden: only Admins and Coordinators can modify location or department' }, 403);
+  }
+
+  if (updates.phaseId !== undefined && updates.date === undefined) {
+    return c.json({ error: 'Forbidden: only Admins and Coordinators can modify the phase directly' }, 403);
   }
 
   if (updates.auditor1Id !== undefined) {

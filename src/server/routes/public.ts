@@ -247,8 +247,12 @@ pub.patch('/kiosk/schedules/:id', async (c) => {
 
     if (!schedule) return c.json({ error: 'Schedule not found' }, 404);
 
-    // Block kiosk re-assignments if the schedule is already manually locked
-    const isLocked = schedule.is_locked === 1;
+    // Block kiosk re-assignments if the schedule is already manually locked (unless they are unassigning themselves)
+    const isSelfUnassign = action === 'unassign' && (
+      (role === 'auditor1' && schedule.auditor1_id === sessionUserId) ||
+      (role === 'auditor2' && schedule.auditor2_id === sessionUserId)
+    );
+    const isLocked = schedule.is_locked === 1 && !isSelfUnassign;
     if (isLocked) {
       return c.json({ error: 'ACTION BLOCKED: This audit is locked. Re-assignments can only be performed from the main site after unlocking.' }, 403);
     }
@@ -506,8 +510,8 @@ pub.patch('/kiosk/schedules/:id/date', async (c) => {
     const isFullyStaffed = existing && !!(existing.date && existing.auditor1_id && existing.auditor2_id);
     const isAssignedAuditor = existing && (existing.auditor1_id === sessionUserId || existing.auditor2_id === sessionUserId);
 
-    // Block if explicitly locked, or if fully staffed and the caller is NOT the assigned auditor
-    const isLocked = isExplicitlyLocked || (isFullyStaffed && !isAssignedAuditor);
+    // Block if (locked or fully staffed) AND the caller is not the assigned auditor
+    const isLocked = (isExplicitlyLocked || isFullyStaffed) && !isAssignedAuditor;
     if (isLocked) {
       return c.json({ error: 'ACTION BLOCKED: This audit is locked. Dates can only be modified or unlocked from the main site after unlocking.' }, 403);
     }
