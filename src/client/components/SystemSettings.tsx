@@ -114,7 +114,7 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
   onUpdateOpenAuditThreshold
 }) => {
   // ── PBAC capability checks ───────────────────────────────────────────
-  const pbacUser = currentUser ? { roles: currentUser.roles, certificationExpiry: currentUser.certificationExpiry } : { roles: userRoles, certificationExpiry: null as string | null };
+  const pbacUser = currentUser ? { roles: currentUser.roles, qualifications: currentUser.qualifications, certificationExpiry: currentUser.certificationExpiry } : { roles: userRoles, qualifications: [] as string[], certificationExpiry: null as string | null };
   const isAdmin = hasCapability(pbacUser, 'system:admin');
   const isCoordinator = hasCapability(pbacUser, 'manage:departments') && !isAdmin;
   const [isProcessing, setIsProcessing] = React.useState(false);

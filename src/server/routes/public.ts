@@ -49,11 +49,18 @@ async function getMobileSession(c: any): Promise<string | null> {
 async function assertCertifiedOfficer(db: D1Database, userId: string): Promise<string | null> {
   const today = new Date().toISOString().split('T')[0];
   const user = await db.prepare(
-    `SELECT status, is_verified, certification_expiry FROM users WHERE id = ?`
-  ).bind(userId).first<{ status: string; is_verified: number; certification_expiry: string | null }>();
+    `SELECT status, is_verified, certification_expiry, qualifications FROM users WHERE id = ?`
+  ).bind(userId).first<{ status: string; is_verified: number; certification_expiry: string | null; qualifications: string | null }>();
   if (!user) return 'User account not found.';
   if (user.status !== 'Active') return 'Your account is not active.';
   if (!user.is_verified) return 'Your account is not verified.';
+  let quals: string[] = [];
+  try {
+    quals = JSON.parse(user.qualifications || '[]');
+  } catch (e) {}
+  if (!quals.includes('Inspector')) {
+    return 'Access restricted: this mobile app is for qualified asset inspectors (QAIs) only.';
+  }
   if (!user.certification_expiry || user.certification_expiry < today) {
     return 'Access restricted: this mobile app is for qualified asset inspectors (QAIs) only.';
   }
@@ -103,7 +110,7 @@ pub.get('/kiosk', async (c) => {
       `),
       db.prepare(`
         SELECT id, name, designation, department_id, roles, status, is_verified,
-               certification_issued, certification_expiry, contact_number
+               certification_issued, certification_expiry, contact_number, qualifications
         FROM users
         WHERE status = 'Active' AND is_verified = 1
         ORDER BY name ASC
@@ -115,7 +122,7 @@ pub.get('/kiosk', async (c) => {
     ]);
 
     // Build a lookup map for user names
-    const userMap = new Map<string, { name: string; designation: string | null; departmentId: string | null; roles: string[]; certExpiry: string | null; contactNumber: string | null }>();
+    const userMap = new Map<string, { name: string; designation: string | null; departmentId: string | null; roles: string[]; certExpiry: string | null; contactNumber: string | null; qualifications: string[] }>();
     for (const u of (usersResult.results ?? []) as any[]) {
       userMap.set(u.id, {
         name: u.name,
@@ -124,6 +131,7 @@ pub.get('/kiosk', async (c) => {
         roles: JSON.parse(u.roles || '["Staff"]'),
         certExpiry: u.certification_expiry ?? null,
         contactNumber: u.contact_number ?? null,
+        qualifications: JSON.parse(u.qualifications || '[]'),
       });
     }
 
@@ -179,6 +187,7 @@ pub.get('/kiosk', async (c) => {
       certificationExpiry: u.certification_expiry ?? null,
       assetsAssigned: auditorAssets.get(u.id) ?? 0,
       contactNumber: u.contact_number ?? null,
+      qualifications: JSON.parse(u.qualifications || '[]'),
     }));
 
     const phases = (phasesResult.results ?? []).map((p: any) => ({
@@ -294,8 +303,8 @@ pub.patch('/kiosk/schedules/:id', async (c) => {
 
       // Verify user is active & verified and get their department & certificate status
       const user = await c.env.DB.prepare(
-        `SELECT id, name, status, is_verified, department_id, certification_expiry FROM users WHERE id = ?`
-      ).bind(userId).first<{ id: string; name: string; status: string; is_verified: number; department_id: string; certification_expiry: string | null }>();
+        `SELECT id, name, status, is_verified, department_id, certification_expiry, qualifications FROM users WHERE id = ?`
+      ).bind(userId).first<{ id: string; name: string; status: string; is_verified: number; department_id: string; certification_expiry: string | null; qualifications: string | null }>();
 
       if (!user) return c.json({ error: 'User not found' }, 404);
       if (user.status !== 'Active') return c.json({ error: 'Only Active users can self-assign' }, 403);
@@ -311,11 +320,16 @@ pub.patch('/kiosk/schedules/:id', async (c) => {
           return c.json({ error: 'Certified officers (auditors) cannot audit their own department' }, 403);
         }
 
-        // Enforce valid institutional certification
+        // Enforce valid institutional certification & qualification
         const todayStr = new Date().toISOString().split('T')[0];
         const certExpiry = user.certification_expiry;
-        if (!certExpiry || certExpiry < todayStr) {
-          return c.json({ error: 'ACTION BLOCKED: The selected inspecting officer must hold a valid, active certificate.' }, 403);
+        let quals: string[] = [];
+        try {
+          quals = JSON.parse(user.qualifications || '[]');
+        } catch (e) {}
+
+        if (!quals.includes('Inspector') || !certExpiry || certExpiry < todayStr) {
+          return c.json({ error: 'ACTION BLOCKED: The selected inspecting officer must hold a valid, active certificate and Inspector qualification.' }, 403);
         }
 
         // Conflict of interest: auditor cannot also be the supervisor for this schedule
@@ -713,7 +727,7 @@ pub.get('/kiosk-dashboard', async (c) => {
       instKpisResult,
     ] = await db.batch([
       db.prepare(`SELECT id, department_id, location_id, supervisor_id, auditor1_id, auditor2_id, date, status, phase_id, report_path, total_assets_inspected, asset_status_summary, is_locked FROM audit_schedules ORDER BY date ASC`),
-      db.prepare(`SELECT id, name, email, designation, department_id, roles, status, is_verified, certification_issued, certification_expiry, contact_number FROM users WHERE status = 'Active' ORDER BY name ASC`),
+      db.prepare(`SELECT id, name, email, designation, department_id, roles, status, is_verified, certification_issued, certification_expiry, contact_number, qualifications FROM users WHERE status = 'Active' ORDER BY name ASC`),
       db.prepare(`SELECT id, name, abbr, head_of_dept_id, description, audit_group_id, is_exempted, is_archived, tier, is_task_force FROM departments ORDER BY name ASC`),
       db.prepare(`SELECT id, name, abbr, department_id, building_id, level, description, supervisor_id, contact, total_assets, status FROM locations ORDER BY name ASC`),
       db.prepare(`SELECT id, name, start_date, end_date, description, status FROM audit_phases ORDER BY start_date ASC`),
@@ -740,6 +754,7 @@ pub.get('/kiosk-dashboard', async (c) => {
       status: r.status, isVerified: r.is_verified === 1,
       certificationIssued: r.certification_issued, certificationExpiry: r.certification_expiry,
       contactNumber: r.contact_number,
+      qualifications: JSON.parse(r.qualifications || '[]'),
     });
 
     const mapDept = (r: any) => ({

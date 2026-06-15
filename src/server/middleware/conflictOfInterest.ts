@@ -1,6 +1,7 @@
 import { Context, Next } from 'hono';
 import { Bindings, Variables } from '../types';
-import { deriveCapabilities } from '../utils/policyEngine';
+import { deriveCapabilities, evaluateAccess, getReasonMessage, PbaoUser } from '../utils/policyEngine';
+import { checkLocationYearConflict } from '../routes/db.shared';
 
 // ─── auditAssignmentGuard ─────────────────────────────────────────────────────
 // Enforces two business rules on any request that sets auditor1Id / auditor2Id:
@@ -26,6 +27,9 @@ export const auditAssignmentGuard = async (
     auditor1Id?: string | null;
     auditor2Id?: string | null;
     departmentId?: string | null;
+    locationId?: string | null;
+    date?: string | null;
+    phaseId?: string | null;
   };
 
   // Collect only the auditor IDs that are being explicitly set (non-null)
@@ -48,6 +52,7 @@ export const auditAssignmentGuard = async (
     roles: callerRoles,
     departmentId: caller.departmentId ?? null,
     certificationExpiry: caller.certificationExpiry ?? null,
+    qualifications: caller.qualifications || [],
   });
   const isAdminCaller = caps.has('system:admin');
   const isCoordinatorCaller = caps.has('manage:departments') && !isAdminCaller;
@@ -63,23 +68,40 @@ export const auditAssignmentGuard = async (
   }
 
   // ── Resolve the audit's target department and check concurrency ──────────
-  // Fetch all needed audit fields in ONE query (department, auditors, supervisor)
+  // Fetch all needed audit fields in ONE query (department, auditors, supervisor, location, date, phase)
   let finalAuditor1 = updates.auditor1Id;
   let finalAuditor2 = updates.auditor2Id;
   let targetDeptId: string | null = updates.departmentId ?? null;
   let supervisorId: string | null = (updates as any).supervisorId ?? null;
+
+  // Resolve locationId, date, phaseId for annual check
+  let targetLocId = updates.locationId ?? null;
+  let targetDate = updates.date ?? null;
+  let targetPhaseId = updates.phaseId ?? null;
+
   const auditId = c.req.param('id'); // undefined on POST, present on PATCH
 
   if (auditId) {
     const existing = await c.env.DB.prepare(
-      'SELECT department_id, auditor1_id, auditor2_id, supervisor_id FROM audit_schedules WHERE id = ?',
+      'SELECT department_id, auditor1_id, auditor2_id, supervisor_id, location_id, date, phase_id FROM audit_schedules WHERE id = ?',
     )
       .bind(auditId)
-      .first<{ department_id: string | null; auditor1_id: string | null; auditor2_id: string | null; supervisor_id: string | null }>();
+      .first<{
+        department_id: string | null;
+        auditor1_id: string | null;
+        auditor2_id: string | null;
+        supervisor_id: string | null;
+        location_id: string | null;
+        date: string | null;
+        phase_id: string | null;
+      }>();
 
     if (existing) {
       if (!targetDeptId) targetDeptId = existing.department_id;
       if (!supervisorId) supervisorId = existing.supervisor_id;
+      if (targetLocId === null || targetLocId === undefined) targetLocId = existing.location_id;
+      if (targetDate === null || targetDate === undefined) targetDate = existing.date;
+      if (targetPhaseId === null || targetPhaseId === undefined) targetPhaseId = existing.phase_id;
       if (updates.auditor1Id === undefined) finalAuditor1 = existing.auditor1_id;
       if (updates.auditor2Id === undefined) finalAuditor2 = existing.auditor2_id;
 
@@ -105,16 +127,23 @@ export const auditAssignmentGuard = async (
   }
 
   // ── Fetch audit_strategy ONCE before the loop ────────────────────────────
-  // (previously fetched inside the loop — wasted one D1 round-trip per auditor)
   let assignmentMode = 'open-audit';
   try {
     const [strategyRow, ...auditorRows] = await c.env.DB.batch([
       c.env.DB.prepare('SELECT value FROM system_settings WHERE id = ?').bind('audit_strategy'),
-      // Fetch all auditor records in one batch call alongside the strategy query
+      // Fetch all auditor records (including roles and qualifications) in one batch call
       ...incomingAuditorIds.map(id =>
-        c.env.DB.prepare('SELECT department_id, certification_expiry FROM users WHERE id = ?').bind(id)
+        c.env.DB.prepare('SELECT roles, qualifications, department_id, certification_expiry FROM users WHERE id = ?').bind(id)
       ),
-    ]) as [D1Result<{ value: string }>, ...D1Result<{ department_id: string | null; certification_expiry: string | null }>[]];
+    ]) as [
+      D1Result<{ value: string }>,
+      ...D1Result<{
+        roles: string | null;
+        qualifications: string | null;
+        department_id: string | null;
+        certification_expiry: string | null;
+      }>[]
+    ];
 
     const strategyStr = (strategyRow.results?.[0] as any)?.value
       ?? await c.env.SETTINGS.get('audit_strategy');
@@ -128,35 +157,83 @@ export const auditAssignmentGuard = async (
       } catch { /* ignore parse errors — default stays open-audit */ }
     }
 
+    // Check annual conflict of interest for this location
+    let hasAnnualConflict = false;
+    if (targetLocId) {
+      // Resolve phaseId dynamically from date if needed, matching public.ts / db.audits.ts
+      let resolvedPhaseId = targetPhaseId;
+      if (targetDate && !resolvedPhaseId) {
+        const matchingPhase = await c.env.DB.prepare(
+          'SELECT id FROM audit_phases WHERE start_date <= ? AND end_date >= ? LIMIT 1'
+        ).bind(targetDate, targetDate).first<{ id: string }>();
+        if (matchingPhase) {
+          resolvedPhaseId = matchingPhase.id;
+        }
+      }
+      const conflictErr = await checkLocationYearConflict(c.env.DB, targetLocId, auditId || '', targetDate, resolvedPhaseId);
+      if (conflictErr) {
+        hasAnnualConflict = true;
+      }
+    }
+
     // ── Rule 2: Conflict of interest per auditor ─────────────────────────
-    const today = new Date().toISOString().split('T')[0];
     const supervisorIds = supervisorId ? supervisorId.split(',').map(id => id.trim()).filter(Boolean) : [];
 
     for (let i = 0; i < incomingAuditorIds.length; i++) {
       const auditorId = incomingAuditorIds[i];
-      const auditor = (auditorRows[i]?.results?.[0] ?? null) as { department_id: string | null; certification_expiry: string | null } | null;
+      const auditor = auditorRows[i]?.results?.[0];
+
+      if (!auditor) continue;
 
       if (canAssignOthers && isCoordinatorCaller && !isAdminCaller) {
-        if (!caller.departmentId || auditor?.department_id !== caller.departmentId) {
+        if (!caller.departmentId || auditor.department_id !== caller.departmentId) {
           return c.json({ error: 'Forbidden: coordinators may only assign qualified asset inspectors from their own department' }, 403);
         }
       }
 
-      const certExpiry = auditor?.certification_expiry;
-      if (!certExpiry || certExpiry < today) {
-        return c.json({ error: 'Assignment blocked: the selected auditor does not hold a valid institutional certificate', code: 'CERT_EXPIRED' }, 403);
+      // Parse JSON columns from the DB row
+      const rolesParsed = auditor.roles ? JSON.parse(auditor.roles) : [];
+      const qualificationsParsed = auditor.qualifications ? JSON.parse(auditor.qualifications) : [];
+
+      const pbaoAuditor: PbaoUser = {
+        id: auditorId,
+        email: '',
+        role: rolesParsed[0] || 'Guest',
+        roles: rolesParsed,
+        departmentId: auditor.department_id ?? null,
+        certificationExpiry: auditor.certification_expiry ?? null,
+        qualifications: qualificationsParsed,
+      };
+
+      // Run PBAC engine checks for schedule.assign on the assignee
+      const evalResult = evaluateAccess(pbaoAuditor, 'schedule.assign', {
+        targetDepartmentId: targetDeptId,
+        supervisorIds,
+        hasAnnualConflict,
+      });
+
+      if (!evalResult.allowed) {
+        const reason = evalResult.reason || 'UNKNOWN';
+        if (reason === 'MISSING_CAPABILITY') {
+          return c.json({ error: 'Assignment blocked: the selected auditor does not hold a valid inspecting officer qualification', code: 'MISSING_CAPABILITY' }, 403);
+        }
+        if (reason === 'CERT_EXPIRED') {
+          return c.json({ error: 'Assignment blocked: the selected auditor does not hold a valid institutional certificate', code: 'CERT_EXPIRED' }, 403);
+        }
+        if (reason === 'COI_VIOLATION') {
+          return c.json({ error: 'Conflict of interest: an auditor cannot be assigned to audit their own department', code: 'SELF_DEPARTMENT' }, 409);
+        }
+        if (reason === 'SUPERVISOR_CONFLICT') {
+          return c.json({ error: 'Conflict of interest: the selected officer is a site supervisor for this location and cannot act as its inspector', code: 'SUPERVISOR_CONFLICT_INTERNAL' }, 409);
+        }
+        if (reason === 'LOCATION_YEAR_CONFLICT') {
+          return c.json({ error: 'ACTION BLOCKED: This location is already scheduled to be audited in this calendar year. A location can only be inspected once per calendar year.', code: 'LOCATION_YEAR_CONFLICT' }, 422);
+        }
+        return c.json({ error: getReasonMessage(reason), code: reason }, 403);
       }
 
-      const auditorDeptId = auditor?.department_id;
+      const auditorDeptId = auditor.department_id;
       if (!auditorDeptId) continue;
-
-      if (auditorDeptId === targetDeptId) {
-        return c.json({ error: 'Conflict of interest: an auditor cannot be assigned to audit their own department', code: 'SELF_DEPARTMENT' }, 409);
-      }
-
-      if (supervisorIds.includes(auditorId)) {
-        return c.json({ error: 'Conflict of interest: the selected officer is a site supervisor for this location and cannot act as its inspector', code: 'SUPERVISOR_CONFLICT_INTERNAL' }, 409);
-      }
 
       if (assignmentMode === 'open-audit') continue;
 

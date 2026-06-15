@@ -84,6 +84,7 @@ export function requirePolicy(
       roles: user.roles || [],
       departmentId: user.departmentId ?? null,
       certificationExpiry: user.certificationExpiry ?? null,
+      qualifications: user.qualifications || [],
     };
 
     // ── 3. Build the evaluation context ────────────────────────────────────

@@ -760,11 +760,12 @@ showToast(`Plan Overwritten: Inspection reassigned from ${targetSchedule.phaseNa
     return <MobileLoginScreen onLogin={setCurrentUser} logoBrand={logoBrand} />;
   }
 
-  // ── Certified-officer gate (PBAC: any role + valid cert = officer) ────────
+  // ── Certified-officer gate (PBAC: qualifications contains Inspector + valid cert) ────────
   const todayStr = new Date().toISOString().split('T')[0];
+  const hasInspectorQual = !!currentUser.qualifications?.includes('Inspector');
   const hasCert = !!(currentUser.certificationExpiry && currentUser.certificationExpiry >= todayStr);
 
-  if (!hasCert) {
+  if (!hasInspectorQual || !hasCert) {
     return (
       <Flex minH="dvh" bg="bg" direction="column" align="center" justify="center" p={4}>
         <CardRoot maxW="xs" width="full" variant="elevated" overflow="hidden">
@@ -791,7 +792,9 @@ showToast(`Plan Overwritten: Inspection reassigned from ${targetSchedule.phaseNa
               <Text fontSize="xs" color="fg.muted">{currentUser.email}</Text>
             </VStack>
             <Box borderRadius="xl" px={4} py={3} bg="orange.50" color="orange.700" borderWidth="1px" borderColor="orange.200" textAlign="center" fontSize="xs" fontWeight="medium">
-              Your certification has expired or has not been issued. Please renew your certification via the main site.
+              {!hasInspectorQual 
+                ? 'Your account lacks the Inspector qualification.' 
+                : 'Your certification has expired or has not been issued. Please renew your certification via the main site.'}
             </Box>
             <Button onClick={handleSignOut} variant="outline" colorPalette="gray" width="full" fontWeight="bold" size="sm">
               <LogOut size={14} />

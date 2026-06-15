@@ -59,6 +59,7 @@ export const ScheduleCard: React.FC<Props> = ({
     if (role === 'supervisor') return [];
     return users.filter(
       u =>
+        u.qualifications?.includes('Inspector') &&
         u.certificationExpiry && u.certificationExpiry >= today &&
         u.departmentId !== schedule.departmentId &&
         u.id === currentUserId,
@@ -72,7 +73,8 @@ export const ScheduleCard: React.FC<Props> = ({
   const isPrivileged = isAdmin || (isCoSupervisor && isOwnDept);
   
   const isCertified = !!(currentUser?.certificationExpiry && currentUser.certificationExpiry >= today);
-  const canEditThisDate = isPrivileged || (isCertified && !isLocked && !isCompleted);
+  const hasInspectorQual = !!currentUser?.qualifications?.includes('Inspector');
+  const canEditThisDate = isPrivileged || (hasInspectorQual && isCertified && !isLocked && !isCompleted);
 
   return (
     <CardRoot

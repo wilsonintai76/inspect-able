@@ -27,6 +27,7 @@ export type Variables = {
     role: string;
     roles: string[];      // Populated from D1 users table
     departmentId: string | null; // Populated from D1 users table
+    qualifications?: string[];
     [key: string]: any;
   };
 };

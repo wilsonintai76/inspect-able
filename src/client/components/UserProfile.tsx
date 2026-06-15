@@ -329,6 +329,27 @@ export const UserProfile: React.FC<UserProfileProps> = ({ user, departments, onU
                      </div>
                   </div>
                </div>
+
+                {/* Qualifications Section */}
+                <div className="bg-slate-50 rounded-3xl p-6 border border-slate-200">
+                   <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-4">Qualifications</h4>
+                   <div className="flex flex-col gap-4">
+                     <div className="p-4 bg-white rounded-2xl border border-slate-100 shadow-sm">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Eligible Claims</p>
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          {user.qualifications && user.qualifications.length > 0 ? (
+                            user.qualifications.map((qual: string) => (
+                              <span key={qual} className="px-2.5 py-1 bg-blue-50 text-blue-600 border border-blue-100 rounded-lg text-xs font-black uppercase tracking-wider">
+                                {qual}
+                              </span>
+                            ))
+                          ) : (
+                            <span className="text-xs text-slate-400 font-bold">No professional qualifications claimed.</span>
+                          )}
+                        </div>
+                     </div>
+                   </div>
+                </div>
             </div>
           </div>
 

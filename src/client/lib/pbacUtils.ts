@@ -17,6 +17,7 @@
 
 export interface ClientUser {
   roles?: string[];
+  qualifications?: string[];
   certificationExpiry?: string | null;
   departmentId?: string | null;
   [key: string]: any;
@@ -91,10 +92,11 @@ function deriveClientQualificationCapabilities(user: ClientUser | null): Set<str
   if (!user) return caps;
 
   // ── Qualified Asset Inspector (QAI) ─────────────────────────────────
+  // Qualifications contain "Inspector" OR user has a valid certificate -> has asset_inspector and assign:self capabilities.
   const today = new Date().toISOString().split('T')[0];
-  const isCertValid =
-    !!user.certificationExpiry && user.certificationExpiry >= today;
-  if (isCertValid) {
+  const isCertValid = !!user.certificationExpiry && user.certificationExpiry >= today;
+  const hasInspectorQual = user.qualifications?.includes('Inspector') || isCertValid;
+  if (hasInspectorQual) {
     caps.add('asset_inspector');
     caps.add('assign:self');
   }

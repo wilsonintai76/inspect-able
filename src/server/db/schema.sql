@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS users (
   renewal_requested TEXT, -- ISO Date
   last_active TEXT, -- ISO Date
   dashboard_config TEXT, -- JSON string
+  qualifications TEXT DEFAULT '[]',
   created_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
 

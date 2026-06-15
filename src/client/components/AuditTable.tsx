@@ -61,7 +61,7 @@ export const AuditTable: React.FC<AuditTableProps> = ({
   // ── PBAC Capability Checks ────────────────────────────────────────────────
   // Build minimal user object for hasCapability
   const currentUser = users.find(u => u.name === currentUserName);
-  const pbacUser = currentUser ? { roles: currentUser.roles, certificationExpiry: currentUser.certificationExpiry } : { roles: [] as string[], certificationExpiry: null as string | null };
+  const pbacUser = currentUser ? { roles: currentUser.roles, qualifications: currentUser.qualifications, certificationExpiry: currentUser.certificationExpiry } : { roles: [] as string[], qualifications: [] as string[], certificationExpiry: null as string | null };
 
   const isAdmin = hasCapability(pbacUser, 'system:admin');
   const isCoordinator = hasCapability(pbacUser, 'manage:departments') && !isAdmin;

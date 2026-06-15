@@ -116,33 +116,42 @@ export const authMiddleware = async (
   let roles: string[]             = [];
   let departmentId: string | null = null;
   let certificationExpiry: string | null = null;
+  let qualifications: string[]    = [];
   let userExists                  = true;
 
   try {
     const cached = await c.env.SETTINGS.get(`ucache:${userId}`, { cacheTtl: USER_CACHE_TTL });
     if (cached) {
-      const parsed = JSON.parse(cached) as { roles: string[]; departmentId: string | null; certificationExpiry?: string | null; email?: string };
+      const parsed = JSON.parse(cached) as { roles: string[]; departmentId: string | null; certificationExpiry?: string | null; email?: string; qualifications?: string[] };
       roles = parsed.roles;
       departmentId = parsed.departmentId;
       certificationExpiry = parsed.certificationExpiry || null;
+      qualifications = parsed.qualifications || [];
       // For cookie-only sessions the email wasn't in the JWT — pick it up from cache
       if (!email && parsed.email) email = parsed.email;
     } else {
       const dbUser = await c.env.DB
-        .prepare('SELECT email, roles, department_id, certification_expiry FROM users WHERE id = ?')
+        .prepare('SELECT email, roles, department_id, certification_expiry, qualifications FROM users WHERE id = ?')
         .bind(userId)
-        .first<{ email: string; roles: string; department_id: string | null; certification_expiry: string | null }>();
+        .first<{ email: string; roles: string; department_id: string | null; certification_expiry: string | null; qualifications: string | null }>();
 
       if (dbUser) {
         if (!email) email = dbUser.email;
         if (dbUser.roles) roles = JSON.parse(dbUser.roles);
         departmentId = dbUser.department_id ?? null;
         certificationExpiry = dbUser.certification_expiry ?? null;
+        if (dbUser.qualifications) {
+          try {
+            qualifications = JSON.parse(dbUser.qualifications);
+          } catch {
+            qualifications = [];
+          }
+        }
         
         // Write through to KV (include email so cookie-only sessions can use it)
         await c.env.SETTINGS.put(
           `ucache:${userId}`,
-          JSON.stringify({ email, roles, departmentId, certificationExpiry }),
+          JSON.stringify({ email, roles, departmentId, certificationExpiry, qualifications }),
           { expirationTtl: USER_CACHE_TTL },
         );
       } else {
@@ -157,11 +166,6 @@ export const authMiddleware = async (
     return c.json({ success: false, message: 'User not found' }, 401);
   }
 
-  // PBAC derives asset_inspector from certificationExpiry — no need to inject 'Auditor' role
-  const today = new Date().toISOString().split('T')[0];
-  const isCertified = certificationExpiry && certificationExpiry >= today;
-  // Auditor role injection removed — PBAC handles certification via deriveCapabilities
-
   // 4. Populate context
   c.set('user', {
     id: userId,
@@ -171,6 +175,7 @@ export const authMiddleware = async (
     departmentId,
     sessionId,
     certificationExpiry,
+    qualifications,
   });
 
   await next();

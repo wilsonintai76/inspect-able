@@ -37,6 +37,7 @@ export interface MobileUser {
   certificationExpiry: string | null;
   assetsAssigned: number;
   contactNumber?: string | null;
+  qualifications?: string[];
 }
 
 export interface MobilePhase {

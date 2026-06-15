@@ -59,6 +59,7 @@ export const MainAppLayout: React.FC<MainAppLayoutProps> = ({
           isCertified={!!(currentUser.certificationExpiry && currentUser.certificationExpiry >= new Date().toISOString().split('T')[0])}
           userStatus={currentUser.status}
           isProfileComplete={checkProfileComplete(currentUser)}
+          qualifications={currentUser.qualifications}
         />
 
         <div className="grow lg:pl-72 flex flex-col h-full min-w-0">

@@ -21,11 +21,11 @@ const router = new Hono<{ Bindings: Bindings, Variables: Variables }>();
 router.get('/users', async (c) => {
   try {
     const caller = c.get('user');
-    const callerCaps = deriveCapabilities({ id: caller?.id || '', email: caller?.email || '', role: caller?.role || '', roles: caller?.roles || [], departmentId: caller?.departmentId || null, certificationExpiry: caller?.certificationExpiry || null });
+    const callerCaps = deriveCapabilities({ id: caller?.id || '', email: caller?.email || '', role: caller?.role || '', roles: caller?.roles || [], departmentId: caller?.departmentId || null, certificationExpiry: caller?.certificationExpiry || null, qualifications: caller?.qualifications || [] });
     const isSuperAdmin = caller?.email?.toLowerCase() === 'admin@poliku.edu.my';
     const isAdmin = callerCaps.has('system:admin');
 
-    let sql = 'SELECT id, name, email, roles, designation, picture, department_id, contact_number, status, is_verified, must_change_pin, certification_issued, certification_expiry, renewal_requested, last_active, password_hash FROM users';
+    let sql = 'SELECT id, name, email, roles, designation, picture, department_id, contact_number, status, is_verified, must_change_pin, certification_issued, certification_expiry, renewal_requested, last_active, password_hash, qualifications FROM users';
     const binds: any[] = [];
     
     // Filtering logic
@@ -59,6 +59,7 @@ router.get('/users', async (c) => {
       renewalRequested: u.renewal_requested ?? null,
       lastActive: u.last_active,
       hasPassword: !!u.password_hash,
+      qualifications: JSON.parse(u.qualifications || '[]'),
     })));
   } catch (err: any) {
     return c.json({ error: err.message }, 500);
@@ -68,7 +69,7 @@ router.get('/users', async (c) => {
 router.post('/users', requirePolicy('user.create', emptyContextBuilder()), zValidator('json', userSchema), async (c) => {
   const newUser = c.req.valid('json');
   const caller = c.get('user');
-  const callerCaps = deriveCapabilities({ id: caller?.id || '', email: caller?.email || '', role: caller?.role || '', roles: caller?.roles || [], departmentId: caller?.departmentId || null, certificationExpiry: caller?.certificationExpiry || null });
+  const callerCaps = deriveCapabilities({ id: caller?.id || '', email: caller?.email || '', role: caller?.role || '', roles: caller?.roles || [], departmentId: caller?.departmentId || null, certificationExpiry: caller?.certificationExpiry || null, qualifications: caller?.qualifications || [] });
   const isSuperAdmin = caller?.email?.toLowerCase() === 'admin@poliku.edu.my';
   const isAdmin = callerCaps.has('system:admin');
 
@@ -93,6 +94,14 @@ router.post('/users', requirePolicy('user.create', emptyContextBuilder()), zVali
     roles = getRolesForDesignation(newUser.designation) || ['Staff'];
   }
 
+  // 1.5 Calculate qualifications with certificate sync
+  const today = new Date().toISOString().split('T')[0];
+  const isCertValid = !!newUser.certificationExpiry && newUser.certificationExpiry >= today;
+  let qualifications = newUser.qualifications || [];
+  if (isCertValid && !qualifications.includes('Inspector')) {
+    qualifications = [...qualifications, 'Inspector'];
+  }
+
   // 2. Set Default Password Hash & Force PIN Change for manual creation
   const defaultHash = await hashPassword(DEFAULT_USER_PASSWORD);
   const mustChangePIN = newUser.mustChangePIN !== undefined ? newUser.mustChangePIN : true;
@@ -100,8 +109,8 @@ router.post('/users', requirePolicy('user.create', emptyContextBuilder()), zVali
   try {
     await c.env.DB.prepare(
       `INSERT INTO users 
-       (id, name, email, password_hash, roles, designation, picture, department_id, contact_number, status, is_verified, must_change_pin, certification_issued, certification_expiry) 
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+       (id, name, email, password_hash, roles, designation, picture, department_id, contact_number, status, is_verified, must_change_pin, certification_issued, certification_expiry, qualifications) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     ).bind(
       id,
       newUser.name,
@@ -116,10 +125,11 @@ router.post('/users', requirePolicy('user.create', emptyContextBuilder()), zVali
       newUser.isVerified ? 1 : 0,
       mustChangePIN ? 1 : 0,
       newUser.certificationIssued ?? null,
-      newUser.certificationExpiry ?? null
+      newUser.certificationExpiry ?? null,
+      JSON.stringify(qualifications)
     ).run();
 
-    return c.json({ id, ...newUser, roles, mustChangePIN });
+    return c.json({ id, ...newUser, roles, mustChangePIN, qualifications });
   } catch (err: any) {
     return c.json({ error: err.message }, 500);
   }
@@ -134,14 +144,14 @@ router.patch(
   const updates = c.req.valid('json');
   const caller = c.get('user');
   const callerRoles: string[] = caller?.roles || [];
-  const callerCaps = deriveCapabilities({ id: caller?.id || '', email: caller?.email || '', role: caller?.role || '', roles: callerRoles, departmentId: caller?.departmentId || null, certificationExpiry: caller?.certificationExpiry || null });
+  const callerCaps = deriveCapabilities({ id: caller?.id || '', email: caller?.email || '', role: caller?.role || '', roles: callerRoles, departmentId: caller?.departmentId || null, certificationExpiry: caller?.certificationExpiry || null, qualifications: caller?.qualifications || [] });
   const isSuperAdmin = caller?.email?.toLowerCase() === 'admin@poliku.edu.my';
   const isAdmin = callerCaps.has('system:admin');
   const isCoordinator = callerCaps.has('manage:departments') && !isAdmin;
 
   // Fetch target user's current record to compare fields and bypass checks for unchanged values
   const targetUserDB = await c.env.DB.prepare(
-    'SELECT name, email, roles, designation, department_id, contact_number, is_verified, certification_issued, certification_expiry, password_hash FROM users WHERE id = ?'
+    'SELECT name, email, roles, designation, department_id, contact_number, is_verified, certification_issued, certification_expiry, password_hash, qualifications FROM users WHERE id = ?'
   ).bind(id).first<{
     name: string;
     email: string;
@@ -153,6 +163,7 @@ router.patch(
     certification_issued: string | null;
     certification_expiry: string | null;
     password_hash: string | null;
+    qualifications: string | null;
   }>();
 
   if (!targetUserDB) {
@@ -291,6 +302,34 @@ router.patch(
     updates.roles = [newRole];
   }
 
+  // Sync qualifications with certificate changes (or keep existing)
+  const finalCertExpiry = updates.certificationExpiry !== undefined ? updates.certificationExpiry : targetUserDB.certification_expiry;
+  let currentQuals: string[] = [];
+  try {
+    currentQuals = JSON.parse(targetUserDB.qualifications || '[]');
+  } catch (e) {}
+  let finalQuals = updates.qualifications !== undefined ? updates.qualifications : [...currentQuals];
+
+  const today = new Date().toISOString().split('T')[0];
+  const isCertValid = !!finalCertExpiry && finalCertExpiry >= today;
+
+  if (updates.certificationExpiry !== undefined || updates.certificationIssued !== undefined) {
+    if (isCertValid) {
+      if (!finalQuals.includes('Inspector')) {
+        finalQuals.push('Inspector');
+      }
+    } else {
+      finalQuals = finalQuals.filter(q => q !== 'Inspector');
+    }
+  }
+
+  const qualsChanged = JSON.stringify(finalQuals.sort()) !== JSON.stringify(currentQuals.sort());
+  if (qualsChanged) {
+    updates.qualifications = finalQuals;
+  } else {
+    delete updates.qualifications;
+  }
+
   const fields: string[] = [];
   const values: any[] = [];
 
@@ -311,6 +350,7 @@ router.patch(
   if (updates.certificationIssued !== undefined) { fields.push('certification_issued = ?'); values.push(updates.certificationIssued); }
   if (updates.certificationExpiry !== undefined) { fields.push('certification_expiry = ?'); values.push(updates.certificationExpiry); }
   if (updates.renewalRequested !== undefined) { fields.push('renewal_requested = ?'); values.push(updates.renewalRequested); }
+  if (updates.qualifications !== undefined) { fields.push('qualifications = ?'); values.push(JSON.stringify(updates.qualifications)); }
 
   if (fields.length === 0) return c.json({ success: true });
 
@@ -321,7 +361,8 @@ router.patch(
     // Evict cached roles/departmentId if any privileged fields changed
     const privilegedChanged = updates.roles !== undefined || updates.departmentId !== undefined
       || updates.isVerified !== undefined || updates.certificationIssued !== undefined
-      || updates.certificationExpiry !== undefined || updates.renewalRequested !== undefined;
+      || updates.certificationExpiry !== undefined || updates.renewalRequested !== undefined
+      || updates.qualifications !== undefined;
     if (privilegedChanged) {
       await c.env.SETTINGS.delete(`ucache:${id}`).catch(() => {});
     }

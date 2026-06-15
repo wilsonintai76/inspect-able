@@ -30,6 +30,7 @@ interface SidebarProps {
   isCertified?: boolean;
   isProfileComplete?: boolean;
   userStatus?: string;
+  qualifications?: string[];
 }
 
 interface NavItemProps {
@@ -54,12 +55,12 @@ const NavItem: React.FC<NavItemProps> = ({ icon: Icon, label, active, onClick })
 );
 
 export const Sidebar: React.FC<SidebarProps> = ({ 
-  isOpen, onClose, activeView, onViewChange, onLogout, userRoles, isCertified, isProfileComplete 
+  isOpen, onClose, activeView, onViewChange, onLogout, userRoles, isCertified, isProfileComplete, qualifications 
 }) => {
   const { locale, setLocale, t } = useLanguage();
 
   // Build a minimal user object for PBAC capability checks
-  const clientUser = { roles: userRoles, certificationExpiry: isCertified ? '2099-12-31' : null };
+  const clientUser = { roles: userRoles, qualifications: qualifications || [], certificationExpiry: isCertified ? '2099-12-31' : null };
 
   const canAccessSchedule = hasCapability(clientUser, 'schedule:manage_dept') || hasCapability(clientUser, 'schedule:manage_all') || hasCapability(clientUser, 'asset_inspector');
   const canAccessLocations = hasCapability(clientUser, 'manage:locations');

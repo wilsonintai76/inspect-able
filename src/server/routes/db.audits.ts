@@ -282,7 +282,7 @@ router.patch('/audits/:id', zValidator('json', patchAuditSchema), patchAuditPerm
   if (updates.assetStatuses !== undefined) { fields.push('asset_statuses = ?'); values.push(updates.assetStatuses ? JSON.stringify(updates.assetStatuses) : null); }
   if (updates.isLocked !== undefined) {
     const callerRoles = (c.get('user') as any)?.roles || [];
-    const caps = deriveCapabilities({ id: (c.get('user') as any)?.id || '', email: (c.get('user') as any)?.email || '', role: (c.get('user') as any)?.role || '', roles: callerRoles, departmentId: (c.get('user') as any)?.departmentId || null, certificationExpiry: (c.get('user') as any)?.certificationExpiry || null });
+    const caps = deriveCapabilities({ id: (c.get('user') as any)?.id || '', email: (c.get('user') as any)?.email || '', role: (c.get('user') as any)?.role || '', roles: callerRoles, departmentId: (c.get('user') as any)?.departmentId || null, certificationExpiry: (c.get('user') as any)?.certificationExpiry || null, qualifications: (c.get('user') as any)?.qualifications || [] });
     if (!caps.has('manage:locations') && !caps.has('system:admin') && !caps.has('manage:departments') && !caps.has('asset_inspector')) {
       return c.json({ error: 'Only authorized personnel can lock or unlock schedules.' }, 403);
     }

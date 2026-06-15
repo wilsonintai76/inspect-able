@@ -312,7 +312,7 @@ auth.patch(
   async (c) => {
     const info = await requireJwt(c);
     if (!info) return c.json({ success: false, message: 'Unauthorized' }, 401);
-    const caps = deriveCapabilities({ id: info.userId, email: '', role: '', roles: info.roles, departmentId: null });
+    const caps = deriveCapabilities({ id: info.userId, email: '', role: '', roles: info.roles, departmentId: null, qualifications: [] });
     if (!caps.has('system:admin')) {
       return c.json({ success: false, message: 'Forbidden: Admin only' }, 403);
     }

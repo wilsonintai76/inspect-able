@@ -385,6 +385,7 @@ export const userSchema = z.object({
   certificationIssued: z.string().nullable().optional(),
   certificationExpiry: z.string().nullable().optional(),
   renewalRequested: z.string().nullable().optional(),
+  qualifications: z.array(z.string()).optional(),
 });
 
 export const patchUserSchema = z.object({
@@ -403,6 +404,7 @@ export const patchUserSchema = z.object({
   certificationIssued: z.string().nullable().optional(),
   certificationExpiry: z.string().nullable().optional(),
   renewalRequested: z.string().nullable().optional(),
+  qualifications: z.array(z.string()).optional(),
 });
 
 export async function checkLocationYearConflict(

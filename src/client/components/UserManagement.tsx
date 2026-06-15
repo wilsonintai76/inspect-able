@@ -32,7 +32,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({
 }) => {
   // ── PBAC capability checks ───────────────────────────────────────────
   const currentUserData = users.find(u => u.id === currentUserId);
-  const pbacUser = currentUserData ? { roles: currentUserData.roles, certificationExpiry: currentUserData.certificationExpiry, departmentId: currentUserData.departmentId } : { roles: [] as string[], certificationExpiry: null as string | null, departmentId: null as string | null };
+  const pbacUser = currentUserData ? { roles: currentUserData.roles, qualifications: currentUserData.qualifications, certificationExpiry: currentUserData.certificationExpiry, departmentId: currentUserData.departmentId } : { roles: [] as string[], qualifications: [] as string[], certificationExpiry: null as string | null, departmentId: null as string | null };
 
   const isAdmin = hasCapability(pbacUser, 'system:admin');
   const canViewAll = isAdmin;                              // Admin sees all users
@@ -72,6 +72,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({
     roles: ['Guest'] as string[],
     designation: '' as string,
     contactNumber: '',
+    qualifications: [] as string[],
   });
 
   // ── PBAC scoping for filteredUsers ───────────────────────────────────
@@ -237,7 +238,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({
 
   const resetForm = () => {
     const deptId = (!isAdmin && currentUserData?.departmentId) ? currentUserData.departmentId : '';
-    setFormData({ name: '', email: '', departmentId: deptId, roles: ['Guest'] as string[], designation: '', contactNumber: '' });
+    setFormData({ name: '', email: '', departmentId: deptId, roles: ['Guest'] as string[], designation: '', contactNumber: '', qualifications: [] as string[] });
     setIsFormOpen(false);
     setEditingId(null);
   };
@@ -278,6 +279,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({
       roles: [role],
       designation: user.designation || '',
       contactNumber: user.contactNumber || '',
+      qualifications: user.qualifications || [],
     });
     setIsFormOpen(true);
   };
@@ -569,6 +571,32 @@ export const UserManagement: React.FC<UserManagementProps> = ({
                       </div>
                     )}
                   </div>
+                  <div className="space-y-1 md:col-span-2">
+                    <label className="text-[10px] font-black uppercase text-slate-400 block mb-2">Qualifications</label>
+                    <div className="flex flex-wrap gap-4">
+                      <label className={`flex items-center gap-2 p-3 rounded-xl border transition-all cursor-pointer ${
+                        formData.qualifications.includes('Inspector')
+                        ? 'bg-blue-50 border-blue-200 text-blue-700 shadow-sm' 
+                        : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'
+                      }`}>
+                        <input 
+                          type="checkbox" 
+                          className="w-4 h-4 text-blue-600 focus:ring-blue-500 border-slate-300 rounded"
+                          checked={formData.qualifications.includes('Inspector')}
+                          onChange={(e) => {
+                            const checked = e.target.checked;
+                            setFormData(prev => {
+                              const quals = checked 
+                                ? [...prev.qualifications, 'Inspector']
+                                : prev.qualifications.filter(q => q !== 'Inspector');
+                              return { ...prev, qualifications: quals };
+                            });
+                          }}
+                        />
+                        <span className="text-xs font-bold">Inspecting Officer (Inspector)</span>
+                      </label>
+                    </div>
+                  </div>
                   <div className="space-y-1">
                     <label className="text-[10px] font-black uppercase text-slate-400">Contact</label>
                     <input title="Contact Number" placeholder="Enter contact number" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm" value={formData.contactNumber} onChange={e => setFormData({ ...formData, contactNumber: e.target.value })} />
@@ -637,6 +665,12 @@ export const UserManagement: React.FC<UserManagementProps> = ({
                              {user.certificationExpiry && user.certificationExpiry >= new Date().toISOString().split('T')[0] && (
                                <span className="px-2 py-0.5 rounded text-[8px] font-black uppercase border bg-emerald-50 text-emerald-600 border-emerald-200">
                                  Certified
+                               </span>
+                             )}
+                             {/* Inspector Qualification indicator */}
+                             {user.qualifications && user.qualifications.includes('Inspector') && (
+                               <span className="px-2 py-0.5 rounded text-[8px] font-black uppercase border bg-indigo-50 text-indigo-600 border-indigo-200">
+                                 Inspector
                                </span>
                              )}
                              <span className="text-[9px] text-slate-400 font-bold uppercase">{user.designation}</span>

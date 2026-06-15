@@ -26,7 +26,7 @@ export const LocationManagement: React.FC<LocationManagementProps> = ({
   locations, departments, users, userRoles, userDeptId, currentUser, onAdd, onUpdate, onDelete, onPurge, phases = [], buildings, schedules
 }) => {
   // ── PBAC capability checks ───────────────────────────────────────────
-  const pbacUser = currentUser ? { roles: currentUser.roles, certificationExpiry: currentUser.certificationExpiry, departmentId: currentUser.departmentId } : { roles: userRoles, certificationExpiry: null as string | null, departmentId: userDeptId || null };
+  const pbacUser = currentUser ? { roles: currentUser.roles, qualifications: currentUser.qualifications, certificationExpiry: currentUser.certificationExpiry, departmentId: currentUser.departmentId } : { roles: userRoles, qualifications: [] as string[], certificationExpiry: null as string | null, departmentId: userDeptId || null };
   const isAdmin = hasCapability(pbacUser, 'system:admin');
   const canManage = hasCapability(pbacUser, 'manage:locations');
   const canPurge = hasCapability(pbacUser, CAP_PURGE_DATA);

@@ -54,7 +54,7 @@ router.post('/locations', requirePolicy('location.manage', emptyContextBuilder()
   const id = loc.id || crypto.randomUUID();
   const caller = c.get('user');
   const callerRoles: string[] = caller?.roles || [];
-  const callerCaps = deriveCapabilities({ id: caller?.id || '', email: caller?.email || '', role: caller?.role || '', roles: callerRoles, departmentId: caller?.departmentId || null, certificationExpiry: caller?.certificationExpiry || null });
+  const callerCaps = deriveCapabilities({ id: caller?.id || '', email: caller?.email || '', role: caller?.role || '', roles: callerRoles, departmentId: caller?.departmentId || null, certificationExpiry: caller?.certificationExpiry || null, qualifications: caller?.qualifications || [] });
   const isAdmin = callerCaps.has('system:admin') || caller?.email?.toLowerCase() === 'admin@poliku.edu.my';
   const isCoordinator = callerCaps.has('manage:departments') && !isAdmin;
   // Coordinators may only add locations to their own department
@@ -112,7 +112,7 @@ router.patch('/locations/:id', requirePolicy('location.manage', emptyContextBuil
   const id = c.req.param('id');
   const updates = await c.req.json();
   const caller = c.get('user');
-  const callerCaps = deriveCapabilities({ id: caller?.id || '', email: caller?.email || '', role: caller?.role || '', roles: caller?.roles || [], departmentId: caller?.departmentId || null, certificationExpiry: caller?.certificationExpiry || null });
+  const callerCaps = deriveCapabilities({ id: caller?.id || '', email: caller?.email || '', role: caller?.role || '', roles: caller?.roles || [], departmentId: caller?.departmentId || null, certificationExpiry: caller?.certificationExpiry || null, qualifications: caller?.qualifications || [] });
   const isAdmin = callerCaps.has('system:admin') || caller?.email?.toLowerCase() === 'admin@poliku.edu.my';
   const isCoordinator = callerCaps.has('manage:departments') && !isAdmin;
   const isSupervisor = callerCaps.has('manage:locations') && !callerCaps.has('manage:departments') && !isAdmin;
@@ -220,7 +220,7 @@ router.patch('/locations/:id', requirePolicy('location.manage', emptyContextBuil
 router.delete('/locations/:id', requirePolicy('location.manage', emptyContextBuilder()), async (c) => {
   const id = c.req.param('id');
   const caller = c.get('user');
-  const callerCaps = deriveCapabilities({ id: caller?.id || '', email: caller?.email || '', role: caller?.role || '', roles: caller?.roles || [], departmentId: caller?.departmentId || null, certificationExpiry: caller?.certificationExpiry || null });
+  const callerCaps = deriveCapabilities({ id: caller?.id || '', email: caller?.email || '', role: caller?.role || '', roles: caller?.roles || [], departmentId: caller?.departmentId || null, certificationExpiry: caller?.certificationExpiry || null, qualifications: caller?.qualifications || [] });
   const isAdmin = callerCaps.has('system:admin') || caller?.email?.toLowerCase() === 'admin@poliku.edu.my';
   const isCoordinator = callerCaps.has('manage:departments') && !isAdmin;
   // Coordinators may only archive locations in their own department

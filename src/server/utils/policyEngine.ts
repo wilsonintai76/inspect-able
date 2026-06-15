@@ -30,6 +30,7 @@ export interface PbaoUser {
   departmentId: string | null;
   /** ISO-8601 date string — checked for certification validity. */
   certificationExpiry?: string | null;
+  qualifications?: string[];
   [key: string]: any;
 }
 
@@ -171,11 +172,11 @@ function deriveQualificationCapabilities(user: PbaoUser): Set<string> {
   const caps = new Set<string>();
 
   // ── Qualified Asset Inspector (QAI) ──────────────────────────────────
-  // Any role + valid cert → asset_inspector (can perform audits).
+  // Qualifications contain "Inspector" OR user has a valid certificate -> has asset_inspector and assign:self capabilities.
   const today = new Date().toISOString().split('T')[0];
-  const isCertValid =
-    !!user.certificationExpiry && user.certificationExpiry >= today;
-  if (isCertValid) {
+  const isCertValid = !!user.certificationExpiry && user.certificationExpiry >= today;
+  const hasInspectorQual = user.qualifications?.includes('Inspector') || isCertValid;
+  if (hasInspectorQual) {
     caps.add('asset_inspector');
     caps.add('assign:self');  // QAI → can self-assign to audit slots
   }
@@ -295,6 +296,22 @@ const CERT_VALID: PolicyDefinition = {
 };
 
 /**
+ * NO_ANNUAL_CONFLICT — Scheduling boundary
+ * 
+ * DENY if the location is already scheduled to be inspected in the same calendar year.
+ */
+const NO_ANNUAL_CONFLICT: PolicyDefinition = {
+  name: 'NO_ANNUAL_CONFLICT',
+  description: 'A location can only be inspected once per calendar year',
+  evaluate(_user, ctx) {
+    if (ctx.hasAnnualConflict) {
+      return { allowed: false, reason: 'LOCATION_YEAR_CONFLICT' };
+    }
+    return { allowed: true };
+  },
+};
+
+/**
  * REQUIRE_CAPABILITY — Generic Capability Gate
  *
  * Factory: creates a policy that DENIES unless the user holds a specific
@@ -387,6 +404,7 @@ const ACTION_POLICIES: Record<PbacAction, PolicyDefinition[]> = {
     CERT_VALID,
     STRICT_COI,
     NO_SUPERVISOR_CONFLICT,
+    NO_ANNUAL_CONFLICT,
     NO_DOUBLE_BOOKING,
   ],
   // ── Audit schedule — unassign self ────────────────────────────────────
@@ -516,6 +534,8 @@ const PBAC_REASON_MESSAGES: Record<string, string> = {
     'Conflict of Interest: You are a designated Site Supervisor for this location and cannot act as its inspector.',
   CERT_EXPIRED:
     'Certification Required: Your inspecting officer certificate is expired or invalid.',
+  LOCATION_YEAR_CONFLICT:
+    'Conflict: This location is already scheduled to be inspected in the same calendar year.',
   AUTH_REQUIRED:
     'Authentication required. Please sign in.',
   PBAC_CONTEXT_ERROR:
