@@ -313,12 +313,12 @@ router.patch(
   const today = new Date().toISOString().split('T')[0];
   const isCertValid = !!finalCertExpiry && finalCertExpiry >= today;
 
-  if (updates.certificationExpiry !== undefined || updates.certificationIssued !== undefined) {
-    if (isCertValid) {
-      if (!finalQuals.includes('Inspector')) {
-        finalQuals.push('Inspector');
-      }
-    } else {
+  if (isCertValid) {
+    if (!finalQuals.includes('Inspector')) {
+      finalQuals.push('Inspector');
+    }
+  } else {
+    if (updates.certificationExpiry !== undefined || updates.certificationIssued !== undefined) {
       finalQuals = finalQuals.filter(q => q !== 'Inspector');
     }
   }

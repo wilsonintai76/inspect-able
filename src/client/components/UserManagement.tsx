@@ -272,6 +272,12 @@ export const UserManagement: React.FC<UserManagementProps> = ({
     const dbRole = (user.roles && user.roles.length > 0) ? user.roles[0] : 'Guest';
     // If DB role doesn't match designation binding, use the bound role
     const role = (dbRole !== bound && bound !== 'Guest') ? bound : dbRole;
+    const initialQuals = user.qualifications ? [...user.qualifications] : [];
+    const todayStr = new Date().toISOString().split('T')[0];
+    const isCertValid = !!user.certificationExpiry && user.certificationExpiry >= todayStr;
+    if (isCertValid && !initialQuals.includes('Inspector')) {
+      initialQuals.push('Inspector');
+    }
     setFormData({
       name: user.name || '',
       email: user.email || '',
@@ -279,7 +285,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({
       roles: [role],
       designation: user.designation || '',
       contactNumber: user.contactNumber || '',
-      qualifications: user.qualifications || [],
+      qualifications: initialQuals,
     });
     setIsFormOpen(true);
   };
