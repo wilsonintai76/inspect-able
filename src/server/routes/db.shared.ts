@@ -18,6 +18,16 @@ import { unassignExpiredAuditors, handleLocationDepartmentTransfer, refreshDepar
 export const DEFAULT_USER_PASSWORD = 'Poliku@2024';
 export const SCHEDULE_CACHE_KEY = 'schedule:all';
 
+/** Normalize DD/MM/YYYY → YYYY-MM-DD for safe comparison. Malaysia uses DD/MM/YYYY display. */
+export function normDate(d: string): string {
+  if (!d) return d;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(d)) return d;
+  const parts = d.split('/');
+  if (parts.length === 3 && parts[2]?.length === 4)
+    return `${parts[2]}-${parts[1].padStart(2,'0')}-${parts[0].padStart(2,'0')}`;
+  return d;
+}
+
 // ═══════════════════════════════════════════════════════════════
 // Helpers
 // ═══════════════════════════════════════════════════════════════
@@ -331,9 +341,10 @@ export const patchAuditPermissionGuard = async (c: Context<{ Bindings: Bindings;
 
     // 2. Phase check: only enforce if phases are configured
     if (updates.date !== null && updates.date !== '') {
+      const nd = normDate(updates.date);
       const matchingPhase = await c.env.DB.prepare(
         'SELECT id FROM audit_phases WHERE start_date <= ? AND end_date >= ? LIMIT 1'
-      ).bind(updates.date, updates.date).first<{ id: string }>();
+      ).bind(nd, nd).first<{ id: string }>();
       const phaseCount = await c.env.DB.prepare('SELECT COUNT(*) as cnt FROM audit_phases').first<{cnt:number}>();
       if (!matchingPhase && (phaseCount?.cnt ?? 0) > 0) {
         return c.json({ error: 'Forbidden: Selected date falls outside of all configured inspection phases.' }, 422);

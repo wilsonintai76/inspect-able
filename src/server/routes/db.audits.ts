@@ -8,7 +8,7 @@ import { hashPassword } from '../services/authService';
 import { 
   DEFAULT_USER_PASSWORD, SCHEDULE_CACHE_KEY, getRolesForDesignation, logApprovalReminderActivity, invalidateScheduleCache,
   edgeCache, auditLockGuard, zeroAssetGuard, statusTransitionGuard, patchAuditPermissionGuard,
-  auditSchema, patchAuditSchema, userSchema, patchUserSchema, checkLocationYearConflict
+  auditSchema, patchAuditSchema, userSchema, patchUserSchema, checkLocationYearConflict, normDate
 } from './db.shared';
 import { 
   unassignExpiredAuditors, handleLocationDepartmentTransfer, refreshDepartmentAssetTotals,
@@ -80,9 +80,10 @@ router.post('/audits', zValidator('json', auditSchema), requirePolicy('audit.cre
   if (audit.date) {
     const phaseCount = await c.env.DB.prepare('SELECT COUNT(*) as cnt FROM audit_phases').first<{cnt:number}>();
     if ((phaseCount?.cnt ?? 0) > 0) {
+      const nd = normDate(audit.date);
       const matchingPhase = await c.env.DB.prepare(
         'SELECT id FROM audit_phases WHERE start_date <= ? AND end_date >= ? LIMIT 1'
-      ).bind(audit.date, audit.date).first<{ id: string }>();
+      ).bind(nd, nd).first<{ id: string }>();
       if (!matchingPhase) {
         return c.json({ error: 'Selected date must fall within a configured audit phase.' }, 400);
       }
@@ -140,9 +141,10 @@ router.patch('/audits/:id', zValidator('json', patchAuditSchema), patchAuditPerm
     if (updates.date) {
       const phaseCount = await c.env.DB.prepare('SELECT COUNT(*) as cnt FROM audit_phases').first<{cnt:number}>();
       if ((phaseCount?.cnt ?? 0) > 0) {
+        const nd = normDate(updates.date);
         const matchingPhase = await c.env.DB.prepare(
           'SELECT id FROM audit_phases WHERE start_date <= ? AND end_date >= ? LIMIT 1'
-        ).bind(updates.date, updates.date).first<{ id: string }>();
+        ).bind(nd, nd).first<{ id: string }>();
         if (!matchingPhase) {
           return c.json({ error: 'Selected date must fall within a configured audit phase.' }, 400);
         }
