@@ -647,11 +647,8 @@ router.post('/audits/maintenance/cleanup-orphaned-reports', requirePolicy('syste
     for (const r of fromReports.results || []) referenced.add(extractKey(r.file_path));
 
     let deleted = 0;
-    const list = await c.env.MEDIA.list({ limit: 500 });
-    // Only clean timestamp-prefixed PDFs (KEW-PA upload pattern: 1700000000-filename.pdf)
-    const kewpaPattern = /^\d+-.+\.pdf$/i;
+    const list = await c.env.MEDIA.list({ prefix: 'kewpa/', limit: 500 });
     for (const obj of list.objects) {
-      if (!kewpaPattern.test(obj.key)) continue; // skip logos, brand files etc.
       if (!referenced.has(obj.key)) {
         await c.env.MEDIA.delete(obj.key);
         deleted++;

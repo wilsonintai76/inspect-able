@@ -27,7 +27,7 @@ media.get('/:key', async (c) => {
   return c.body((object as any).body, 200, Object.fromEntries(headers.entries()));
 });
 
-// POST /api/media/upload - Upload image to R2
+// POST /api/media/upload - Upload KEW-PA 11 PDF to R2 (kewpa/ folder)
 media.post('/upload', async (c) => {
   const body = await c.req.parseBody();
   const file = body['file'] as File;
@@ -36,7 +36,7 @@ media.post('/upload', async (c) => {
     return c.json({ error: 'No file uploaded' }, 400);
   }
 
-  const key = `${Date.now()}-${file.name}`;
+  const key = `kewpa/${Date.now()}-${file.name}`;
   await c.env.MEDIA.put(key, file.stream() as any, {
     httpMetadata: { contentType: file.type },
   });
