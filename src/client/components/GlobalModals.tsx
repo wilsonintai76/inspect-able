@@ -55,7 +55,7 @@ export const GlobalModals: React.FC<GlobalModalsProps> = ({
     <>
       {/* Custom Confirm Modal */}
       {confirmState && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-in fade-in">
+        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-in fade-in">
           <div className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl animate-in zoom-in-95">
             <h3 className="text-lg font-bold text-slate-900 mb-2">{confirmState.title}</h3>
             <p className="text-sm text-slate-600 mb-6">{confirmState.message}</p>
