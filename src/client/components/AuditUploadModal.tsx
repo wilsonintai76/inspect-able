@@ -360,9 +360,6 @@ export const AuditUploadModal: React.FC<AuditUploadModalProps> = ({
               Latest report: <a href={audit.reportPath} target="_blank" rel="noreferrer" className="font-bold underline">View PDF</a>
             </div>
           )}
-              </a>
-            </div>
-          )}
 
           {/* Uploader Box */}
           <div 

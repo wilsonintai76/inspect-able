@@ -468,22 +468,13 @@ export const AuditTableRow: React.FC<AuditTableRowProps> = ({
             </a>
           )}
           {audit.status === 'Completed' && (
-            <>
-              <button
-                onClick={() => onSetStatusAudit(audit)}
-                className="w-8 h-8 flex items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100 hover:text-emerald-700 transition-colors border border-emerald-100 hover:border-emerald-200 shadow-sm"
-                title="Edit Asset Status Breakdown"
-              >
-                <Boxes className="w-4 h-4" />
-              </button>
-              <button
-                onClick={() => onSetReportAudit(audit)}
-                className="w-8 h-8 flex items-center justify-center rounded-lg bg-slate-50 text-slate-400 hover:bg-blue-50 hover:text-blue-600 transition-colors border border-slate-100 hover:border-blue-100 shadow-sm"
-                title="Generate Formal Completion Report (AI)"
-              >
-                <FileText className="w-4 h-4" />
-              </button>
-            </>
+            <button
+              onClick={() => onSetStatusAudit(audit)}
+              className="w-8 h-8 flex items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100 hover:text-emerald-700 transition-colors border border-emerald-100 hover:border-emerald-200 shadow-sm"
+              title="Edit Asset Status Breakdown"
+            >
+              <Boxes className="w-4 h-4" />
+            </button>
           )}
         </div>
       </td>
