@@ -307,10 +307,11 @@ export const patchAuditPermissionGuard = async (c: Context<{ Bindings: Bindings;
     return c.json({ error: 'Forbidden: Supervisors can only modify existing audits for locations they supervise or are assigned to.' }, 403);
   }
 
-  // Inspector-only: can only modify audits they are assigned to
+  // Any inspector (Guest+Inspector): can pick dates anywhere (first time).
+  // Change date / unlock: restricted to assigned audits only.
   const isInspectorOnly = canAudit && !isAdmin && !isCoordinator && !isSupervisor;
-  if (isInspectorOnly && !isAssignedAuditor) {
-    return c.json({ error: 'Forbidden: Inspectors can only modify audits they are assigned to.' }, 403);
+  if (isInspectorOnly && !isAssignedAuditor && !isFirstDatePick) {
+    return c.json({ error: 'Forbidden: Inspectors can only modify existing audits they are assigned to.' }, 403);
   }
 
   // Early return for Admin or Coordinator within their own department
