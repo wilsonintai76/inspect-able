@@ -49,12 +49,10 @@ export interface PolicyEvaluationContext {
   supervisorIds?: string[];
   /** Whether the system is in open-audit mode (bypasses cross-audit matrix). */
   isOpenAuditMode?: boolean;
-  /** Schedule date being assigned/updated (for DATE_WITHIN_PHASE, NO_ANNUAL_CONFLICT). */
+  /** Schedule date being assigned/updated (for NO_ANNUAL_CONFLICT). */
   scheduleDate?: string | null;
-  /** Selected phase start date boundary (for DATE_WITHIN_PHASE). */
-  phaseStartDate?: string | null;
-  /** Selected phase end date boundary (for DATE_WITHIN_PHASE). */
-  phaseEndDate?: string | null;
+  /** Pre-computed: true if scheduleDate falls within ANY configured audit phase (Phase 1/2/3). */
+  dateInAnyPhase?: boolean;
   /** Current schedule status value (for VALID_STATUS_TRANSITION). */
   currentStatus?: string | null;
   /** Target status to transition to (for VALID_STATUS_TRANSITION). */
@@ -356,21 +354,15 @@ const NO_ANNUAL_CONFLICT: PolicyDefinition = {
 /**
  * DATE_WITHIN_PHASE — Phase Scheduling Rule
  *
- * DENY if the schedule date falls outside the selected audit phase.
- * Also denies if scheduleDate, phaseStartDate, or phaseEndDate is missing.
+ * DENY if the schedule date does not fall within ANY configured audit phase.
+ * Allows planning across all phases (Phase 1, 2, 3), not just the active one.
+ * The handler pre-computes dateInAnyPhase by querying all phase boundaries.
  */
 const DATE_WITHIN_PHASE: PolicyDefinition = {
   name: 'DATE_WITHIN_PHASE',
-  description: 'Schedule date must fall within the selected audit phase',
+  description: 'Schedule date must fall within any configured audit phase',
   evaluate(_user, ctx) {
-    const scheduleDate = ctx.scheduleDate;
-    const phaseStart = ctx.phaseStartDate;
-    const phaseEnd = ctx.phaseEndDate;
-    // Missing any boundary → deny
-    if (!scheduleDate || !phaseStart || !phaseEnd) {
-      return { allowed: false, reason: 'DATE_OUTSIDE_PHASE' };
-    }
-    if (scheduleDate < phaseStart || scheduleDate > phaseEnd) {
+    if (!ctx.dateInAnyPhase) {
       return { allowed: false, reason: 'DATE_OUTSIDE_PHASE' };
     }
     return { allowed: true };

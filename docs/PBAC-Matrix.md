@@ -131,7 +131,7 @@ CanInspectAudit:
   2. user.certificate is valid (not expired)      → CERT_VALID
   3. audit.department != user.department          → STRICT_COI
   4. user is not the site supervisor of this loc  → NO_SUPERVISOR_CONFLICT
-  5. schedule date is inside the selected phase   → DATE_WITHIN_PHASE
+  5. schedule date falls within any configured phase  → DATE_WITHIN_PHASE
   6. location not already inspected in scheduleDate year → NO_ANNUAL_CONFLICT
 ```
 
@@ -141,7 +141,7 @@ CanInspectAudit:
 | 2 | `CERT_VALID` | `CERT_EXPIRED` | *Your Inspector certificate is expired or invalid.* |
 | 3 | `STRICT_COI` | `COI_VIOLATION` | *You cannot audit your own department.* |
 | 4 | `NO_SUPERVISOR_CONFLICT` | `SUPERVISOR_CONFLICT` | *You are a Site Supervisor for this location and cannot act as its inspector.* |
-| 5 | `DATE_WITHIN_PHASE` | `DATE_OUTSIDE_PHASE` | *The scheduled date falls outside the selected audit phase.* |
+| 5 | `DATE_WITHIN_PHASE` | `DATE_OUTSIDE_PHASE` | *The scheduled date does not fall within any configured audit phase.* |
 | 6 | `NO_ANNUAL_CONFLICT` | `LOCATION_YEAR_CONFLICT` | *This location is already scheduled to be inspected in the calendar year of the scheduled date.* |
 
 > **`STRICT_COI` has no exemptions — not even for Admins.** It is an absolute institutional integrity rule.
@@ -158,7 +158,7 @@ CanInspectAudit:
 | `CERT_VALID` | Expiry gate | `certificationExpiry` must be present and ≥ current date in the organization's timezone (Asia/Kuala_Lumpur) |
 | `STRICT_COI` | Integrity rule | `user.departmentId ≠ targetDepartmentId` — **no exemptions** |
 | `NO_SUPERVISOR_CONFLICT` | Integrity rule | User must not be listed as supervisor for the target location |
-| `DATE_WITHIN_PHASE` | Phase scheduling rule | `scheduleDate ≥ phaseStartDate` AND `scheduleDate ≤ phaseEndDate` for the selected audit phase. If any of `scheduleDate`, `phaseStartDate`, or `phaseEndDate` is missing, deny with `DATE_OUTSIDE_PHASE` |
+| `DATE_WITHIN_PHASE` | Phase scheduling rule | `scheduleDate` must fall within ANY configured audit phase (Phase 1, 2, or 3). Allows planning ahead across all phases. If `scheduleDate` is missing or no phase contains the date, deny with `DATE_OUTSIDE_PHASE` |
 | `NO_ANNUAL_CONFLICT` | Scheduling rule | Location must not have an active or completed inspection in the calendar year of `scheduleDate`; cancelled/deleted schedules are ignored. When updating an existing schedule, the current record's own `scheduleId`/`auditId` is excluded from the conflict check |
 | `NO_DOUBLE_BOOKING` | Concurrency gate | Schedule slot must be `'open'` |
 
@@ -203,8 +203,7 @@ CanInspectAudit:
 | `supervisorIds` | Audit's `supervisor_id` (comma-separated) | Supervisor conflict check |
 | `scheduleDate` | Audit schedule date | Date being assigned or updated; used by `DATE_WITHIN_PHASE` and `NO_ANNUAL_CONFLICT` |
 | `phaseId` | Selected audit phase | Identifies Phase 1 / Phase 2 / Phase 3 |
-| `phaseStartDate` | Selected phase configuration | Lower date boundary for `DATE_WITHIN_PHASE` |
-| `phaseEndDate` | Selected phase configuration | Upper date boundary for `DATE_WITHIN_PHASE` |
+| `dateInAnyPhase` | Pre-computed by handler | True if `scheduleDate` falls within ANY configured phase boundary; used by `DATE_WITHIN_PHASE` |
 | `scheduleStatus` | Audit's current slot status | Double-booking prevention |
 | `currentStatus` | Current schedule status value | Used by `VALID_STATUS_TRANSITION` to validate allowed transitions |
 | `nextStatus` | Target status to transition to | Used by `VALID_STATUS_TRANSITION` to validate allowed transitions |
