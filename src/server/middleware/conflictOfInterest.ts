@@ -14,10 +14,9 @@ import { checkLocationYearConflict } from '../routes/db.shared';
 //
 //  Rule 2 — Conflict of interest (applies to ALL roles including Admin):
 //    a) An auditor cannot be assigned to audit their own department (STRICT_COI).
-//    b) The auditor must hold the Inspector qualification (REQUIRE_INSPECTOR).
-//    c) The auditor's certificate must be valid (CERT_VALID).
-//    d) A site supervisor cannot inspect their own location (NO_SUPERVISOR_CONFLICT).
-//    e) A location can only be inspected once per calendar year (NO_ANNUAL_CONFLICT).
+//    b) The auditor must hold a valid certificate (REQUIRE_ACTIVE_INSPECTOR).
+//    c) A site supervisor cannot inspect their own location (NO_SUPERVISOR_CONFLICT).
+//    d) A location can only be inspected once per calendar year (NO_ANNUAL_CONFLICT).
 //
 //  Rule 3 — Cross-audit permissions (non-open-audit mode):
 //    An active cross_audit_permissions entry must link the auditor's

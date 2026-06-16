@@ -102,12 +102,6 @@ function deriveClientRoleCapabilities(user: ClientUser | null): Set<string> {
 
   return caps;
 }
-
-/**
- * Derives capability strings from user qualifications.
- * Inspector qualification alone grants asset_inspector + assign:self.
- * Valid certificate is checked separately by CERT_VALID policy in engine.
- */
 /**
  * Derives capability strings from user qualifications.
  * Valid certificate = active inspector (asset_inspector + assign:self).

@@ -84,7 +84,7 @@ Higher roles inherit **all** capabilities of lower roles. You never need multipl
 | `schedule.set_date` (pick) | `REQUIRE_ACTIVE_INSPECTOR` + `DATE_WITHIN_PHASE` | Active inspector: first-time date pick on any audit (phase checked, COI NOT checked at pick time — COI is checked at assignment) |
 | `schedule.set_date` (change) | `schedule:manage_dept` + `DATE_WITHIN_PHASE` + per-role scope | Supervisor (own locations), Coordinator (own dept), Inspector (assigned audits), Admin (all) |
 | `schedule.set_status` | (`schedule:manage_dept` OR `schedule:manage_all`) + `VALID_STATUS_TRANSITION` | Supervisor / Admin |
-| `schedule.upload_report` | `ASSIGNED_AUDITOR_ONLY` + `CERT_VALID` | Assigned auditor (certificate must be valid at upload time) |
+| `schedule.upload_report` | `ASSIGNED_AUDITOR_ONLY` + `REQUIRE_ACTIVE_INSPECTOR` | Assigned auditor (certificate must be valid at upload time) |
 
 ### 5.2 Audit CRUD
 
@@ -190,7 +190,7 @@ CanInspectAudit:
 |---|---|---|
 | `roles` | `string[]` (JSON) | Administrative role hierarchy: `["Admin"]`, `["Coordinator"]`, `["Supervisor"]`, `["Guest"]` |
 | `qualifications` | `string[]` (JSON) | Other operational tags (if any). Inspector is derived from `certificationExpiry`, NOT stored here. |
-| `certificationExpiry` | `string` (ISO date) | Institutional certificate expiry; required by `CERT_VALID` to activate inspection actions |
+| `certificationExpiry` | `string` (ISO date) | Institutional certificate expiry; required by `REQUIRE_ACTIVE_INSPECTOR` to activate inspection actions |
 | `departmentId` | `string` | User's home department (for COI checks) |
 
 ### Evaluation Context (per-request)
