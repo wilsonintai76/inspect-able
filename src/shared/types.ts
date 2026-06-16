@@ -1,4 +1,13 @@
 
+export interface AuditReport {
+  id: string;
+  auditId: string;
+  filePath: string;
+  fileName?: string | null;
+  uploadedBy?: string | null;
+  uploadedAt?: string | null;
+}
+
 export interface AuditSchedule {
   id: string;
   departmentId: string;

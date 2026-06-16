@@ -154,6 +154,17 @@ CREATE TABLE IF NOT EXISTS audit_schedules (
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_audit_schedules_unique_location ON audit_schedules(location_id);
 
+-- Audit Reports Table (multiple KEW-PA 11 PDFs per audit)
+CREATE TABLE IF NOT EXISTS audit_reports (
+  id TEXT PRIMARY KEY,
+  audit_id TEXT NOT NULL,
+  file_path TEXT NOT NULL,
+  file_name TEXT,
+  uploaded_by TEXT,
+  uploaded_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (audit_id) REFERENCES audit_schedules(id)
+);
+
 -- System Activities Table
 CREATE TABLE IF NOT EXISTS system_activities (
   id TEXT PRIMARY KEY,

@@ -23,6 +23,18 @@ router.get('/audits', async (c) => {
     // ─── Idempotent Schema Updates ───
     await c.env.DB.prepare('ALTER TABLE audit_schedules ADD COLUMN verified_asset_count INTEGER').run().catch(() => {});
     await c.env.DB.prepare('ALTER TABLE audit_schedules ADD COLUMN asset_statuses TEXT').run().catch(() => {});
+    // ─── audit_reports table for multi-KEWPA upload ───
+    await c.env.DB.prepare(
+      `CREATE TABLE IF NOT EXISTS audit_reports (
+        id TEXT PRIMARY KEY,
+        audit_id TEXT NOT NULL,
+        file_path TEXT NOT NULL,
+        file_name TEXT,
+        uploaded_by TEXT,
+        uploaded_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (audit_id) REFERENCES audit_schedules(id)
+      )`
+    ).run().catch(() => {});
 
     // ─── KV Read-Through Cache ───
     const cached = await c.env.SETTINGS.get(SCHEDULE_CACHE_KEY, 'json').catch(() => null) as any[];
@@ -411,6 +423,7 @@ router.patch('/audits/:id', zValidator('json', patchAuditSchema), patchAuditPerm
 router.delete('/audits/:id', requirePolicy('audit.delete', auditPatchContextBuilder()), async (c) => {
   const id = c.req.param('id');
   try {
+    await c.env.DB.prepare('DELETE FROM audit_reports WHERE audit_id = ?').bind(id).run();
     await c.env.DB.prepare('DELETE FROM audit_schedules WHERE id = ?').bind(id).run();
     invalidateScheduleCache(c.env.SETTINGS);
     return c.json({ success: true });
@@ -568,5 +581,57 @@ router.post('/users/:id/reset-password', requirePolicy('user.update', emptyConte
 });
 
 // Users
+
+// ─── Multi-KEWPA Report Upload ────────────────────────────────────────
+// List all reports for an audit
+router.get('/audits/:id/reports', async (c) => {
+  const auditId = c.req.param('id');
+  try {
+    const { results } = await c.env.DB.prepare(
+      'SELECT id, audit_id, file_path, file_name, uploaded_by, uploaded_at FROM audit_reports WHERE audit_id = ? ORDER BY uploaded_at DESC'
+    ).bind(auditId).all();
+    const reports = (results || []).map((r: any) => ({
+      id: r.id,
+      auditId: r.audit_id,
+      filePath: r.file_path,
+      fileName: r.file_name ?? null,
+      uploadedBy: r.uploaded_by ?? null,
+      uploadedAt: r.uploaded_at ?? null,
+    }));
+    return c.json(reports);
+  } catch (err: any) {
+    return c.json({ error: err.message }, 500);
+  }
+});
+
+// Add a new report to an audit
+router.post('/audits/:id/reports', async (c) => {
+  const auditId = c.req.param('id');
+  const caller = c.get('user');
+  try {
+    const body = await c.req.json<{ filePath: string; fileName?: string }>();
+    if (!body.filePath) {
+      return c.json({ error: 'filePath is required' }, 400);
+    }
+    const id = crypto.randomUUID();
+    await c.env.DB.prepare(
+      'INSERT INTO audit_reports (id, audit_id, file_path, file_name, uploaded_by) VALUES (?, ?, ?, ?, ?)'
+    ).bind(id, auditId, body.filePath, body.fileName ?? null, caller?.id ?? null).run();
+    return c.json({ id, auditId, filePath: body.filePath, fileName: body.fileName ?? null }, 201);
+  } catch (err: any) {
+    return c.json({ error: err.message }, 500);
+  }
+});
+
+// Delete a specific report
+router.delete('/audits/:id/reports/:reportId', async (c) => {
+  const { id: auditId, reportId } = c.req.param();
+  try {
+    await c.env.DB.prepare('DELETE FROM audit_reports WHERE id = ? AND audit_id = ?').bind(reportId, auditId).run();
+    return c.json({ success: true });
+  } catch (err: any) {
+    return c.json({ error: err.message }, 500);
+  }
+});
 
 export { router };

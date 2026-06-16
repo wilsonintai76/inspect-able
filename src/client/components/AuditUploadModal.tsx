@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { AuditSchedule } from '@shared/types';
-import { X, UploadCloud, FileText, CheckCircle2, AlertTriangle, ExternalLink, Sparkles } from 'lucide-react';
+import { AuditSchedule, AuditReport } from '@shared/types';
+import { X, UploadCloud, FileText, CheckCircle2, AlertTriangle, ExternalLink, Sparkles, Trash2, History } from 'lucide-react';
 import { parsePdfText } from '../lib/pdfParser';
 
 interface AuditUploadModalProps {
@@ -31,6 +31,25 @@ export const AuditUploadModal: React.FC<AuditUploadModalProps> = ({
   const [uploading, setUploading] = useState(false);
   const [extracting, setExtracting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Multi-upload: existing reports for this audit
+  const [reports, setReports] = useState<AuditReport[]>([]);
+  const [loadingReports, setLoadingReports] = useState(true);
+
+  // Fetch existing reports on mount
+  useEffect(() => {
+    const fetchReports = async () => {
+      try {
+        const res = await fetch(`/api/audits/${audit.id}/reports`);
+        if (res.ok) {
+          const data = await res.json() as AuditReport[];
+          setReports(data);
+        }
+      } catch { /* silent */ }
+      finally { setLoadingReports(false); }
+    };
+    fetchReports();
+  }, [audit.id]);
 
   // Legacy/main State
   const [extractedCount, setExtractedCount] = useState<number | null>(null);
@@ -172,6 +191,19 @@ export const AuditUploadModal: React.FC<AuditUploadModalProps> = ({
       }
 
       const data = await res.json() as { key: string; url: string };
+
+      // Save to audit_reports table (multi-KEWPA)
+      try {
+        const reportRes = await fetch(`/api/audits/${audit.id}/reports`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ filePath: data.url, fileName: file.name }),
+        });
+        if (reportRes.ok) {
+          const newReport = await reportRes.json() as AuditReport;
+          setReports(prev => [newReport, ...prev]);
+        }
+      } catch { /* non-critical */ }
       
       const finalCount = manualCount.trim() !== '' ? parseInt(manualCount, 10) : (extractedCount ?? null);
       
@@ -224,6 +256,15 @@ export const AuditUploadModal: React.FC<AuditUploadModalProps> = ({
     }
   };
 
+  const handleDeleteReport = async (reportId: string) => {
+    try {
+      const res = await fetch(`/api/audits/${audit.id}/reports/${reportId}`, { method: 'DELETE' });
+      if (res.ok) {
+        setReports(prev => prev.filter(r => r.id !== reportId));
+      }
+    } catch { /* silent */ }
+  };
+
   return (
     <div className="fixed inset-0 z-200 flex items-center justify-center p-4">
       <div 
@@ -262,6 +303,38 @@ export const AuditUploadModal: React.FC<AuditUploadModalProps> = ({
               </div>
             )}
           </div>
+
+          {/* Previous KEW-PA 11 Uploads */}
+          {!loadingReports && reports.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-[10px] font-black uppercase text-slate-500 tracking-widest">
+                <History className="w-3.5 h-3.5" /> Previous Uploads ({reports.length})
+              </div>
+              <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                {reports.map((r) => (
+                  <div key={r.id} className="flex items-center justify-between p-3 bg-slate-50 border border-slate-200 rounded-xl">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <FileText className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <div className="min-w-0">
+                        <div className="text-[11px] font-bold text-slate-700 truncate">{r.fileName || 'KEW-PA 11'}</div>
+                        <div className="text-[9px] text-slate-400 font-medium">{r.uploadedAt ? new Date(r.uploadedAt).toLocaleDateString('en-GB') : ''}</div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <a href={r.filePath} target="_blank" rel="noreferrer"
+                        className="px-2.5 py-1.5 text-[9px] font-black uppercase text-emerald-600 bg-emerald-50 border border-emerald-200 rounded-lg hover:bg-emerald-100 transition-colors">
+                        View
+                      </a>
+                      <button onClick={() => handleDeleteReport(r.id)}
+                        className="p-1.5 text-slate-400 hover:text-rose-500 transition-colors rounded-lg hover:bg-rose-50">
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Current Document if already exists */}
           {audit.reportPath && (audit.reportPath.startsWith('http') || audit.reportPath.startsWith('/')) && (
