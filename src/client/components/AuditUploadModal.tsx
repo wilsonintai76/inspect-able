@@ -40,7 +40,7 @@ export const AuditUploadModal: React.FC<AuditUploadModalProps> = ({
   useEffect(() => {
     const fetchReports = async () => {
       try {
-        const res = await fetch(`/api/audits/${audit.id}/reports`);
+        const res = await fetch(`/api/db/audits/${audit.id}/reports`);
         if (res.ok) {
           const data = await res.json() as AuditReport[];
           setReports(data);
@@ -194,7 +194,7 @@ export const AuditUploadModal: React.FC<AuditUploadModalProps> = ({
 
       // Save to audit_reports table (multi-KEWPA)
       try {
-        const reportRes = await fetch(`/api/audits/${audit.id}/reports`, {
+        const reportRes = await fetch(`/api/db/audits/${audit.id}/reports`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ filePath: data.url, fileName: file.name }),
@@ -259,7 +259,7 @@ export const AuditUploadModal: React.FC<AuditUploadModalProps> = ({
   const handleDeleteReport = async (reportId: string) => {
     if (reportId === '__legacy__') {
       // Legacy report not in audit_reports — clear via direct PATCH
-      await fetch(`/api/audits/${audit.id}`, {
+      await fetch(`/api/db/audits/${audit.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ reportPath: null }),
@@ -268,7 +268,7 @@ export const AuditUploadModal: React.FC<AuditUploadModalProps> = ({
       return;
     }
     try {
-      const res = await fetch(`/api/audits/${audit.id}/reports/${reportId}`, { method: 'DELETE' });
+      const res = await fetch(`/api/db/audits/${audit.id}/reports/${reportId}`, { method: 'DELETE' });
       if (res.ok) {
         setReports(prev => prev.filter(r => r.id !== reportId));
       }

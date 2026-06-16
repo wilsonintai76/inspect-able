@@ -323,10 +323,11 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
             <button
               onClick={async () => {
                 try {
-                  const r = await fetch('/api/audits/maintenance/migrate-kewpa-folder', { method: 'POST' });
-                  const d = await r.json() as { success: boolean; moved: number; message: string };
+                  const r = await fetch('/api/db/audits/maintenance/migrate-kewpa-folder', { method: 'POST' });
+                  const d = await r.json() as any;
+                  if (!r.ok) { showToast?.(d.error || `HTTP ${r.status}`, 'warning'); return; }
                   showToast?.(d.message || `Moved ${d.moved} files`);
-                } catch { showToast?.('Migration failed', 'warning'); }
+                } catch (e: any) { showToast?.(e.message || 'Migration failed', 'warning'); }
               }}
               className="flex items-center gap-2 px-4 py-2 bg-purple-50 border border-purple-200 text-purple-700 rounded-xl text-xs font-bold hover:bg-purple-100 transition-colors"
             >
@@ -335,10 +336,11 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
             <button
               onClick={async () => {
                 try {
-                  const r = await fetch('/api/audits/maintenance/sync-reports-from-r2', { method: 'POST' });
-                  const d = await r.json() as { success: boolean; created: number; message: string };
+                  const r = await fetch('/api/db/audits/maintenance/sync-reports-from-r2', { method: 'POST' });
+                  const d = await r.json() as any;
+                  if (!r.ok) { showToast?.(d.error || `HTTP ${r.status}`, 'warning'); return; }
                   showToast?.(d.message || `Synced ${d.created} reports`);
-                } catch { showToast?.('Sync failed', 'warning'); }
+                } catch (e: any) { showToast?.(e.message || 'Sync failed', 'warning'); }
               }}
               className="flex items-center gap-2 px-4 py-2 bg-blue-50 border border-blue-200 text-blue-700 rounded-xl text-xs font-bold hover:bg-blue-100 transition-colors"
             >
@@ -347,10 +349,11 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
             <button
               onClick={async () => {
                 try {
-                  const r = await fetch('/api/audits/maintenance/cleanup-orphaned-reports', { method: 'POST' });
-                  const d = await r.json() as { success: boolean; deleted: number; message: string };
+                  const r = await fetch('/api/db/audits/maintenance/cleanup-orphaned-reports', { method: 'POST' });
+                  const d = await r.json() as any;
+                  if (!r.ok) { showToast?.(d.error || `HTTP ${r.status}`, 'warning'); return; }
                   showToast?.(d.message || `Cleaned ${d.deleted} files`);
-                } catch { showToast?.('Cleanup failed', 'warning'); }
+                } catch (e: any) { showToast?.(e.message || 'Cleanup failed', 'warning'); }
               }}
               className="flex items-center gap-2 px-4 py-2 bg-amber-50 border border-amber-200 text-amber-700 rounded-xl text-xs font-bold hover:bg-amber-100 transition-colors"
             >
