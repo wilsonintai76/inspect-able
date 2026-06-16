@@ -656,12 +656,15 @@ router.delete('/audits/:id/reports/:reportId', reportAccessGuard, async (c) => {
       return c.json({ error: 'Report not found' }, 404);
     }
 
-    // Delete from R2 storage
+    // Delete from R2 storage — extract key from URL (handles both relative and absolute)
     try {
-      const url = new URL(report.file_path);
-      const key = url.pathname.replace(/^\//, ''); // strip leading slash
-      await c.env.MEDIA.delete(key);
-    } catch { /* R2 delete is best-effort; file may already be gone */ }
+      const path = report.file_path;
+      // Key is everything after the last slash in the path portion
+      const key = path.includes('/api/media/') 
+        ? path.split('/api/media/')[1] 
+        : path.replace(/^.*\//, '');
+      if (key) await c.env.MEDIA.delete(key);
+    } catch { /* R2 delete is best-effort */ }
 
     // Delete from database
     await c.env.DB.prepare('DELETE FROM audit_reports WHERE id = ? AND audit_id = ?').bind(reportId, auditId).run();
@@ -700,7 +703,10 @@ router.post('/audits/maintenance/cleanup-orphaned-reports', requirePolicy('syste
     ).all<{ file_path: string }>();
 
     const referenced = new Set<string>();
-    const extractKey = (url: string) => { try { return new URL(url).pathname.replace(/^\//, ''); } catch { return url; } };
+    const extractKey = (path: string) => {
+      if (!path) return '';
+      return path.includes('/api/media/') ? path.split('/api/media/')[1] : path.replace(/^.*\//, '');
+    };
     for (const r of fromSchedules.results || []) referenced.add(extractKey(r.report_path));
     for (const r of fromReports.results || []) referenced.add(extractKey(r.file_path));
 
