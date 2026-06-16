@@ -252,11 +252,8 @@ export const patchAuditPermissionGuard = async (c: Context<{ Bindings: Bindings;
   const isAdmin = caps.has('system:admin');
   const isCoordinator = caps.has('manage:departments') && !isAdmin;
   const isSupervisor = caps.has('manage:locations') && !isAdmin && !caps.has('manage:departments');
-  // Inspector capability: explicit qualification OR valid certificate (for backward compatibility)
-  // The PBAC engine's CERT_VALID policy separately enforces cert validity at action time.
-  const isCertValid = !!(caller as any).certificationExpiry
-    && (caller as any).certificationExpiry >= new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kuala_Lumpur' });
-  const canAudit = caps.has('asset_inspector') || caps.has('assign:self') || isCertValid;
+  // Inspector capability: derived from valid certificationExpiry by deriveCapabilities
+  const canAudit = caps.has('asset_inspector');
 
   if (!isAdmin && !isCoordinator && !isSupervisor && !canAudit) {
     return c.json({ error: 'Forbidden: unauthorized role' }, 403);
