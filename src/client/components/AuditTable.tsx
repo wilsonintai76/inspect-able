@@ -89,8 +89,8 @@ export const AuditTable: React.FC<AuditTableProps> = ({
   // PBAC: any role + valid cert = can self-assign
   const canSelfAssignSelf = isCertified && hasCapability(pbacUser, 'assign:self');
 
-  // PBAC: assign others = manage:departments (Admin/Coordinator)
-  const canAssignOthers = hasCapability(pbacUser, 'manage:departments');
+  // PBAC: assign others = assign:others capability (Admin only after Coordinator removal)
+  const canAssignOthers = hasCapability(pbacUser, 'assign:others');
   const canAutoAssign = hasCapability(pbacUser, 'system:admin');
   const canViewAllSchedule = hasCapability(pbacUser, 'schedule:manage_all');
   const canViewOwnSchedule = hasCapability(pbacUser, 'schedule:manage_dept');
