@@ -691,7 +691,32 @@ router.delete('/audits/:id/reports/:reportId', reportAccessGuard, async (c) => {
   }
 });
 
-// ─── Maintenance: Clean orphaned R2 report files ─────────────────────
+// ─── Maintenance: Sync existing R2 report files into audit_reports ──
+router.post('/audits/maintenance/sync-reports-from-r2', requirePolicy('system.reset', emptyContextBuilder()), async (c) => {
+  try {
+    // Get all audit_schedules that have a report_path but no audit_reports entries
+    const orphaned = await c.env.DB.prepare(
+      `SELECT s.id, s.report_path FROM audit_schedules s 
+       WHERE s.report_path IS NOT NULL AND s.report_path != ''
+       AND NOT EXISTS (SELECT 1 FROM audit_reports r WHERE r.audit_id = s.id)`
+    ).all<{ id: string; report_path: string }>();
+
+    let created = 0;
+    for (const row of orphaned.results || []) {
+      if (!row.report_path) continue;
+      const reportId = crypto.randomUUID();
+      const fileName = row.report_path.split('/').pop() || 'KEW-PA 11';
+      await c.env.DB.prepare(
+        'INSERT INTO audit_reports (id, audit_id, file_path, file_name, uploaded_by, uploaded_at) VALUES (?, ?, ?, ?, ?, datetime(\'now\'))'
+      ).bind(reportId, row.id, row.report_path, fileName, 'system').run();
+      created++;
+    }
+
+    return c.json({ success: true, created, message: `Migrated ${created} reports from audit_schedules to audit_reports.` });
+  } catch (err: any) {
+    return c.json({ error: err.message }, 500);
+  }
+});
 router.post('/audits/maintenance/cleanup-orphaned-reports', requirePolicy('system.reset', emptyContextBuilder()), async (c) => {
   try {
     // Get all referenced file paths from both tables

@@ -276,7 +276,7 @@ export const AuditUploadModal: React.FC<AuditUploadModalProps> = ({
   };
 
   // Build a virtual report entry for the legacy reportPath (not in audit_reports table)
-  const legacyReport: AuditReport | null = (reports.length === 0 && audit.reportPath?.startsWith('http'))
+  const legacyReport: AuditReport | null = (reports.length === 0 && audit.reportPath && (audit.reportPath.startsWith('http') || audit.reportPath.startsWith('/')))
     ? { id: '__legacy__', auditId: audit.id, filePath: audit.reportPath, fileName: 'KEW-PA 11 (current)', uploadedAt: null }
     : null;
 
