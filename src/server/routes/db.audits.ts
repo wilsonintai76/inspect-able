@@ -688,4 +688,34 @@ router.delete('/audits/:id/reports/:reportId', reportAccessGuard, async (c) => {
   }
 });
 
+// ─── Maintenance: Clean orphaned R2 report files ─────────────────────
+router.post('/audits/maintenance/cleanup-orphaned-reports', requirePolicy('system.reset', emptyContextBuilder()), async (c) => {
+  try {
+    // Get all referenced file paths from both tables
+    const fromSchedules = await c.env.DB.prepare(
+      "SELECT report_path FROM audit_schedules WHERE report_path IS NOT NULL AND report_path != ''"
+    ).all<{ report_path: string }>();
+    const fromReports = await c.env.DB.prepare(
+      'SELECT file_path FROM audit_reports'
+    ).all<{ file_path: string }>();
+
+    const referenced = new Set<string>();
+    const extractKey = (url: string) => { try { return new URL(url).pathname.replace(/^\//, ''); } catch { return url; } };
+    for (const r of fromSchedules.results || []) referenced.add(extractKey(r.report_path));
+    for (const r of fromReports.results || []) referenced.add(extractKey(r.file_path));
+
+    let deleted = 0;
+    const list = await c.env.MEDIA.list({ limit: 500 });
+    for (const obj of list.objects) {
+      if (!referenced.has(obj.key)) {
+        await c.env.MEDIA.delete(obj.key);
+        deleted++;
+      }
+    }
+    return c.json({ success: true, deleted, message: `Cleaned ${deleted} orphaned R2 files.` });
+  } catch (err: any) {
+    return c.json({ error: err.message }, 500);
+  }
+});
+
 export { router };
