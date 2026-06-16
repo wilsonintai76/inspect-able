@@ -324,7 +324,7 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
               onClick={async () => {
                 try {
                   const r = await fetch('/api/audits/maintenance/cleanup-orphaned-reports', { method: 'POST' });
-                  const d = await r.json();
+                  const d = await r.json() as { success: boolean; deleted: number; message: string };
                   showToast?.(d.message || `Cleaned ${d.deleted} files`);
                 } catch { showToast?.('Cleanup failed', 'warning'); }
               }}
@@ -336,7 +336,7 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
               onClick={async () => {
                 try {
                   const r = await fetch('/api/audits/maintenance/sync-reports-from-r2', { method: 'POST' });
-                  const d = await r.json();
+                  const d = await r.json() as { success: boolean; created: number; message: string };
                   showToast?.(d.message || `Synced ${d.created} reports`);
                 } catch { showToast?.('Sync failed', 'warning'); }
               }}
