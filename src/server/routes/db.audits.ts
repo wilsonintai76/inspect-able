@@ -1,4 +1,4 @@
-import { Hono } from 'hono';
+import { Hono, Context, Next } from 'hono';
 import { zValidator } from '@hono/zod-validator';
 import { Bindings, Variables } from '../types';
 import { requirePolicy, bodyDeptContextBuilder, emptyContextBuilder, auditPatchContextBuilder } from '../middleware/pbac';
@@ -583,8 +583,29 @@ router.post('/users/:id/reset-password', requirePolicy('user.update', emptyConte
 // Users
 
 // ─── Multi-KEWPA Report Upload ────────────────────────────────────────
+
+// Access guard: only admin or assigned inspector can manage reports
+const reportAccessGuard = async (c: Context<{ Bindings: Bindings; Variables: Variables }>, next: Next) => {
+  const caller = c.get('user')!;
+  const caps = deriveCapabilities(caller as any);
+  if (caps.has('system:admin')) return next();
+  if (!caps.has('asset_inspector')) {
+    return c.json({ error: 'Only qualified inspectors or admins can manage KEW-PA 11 reports.' }, 403);
+  }
+  // Inspector must be assigned to this audit
+  const auditId = c.req.param('id');
+  const audit = await c.env.DB.prepare(
+    'SELECT auditor1_id, auditor2_id FROM audit_schedules WHERE id = ?'
+  ).bind(auditId).first<{ auditor1_id: string | null; auditor2_id: string | null }>();
+  if (!audit) return c.json({ error: 'Audit not found' }, 404);
+  if (audit.auditor1_id !== caller.id && audit.auditor2_id !== caller.id) {
+    return c.json({ error: 'You can only upload reports for audits you are assigned to.' }, 403);
+  }
+  return next();
+};
+
 // List all reports for an audit
-router.get('/audits/:id/reports', async (c) => {
+router.get('/audits/:id/reports', reportAccessGuard, async (c) => {
   const auditId = c.req.param('id');
   try {
     const { results } = await c.env.DB.prepare(
@@ -605,7 +626,7 @@ router.get('/audits/:id/reports', async (c) => {
 });
 
 // Add a new report to an audit
-router.post('/audits/:id/reports', async (c) => {
+router.post('/audits/:id/reports', reportAccessGuard, async (c) => {
   const auditId = c.req.param('id');
   const caller = c.get('user');
   try {
@@ -624,7 +645,7 @@ router.post('/audits/:id/reports', async (c) => {
 });
 
 // Delete a specific report
-router.delete('/audits/:id/reports/:reportId', async (c) => {
+router.delete('/audits/:id/reports/:reportId', reportAccessGuard, async (c) => {
   const { id: auditId, reportId } = c.req.param();
   try {
     await c.env.DB.prepare('DELETE FROM audit_reports WHERE id = ? AND audit_id = ?').bind(reportId, auditId).run();
