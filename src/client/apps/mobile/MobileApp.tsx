@@ -867,6 +867,14 @@ showToast(`Plan Overwritten: Inspection reassigned from ${targetSchedule.phaseNa
   const isInspector = hasCapability(currentUser, 'asset_inspector');
   const badgeColorPalette = isAdmin ? 'red' : isCoordinator ? 'purple' : isSupervisor ? 'blue' : isInspector ? 'green' : 'gray';
   const displayRole = isAdmin ? 'Admin' : isCoordinator ? 'Coordinator' : isSupervisor ? 'Supervisor' : isInspector ? 'Inspector' : primaryRole;
+  const roleBadgeClass: Record<string, string> = {
+    Admin: 'bg-rose-100 text-rose-700',
+    Coordinator: 'bg-purple-100 text-purple-700',
+    Supervisor: 'bg-blue-100 text-blue-700',
+    Inspector: 'bg-emerald-100 text-emerald-700',
+    Guest: 'bg-slate-100 text-slate-600',
+  };
+  const roleClass = roleBadgeClass[displayRole] ?? roleBadgeClass.Guest;
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
