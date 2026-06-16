@@ -69,7 +69,7 @@ function deriveClientRoleCapabilities(user: ClientUser | null): Set<string> {
     caps.add('manage:locations');        // inherit Supervisor
     caps.add('schedule:manage_dept');    // inherit Supervisor
     // Coordinator-specific (one department only)
-    caps.add('assign:others');           // assign others to slots
+    // NOTE: assign:others NOT granted — COI makes same-dept assignment impossible
     caps.add('view:all_departments');    // view cross-dept data
     caps.add('manage:departments');       // department registry
     caps.add('manage:users');            // user management (dept-scoped)

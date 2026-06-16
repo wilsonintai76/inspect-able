@@ -28,7 +28,7 @@ Higher roles inherit **all** capabilities of lower roles. You never need multipl
 | `manage:locations` | — | ✅ (dept-scoped) | ✅ (inherited) | ✅ |
 | `schedule:manage_dept` | — | ✅ | ✅ (inherited) | ✅ (inherited; covered by `schedule:manage_all`) |
 | `schedule:manage_all` | — | — | — | ✅ |
-| `assign:others` | — | — | ✅ | ✅ (inherited) |
+| `assign:others` | — | — | — | ✅ |
 | `view:all_departments` | — | — | ✅ | ✅ (inherited) |
 | `manage:departments` | — | — | ✅ (dept-scoped) | ✅ |
 | `manage:users` | — | — | ✅ (dept-scoped) | ✅ |
@@ -61,7 +61,7 @@ Higher roles inherit **all** capabilities of lower roles. You never need multipl
 |---|---|---|
 | **Admin** | — | Full system administration |
 | **Admin** | Inspector | Full admin + `asset_inspector`, `assign:self` |
-| **Coordinator** | — | Manage own department, assign others, manage users/locations/groups/mappings |
+| **Coordinator** | — | Manage own department, manage users/locations/groups/mappings |
 | **Coordinator** | Inspector | Dept management + self-assign to cross-dept audits |
 | **Supervisor** | — | Manage locations in dept, manage dept schedules |
 | **Supervisor** | Inspector | Location management + self-assign as inspector |

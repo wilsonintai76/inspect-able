@@ -158,12 +158,12 @@ function deriveRoleCapabilities(user: PbaoUser): Set<string> {
     caps.add('manage:locations');        // inherit Supervisor
     caps.add('schedule:manage_dept');    // inherit Supervisor
     // Coordinator-specific (one department only)
-    caps.add('assign:others');           // assign others to slots
     caps.add('view:all_departments');    // view cross-dept data
     caps.add('manage:departments');       // department registry
     caps.add('manage:users');            // user management (dept-scoped)
     caps.add('manage:groups');           // audit groups
     caps.add('manage:mappings');         // dept/location mappings
+    // NOTE: assign:others NOT granted — COI makes same-dept assignment impossible
     // KPI tiers, audit phases → System Admin only
   }
 
