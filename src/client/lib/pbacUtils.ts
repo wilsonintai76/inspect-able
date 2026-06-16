@@ -108,15 +108,18 @@ function deriveClientRoleCapabilities(user: ClientUser | null): Set<string> {
  * Inspector qualification alone grants asset_inspector + assign:self.
  * Valid certificate is checked separately by CERT_VALID policy in engine.
  */
+/**
+ * Derives capability strings from user qualifications.
+ * Valid certificate = active inspector (asset_inspector + assign:self).
+ */
 function deriveClientQualificationCapabilities(user: ClientUser | null): Set<string> {
   const caps = new Set<string>();
   if (!user) return caps;
 
-  // ── Inspector Qualification ─────────────────────────────────────────
-  // Qualification grants capabilities; certificate validity is a separate
-  // policy gate (CERT_VALID) checked at action time, not at derivation.
-  const hasInspectorQual = user.qualifications?.includes('Inspector') ?? false;
-  if (hasInspectorQual) {
+  // ── Inspector activation: valid certificate grants capabilities ─────
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kuala_Lumpur' });
+  const isCertValid = !!user.certificationExpiry && user.certificationExpiry >= today;
+  if (isCertValid) {
     caps.add('asset_inspector');
     caps.add('assign:self');
   }

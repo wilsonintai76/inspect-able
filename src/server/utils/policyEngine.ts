@@ -207,11 +207,10 @@ function deriveRoleCapabilities(user: PbaoUser): Set<string> {
 function deriveQualificationCapabilities(user: PbaoUser): Set<string> {
   const caps = new Set<string>();
 
-  // ── Inspector Qualification ────────────────────────────────────────────
-  // Qualification grants capabilities; certificate validity is a separate
-  // policy gate (CERT_VALID) checked at action time, not at derivation.
-  const hasInspectorQual = user.qualifications?.includes('Inspector') ?? false;
-  if (hasInspectorQual) {
+  // ── Inspector activation: valid certificate grants asset_inspector + assign:self ──
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kuala_Lumpur' });
+  const isCertValid = !!user.certificationExpiry && user.certificationExpiry >= today;
+  if (isCertValid) {
     caps.add('asset_inspector');
     caps.add('assign:self');
   }
@@ -276,20 +275,19 @@ const NO_DOUBLE_BOOKING: PolicyDefinition = {
 };
 
 /**
- * REQUIRE_INSPECTOR — Inspector Qualification Gate
+ * REQUIRE_ACTIVE_INSPECTOR — Certificate Gate
  *
- * DENY if the user lacks the 'asset_inspector' capability.
- * The 'asset_inspector' capability is granted when:
- *   - qualifications[] contains "Inspector", OR
- *   - certificationExpiry is present and not expired.
+ * DENY if the user's institutional certificate is expired or missing.
+ * A valid certificate IS the inspector qualification — no separate array needed.
  */
-const REQUIRE_INSPECTOR: PolicyDefinition = {
-  name: 'REQUIRE_INSPECTOR',
-  description: 'User must hold the Inspector qualification or a valid certificate',
+const REQUIRE_ACTIVE_INSPECTOR: PolicyDefinition = {
+  name: 'REQUIRE_ACTIVE_INSPECTOR',
+  description: 'Inspector certificate must be present and not expired',
   evaluate(user, _ctx) {
-    const caps = deriveCapabilities(user);
-    if (!caps.has('asset_inspector')) {
-      return { allowed: false, reason: 'MISSING_CAPABILITY' };
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kuala_Lumpur' });
+    const certExpiry = user.certificationExpiry;
+    if (!certExpiry || certExpiry < today) {
+      return { allowed: false, reason: 'CERT_EXPIRED' };
     }
     return { allowed: true };
   },
@@ -308,27 +306,6 @@ const NO_SUPERVISOR_CONFLICT: PolicyDefinition = {
     const supervisorIds = ctx.supervisorIds || [];
     if (supervisorIds.includes(user.id)) {
       return { allowed: false, reason: 'SUPERVISOR_CONFLICT' };
-    }
-    return { allowed: true };
-  },
-};
-
-/**
- * CERT_VALID — Certificate Expiry Gate
- *
- * DENY if the user's institutional certificate has expired.
- * Uses organization timezone (Asia/Kuala_Lumpur) per PBAC Matrix.
- */
-const CERT_VALID: PolicyDefinition = {
-  name: 'CERT_VALID',
-  description: 'Inspector certificate must not be expired',
-  evaluate(user, _ctx) {
-    // Use Asia/Kuala_Lumpur timezone per PBAC Matrix spec
-    const now = new Date();
-    const today = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Kuala_Lumpur' });
-    const certExpiry = user.certificationExpiry;
-    if (!certExpiry || certExpiry < today) {
-      return { allowed: false, reason: 'CERT_EXPIRED' };
     }
     return { allowed: true };
   },
@@ -457,21 +434,19 @@ const COORDINATOR_DEPT_SCOPE: PolicyDefinition = {
  * These five policies together gate who is eligible to be assigned as an
  * inspector for a given audit schedule. They encode the business rule:
  *
- *   CanInspectAudit (6 policies per PBAC Matrix):
- *     1. user.qualifications contains "Inspector"       → REQUIRE_INSPECTOR
- *     2. user.certificate is valid (not expired)        → CERT_VALID
- *     3. audit.department != user.department            → STRICT_COI
- *     4. user is not the site supervisor of this loc    → NO_SUPERVISOR_CONFLICT
- *     5. schedule date is inside the selected phase     → DATE_WITHIN_PHASE
- *     6. location not already inspected in scheduleDate year → NO_ANNUAL_CONFLICT
+ *   CanInspectAudit (5 policies per PBAC Matrix):
+ *     1. certificate is valid (not expired)               → REQUIRE_ACTIVE_INSPECTOR
+ *     2. audit.department != user.department               → STRICT_COI
+ *     3. user is not the site supervisor of this loc       → NO_SUPERVISOR_CONFLICT
+ *     4. schedule date falls within any configured phase   → DATE_WITHIN_PHASE
+ *     5. location not already inspected in scheduleDate year → NO_ANNUAL_CONFLICT
  *
  * Used by 'schedule.assign' via CAN_SELF_ASSIGN and by
  * auditAssignmentGuard for cross-department assignment validation.
  * ───────────────────────────────────────────────────────────────────────
  */
 const CAN_INSPECT_AUDIT_POLICIES: PolicyDefinition[] = [
-  REQUIRE_INSPECTOR,
-  CERT_VALID,
+  REQUIRE_ACTIVE_INSPECTOR,
   STRICT_COI,
   NO_SUPERVISOR_CONFLICT,
   DATE_WITHIN_PHASE,
@@ -513,7 +488,7 @@ const ACTION_POLICIES: Record<PbacAction, PolicyDefinition[]> = {
   ],
   // ── Audit schedule — upload report ────────────────────────────────────
   'schedule.upload_report': [
-    CERT_VALID,
+    REQUIRE_ACTIVE_INSPECTOR,
   ],
   // ── Audit CRUD — create (assign-others) ──────────────────────────────
   'audit.create': [

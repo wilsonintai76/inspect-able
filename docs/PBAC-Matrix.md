@@ -45,13 +45,13 @@ Higher roles inherit **all** capabilities of lower roles. You never need multipl
 
 ---
 
-## 3. Qualification → Capability Matrix
+## 3. Inspector Activation
 
-| Qualification | Activation | Capabilities Granted |
+| Trigger | Condition | Capabilities Granted |
 |---|---|---|
-| **Inspector** | `qualifications[]` contains `"Inspector"` | `asset_inspector`, `assign:self` |
+| **Valid Certificate** | `certificationExpiry` is present and ≥ today (org timezone) | `asset_inspector`, `assign:self` |
 
-> **Note:** Inspector qualification grants the `asset_inspector` and `assign:self` capabilities. However, a valid certificate (`certificationExpiry ≥ today`) is **also required** by the `CERT_VALID` policy within `CanInspectAudit` to actually perform inspection actions. Qualification and certificate work together — neither alone is sufficient for inspection eligibility.
+> **Note:** Inspector is not a role. A valid certificate IS the inspector qualification. No separate `qualifications[]` entry needed. Any user with any role becomes an active inspector when their certificate is valid.
 
 ---
 
@@ -124,26 +124,24 @@ Higher roles inherit **all** capabilities of lower roles. You never need multipl
 
 ## 6. CanInspectAudit — Inspection Eligibility Rules
 
-These six policies together define who is eligible to be assigned as an inspector:
+These five policies together define who is eligible to be assigned as an inspector:
 
 ```
 CanInspectAudit:
-  1. user.qualifications contains "Inspector"     → REQUIRE_INSPECTOR
-  2. user.certificate is valid (not expired)      → CERT_VALID
-  3. audit.department != user.department          → STRICT_COI
-  4. user is not the site supervisor of this loc  → NO_SUPERVISOR_CONFLICT
-  5. schedule date falls within any configured phase  → DATE_WITHIN_PHASE
-  6. location not already inspected in scheduleDate year → NO_ANNUAL_CONFLICT
+  1. certificate is valid (not expired)               → REQUIRE_ACTIVE_INSPECTOR
+  2. audit.department != user.department               → STRICT_COI
+  3. user is not the site supervisor of this loc       → NO_SUPERVISOR_CONFLICT
+  4. schedule date falls within any configured phase   → DATE_WITHIN_PHASE
+  5. location not already inspected in scheduleDate year → NO_ANNUAL_CONFLICT
 ```
 
 | # | Policy | Denial Reason Code | Denial Message |
 |---|---|---|---|
-| 1 | `REQUIRE_INSPECTOR` | `MISSING_CAPABILITY` | *Access Denied: Inspector qualification is required for this operation.* |
-| 2 | `CERT_VALID` | `CERT_EXPIRED` | *Your Inspector certificate is expired or invalid.* |
-| 3 | `STRICT_COI` | `COI_VIOLATION` | *You cannot audit your own department.* |
-| 4 | `NO_SUPERVISOR_CONFLICT` | `SUPERVISOR_CONFLICT` | *You are a Site Supervisor for this location and cannot act as its inspector.* |
-| 5 | `DATE_WITHIN_PHASE` | `DATE_OUTSIDE_PHASE` | *The scheduled date does not fall within any configured audit phase.* |
-| 6 | `NO_ANNUAL_CONFLICT` | `LOCATION_YEAR_CONFLICT` | *This location is already scheduled to be inspected in the calendar year of the scheduled date.* |
+| 1 | `REQUIRE_ACTIVE_INSPECTOR` | `CERT_EXPIRED` | *Your Inspector certificate is expired or invalid.* |
+| 2 | `STRICT_COI` | `COI_VIOLATION` | *You cannot audit your own department.* |
+| 3 | `NO_SUPERVISOR_CONFLICT` | `SUPERVISOR_CONFLICT` | *You are a Site Supervisor for this location and cannot act as its inspector.* |
+| 4 | `DATE_WITHIN_PHASE` | `DATE_OUTSIDE_PHASE` | *The scheduled date does not fall within any configured audit phase.* |
+| 5 | `NO_ANNUAL_CONFLICT` | `LOCATION_YEAR_CONFLICT` | *This location is already scheduled to be inspected in the calendar year of the scheduled date.* |
 
 > **`STRICT_COI` has no exemptions — not even for Admins.** It is an absolute institutional integrity rule.
 
@@ -155,8 +153,7 @@ CanInspectAudit:
 
 | Policy | Type | Description |
 |---|---|---|
-| `REQUIRE_INSPECTOR` | Capability gate | User's capabilities must contain `asset_inspector` (derived from `qualifications[]` by the policy engine) |
-| `CERT_VALID` | Expiry gate | `certificationExpiry` must be present and ≥ current date in the organization's timezone (Asia/Kuala_Lumpur) |
+| `REQUIRE_ACTIVE_INSPECTOR` | Certificate gate | `certificationExpiry` must be present and ≥ current date in the organization's timezone (Asia/Kuala_Lumpur). A valid certificate IS the inspector qualification — no separate `qualifications[]` entry needed. |
 | `STRICT_COI` | Integrity rule | `user.departmentId ≠ targetDepartmentId` — **no exemptions** |
 | `NO_SUPERVISOR_CONFLICT` | Integrity rule | User must not be listed as supervisor for the target location |
 | `DATE_WITHIN_PHASE` | Phase scheduling rule | `scheduleDate` must fall within ANY configured audit phase (Phase 1, 2, or 3). Allows planning ahead across all phases. If `scheduleDate` is missing or no phase contains the date, deny with `DATE_OUTSIDE_PHASE` |
@@ -167,7 +164,7 @@ CanInspectAudit:
 
 | Composite | Constituent Policies | Used By |
 |---|---|---|
-| `CAN_INSPECT_AUDIT_POLICIES` | `REQUIRE_INSPECTOR` + `CERT_VALID` + `STRICT_COI` + `NO_SUPERVISOR_CONFLICT` + `DATE_WITHIN_PHASE` + `NO_ANNUAL_CONFLICT` | `auditAssignmentGuard` (all CanInspectAudit checks) |
+| `CAN_INSPECT_AUDIT_POLICIES` | `REQUIRE_ACTIVE_INSPECTOR` + `STRICT_COI` + `NO_SUPERVISOR_CONFLICT` + `DATE_WITHIN_PHASE` + `NO_ANNUAL_CONFLICT` | `auditAssignmentGuard` (all CanInspectAudit checks) |
 | `CAN_SELF_ASSIGN` | `CAN_INSPECT_AUDIT_POLICIES` + `assign:self` + `NO_DOUBLE_BOOKING` | `schedule.assign` (self-assignment to an open audit slot) |
 | `CAN_ASSIGN_OTHER_INSPECTOR` | Actor must hold `assign:others` (Admin only); target inspector passes `CAN_INSPECT_AUDIT_POLICIES` for that audit | Admin assigning inspectors cross-department |
 

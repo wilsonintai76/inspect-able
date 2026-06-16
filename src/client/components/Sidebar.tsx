@@ -60,13 +60,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const { locale, setLocale, t } = useLanguage();
 
   // Build a minimal user object for PBAC capability checks.
-  // Certified users without explicit "Inspector" qualification still need asset_inspector
-  // for Schedule access — inject "Inspector" into effective qualifications for them.
-  const hasExplicitInspector = (qualifications || []).includes('Inspector');
-  const effectiveQualifications = isCertified && !hasExplicitInspector
-    ? [...(qualifications || []), 'Inspector']
-    : (qualifications || []);
-  const clientUser = { roles: userRoles, qualifications: effectiveQualifications, certificationExpiry: isCertified ? '2099-12-31' : null };
+  const clientUser = { roles: userRoles, qualifications: qualifications || [], certificationExpiry: isCertified ? '2099-12-31' : null };
 
   const canAccessSchedule = hasCapability(clientUser, 'schedule:manage_dept') || hasCapability(clientUser, 'schedule:manage_all') || hasCapability(clientUser, 'asset_inspector');
   const canAccessLocations = hasCapability(clientUser, 'manage:locations');
