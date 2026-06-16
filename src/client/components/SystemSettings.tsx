@@ -323,14 +323,14 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
             <button
               onClick={async () => {
                 try {
-                  const r = await fetch('/api/audits/maintenance/cleanup-orphaned-reports', { method: 'POST' });
-                  const d = await r.json() as { success: boolean; deleted: number; message: string };
-                  showToast?.(d.message || `Cleaned ${d.deleted} files`);
-                } catch { showToast?.('Cleanup failed', 'warning'); }
+                  const r = await fetch('/api/audits/maintenance/migrate-kewpa-folder', { method: 'POST' });
+                  const d = await r.json() as { success: boolean; moved: number; message: string };
+                  showToast?.(d.message || `Moved ${d.moved} files`);
+                } catch { showToast?.('Migration failed', 'warning'); }
               }}
-              className="flex items-center gap-2 px-4 py-2 bg-amber-50 border border-amber-200 text-amber-700 rounded-xl text-xs font-bold hover:bg-amber-100 transition-colors"
+              className="flex items-center gap-2 px-4 py-2 bg-purple-50 border border-purple-200 text-purple-700 rounded-xl text-xs font-bold hover:bg-purple-100 transition-colors"
             >
-              <Trash2 className="w-3.5 h-3.5" /> Clean Orphaned R2 Reports
+              <FileArchive className="w-3.5 h-3.5" /> Move KEWPA Files to kewpa/ Folder
             </button>
             <button
               onClick={async () => {
@@ -344,9 +344,21 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
             >
               <RefreshCcw className="w-3.5 h-3.5" /> Sync Legacy Reports to DB
             </button>
+            <button
+              onClick={async () => {
+                try {
+                  const r = await fetch('/api/audits/maintenance/cleanup-orphaned-reports', { method: 'POST' });
+                  const d = await r.json() as { success: boolean; deleted: number; message: string };
+                  showToast?.(d.message || `Cleaned ${d.deleted} files`);
+                } catch { showToast?.('Cleanup failed', 'warning'); }
+              }}
+              className="flex items-center gap-2 px-4 py-2 bg-amber-50 border border-amber-200 text-amber-700 rounded-xl text-xs font-bold hover:bg-amber-100 transition-colors"
+            >
+              <Trash2 className="w-3.5 h-3.5" /> Clean Orphaned R2 Reports
+            </button>
           </div>
           <p className="text-[10px] text-slate-400 mt-3">
-            "Clean" removes R2 files not linked to any audit. "Sync" imports existing report paths into the multi-upload history.
+            Step 1: "Move" migrates old root-level KEWPA files to kewpa/ folder. Step 2: "Sync" imports report paths into history. Step 3: "Clean" removes unreferenced R2 files.
           </p>
         </div>
       )}

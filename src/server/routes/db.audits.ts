@@ -603,6 +603,37 @@ const reportAccessGuard = async (c: Context<{ Bindings: Bindings; Variables: Var
   return next();
 };
 
+// ─── Maintenance: Move old KEWPA files from root into kewpa/ folder ──
+router.post('/audits/maintenance/migrate-kewpa-folder', requirePolicy('system.reset', emptyContextBuilder()), async (c) => {
+  try {
+    const list = await c.env.MEDIA.list({ limit: 500 });
+    const kewpaPattern = /^\d+-.+\.pdf$/i;
+    let moved = 0;
+    for (const obj of list.objects) {
+      if (!kewpaPattern.test(obj.key)) continue;
+      const newKey = `kewpa/${obj.key}`;
+      // Copy to new location
+      const source = await c.env.MEDIA.get(obj.key);
+      if (source) {
+        await c.env.MEDIA.put(newKey, (source as any).body, {
+          httpMetadata: (source as any).httpMetadata || { contentType: 'application/pdf' },
+        });
+        // Update references in DB
+        const oldPath = `/api/media/${obj.key}`;
+        const newPath = `/api/media/${newKey}`;
+        await c.env.DB.prepare('UPDATE audit_schedules SET report_path = ? WHERE report_path = ?').bind(newPath, oldPath).run();
+        await c.env.DB.prepare('UPDATE audit_reports SET file_path = ? WHERE file_path = ?').bind(newPath, oldPath).run();
+        // Delete original
+        await c.env.MEDIA.delete(obj.key);
+        moved++;
+      }
+    }
+    return c.json({ success: true, moved, message: `Moved ${moved} KEWPA files from root to kewpa/ folder.` });
+  } catch (err: any) {
+    return c.json({ error: err.message }, 500);
+  }
+});
+
 // ─── Maintenance: Sync existing R2 report files into audit_reports ──
 router.post('/audits/maintenance/sync-reports-from-r2', requirePolicy('system.reset', emptyContextBuilder()), async (c) => {
   try {
