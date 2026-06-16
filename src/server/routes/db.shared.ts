@@ -295,13 +295,16 @@ export const patchAuditPermissionGuard = async (c: Context<{ Bindings: Bindings;
     updates.auditor1Id === caller.id ||
     updates.auditor2Id === caller.id;
 
-  // Supervisor scope: can only modify locations they supervise OR audits they're assigned to
+  // Supervisor scope: pick date (first time) is open to Supervisor+Inspector.
+  // Change date / unlock is restricted to supervised locations OR assigned audits.
   const supIds = existing.supervisor_id ? existing.supervisor_id.split(',').map(id => id.trim()).filter(Boolean) : [];
   const isSupervisorOfThisLocation = supIds.includes(caller.id);
+  const isFirstDatePick = updates.date !== undefined && !existing.date && updates.isLocked === undefined;
   const supervisorBlocked = isSupervisor && !isAdmin && !isCoordinator
-    && !isSupervisorOfThisLocation && !isAssignedAuditor;
+    && !isSupervisorOfThisLocation && !isAssignedAuditor
+    && !(canAudit && isFirstDatePick); // Supervisor+Inspector: open pick allowed
   if (supervisorBlocked) {
-    return c.json({ error: 'Forbidden: Supervisors can only modify audits for locations they supervise or audits they are assigned to.' }, 403);
+    return c.json({ error: 'Forbidden: Supervisors can only modify existing audits for locations they supervise or are assigned to.' }, 403);
   }
 
   // Inspector-only: can only modify audits they are assigned to
