@@ -28,7 +28,7 @@ Higher roles inherit **all** capabilities of lower roles. You never need multipl
 | `manage:locations` | — | ✅ (dept-scoped) | ✅ (inherited) | ✅ |
 | `schedule:manage_dept` | — | ✅ | ✅ (inherited) | ✅ (inherited; covered by `schedule:manage_all`) |
 | `schedule:manage_all` | — | — | — | ✅ |
-| `assign:others` | — | — | — | ✅ |
+| `assign:others` | — | — | — | ✅ (Admin only; COI makes same-dept Coordinator assignment impossible) |
 | `view:all_departments` | — | — | ✅ | ✅ (inherited) |
 | `manage:departments` | — | — | ✅ (dept-scoped) | ✅ |
 | `manage:users` | — | — | ✅ (dept-scoped) | ✅ |
@@ -61,12 +61,12 @@ Higher roles inherit **all** capabilities of lower roles. You never need multipl
 |---|---|---|
 | **Admin** | — | Full system administration |
 | **Admin** | Inspector | Full admin + `asset_inspector`, `assign:self` |
-| **Coordinator** | — | Manage own department, manage users/locations/groups/mappings |
+| **Coordinator** | — | Manage own department logistics (schedules, users, locations, groups, mappings). Cannot assign inspectors (COI deadlock). |
 | **Coordinator** | Inspector | Dept management + self-assign to cross-dept audits |
-| **Supervisor** | — | Manage locations in dept, manage dept schedules |
-| **Supervisor** | Inspector | Location management + self-assign as inspector |
+| **Supervisor** | — | Manage only locations they supervise (dates, lock/unlock). View own dept schedules. |
+| **Supervisor** | Inspector | Supervised locations + self-assign cross-dept as inspector. Can pick dates anywhere; change/unlock only on supervised or assigned audits. |
 | **Guest** | — | View dashboard only |
-| **Guest** | Inspector | Dashboard view + self-assign as inspector |
+| **Guest** | Inspector | Dashboard view + self-assign as inspector. Can pick dates anywhere; change/unlock only on assigned audits. |
 
 > **Design principle:** Never store `Coordinator + Inspector` as a role. Store `{ role: "Coordinator", qualifications: ["Inspector"] }` and let the policy engine derive the combined capability set.
 
@@ -80,8 +80,9 @@ Higher roles inherit **all** capabilities of lower roles. You never need multipl
 |---|---|---|
 | `schedule.assign` | `CAN_SELF_ASSIGN` | Users with `asset_inspector` + `assign:self` |
 | `schedule.unassign` | `SLOT_OWNER_OR_PRIVILEGED` | Slot owner or privileged role |
-| `schedule.lock` | `schedule:manage_dept` OR `schedule:manage_all` | Supervisor / Admin |
-| `schedule.set_date` | (`schedule:manage_dept` OR `schedule:manage_all`) + `DATE_WITHIN_PHASE` | Supervisor / Admin |
+| `schedule.lock` | (`schedule:manage_dept` OR `schedule:manage_all`) + per-role scope | Supervisor (own locations), Coordinator (own dept), Admin (all) |
+| `schedule.set_date` (pick) | `DATE_WITHIN_PHASE` only | Any inspector: first-time date pick on any location (COI + phase checked) |
+| `schedule.set_date` (change) | Per-role scope + `DATE_WITHIN_PHASE` | Supervisor (own locations), Coordinator (own dept), Inspector (assigned audits), Admin (all) |
 | `schedule.set_status` | (`schedule:manage_dept` OR `schedule:manage_all`) + `VALID_STATUS_TRANSITION` | Supervisor / Admin |
 | `schedule.upload_report` | `ASSIGNED_AUDITOR_ONLY` + `CERT_VALID` | Assigned auditor (certificate must be valid at upload time) |
 
@@ -168,7 +169,7 @@ CanInspectAudit:
 |---|---|---|
 | `CAN_INSPECT_AUDIT_POLICIES` | `REQUIRE_INSPECTOR` + `CERT_VALID` + `STRICT_COI` + `NO_SUPERVISOR_CONFLICT` + `DATE_WITHIN_PHASE` + `NO_ANNUAL_CONFLICT` | `auditAssignmentGuard` (all CanInspectAudit checks) |
 | `CAN_SELF_ASSIGN` | `CAN_INSPECT_AUDIT_POLICIES` + `assign:self` + `NO_DOUBLE_BOOKING` | `schedule.assign` (self-assignment to an open audit slot) |
-| `CAN_ASSIGN_OTHER_INSPECTOR` | Actor must hold `assign:others`; actor can manage the audit's department (`COORDINATOR_DEPT_SCOPE`); target inspector passes `CAN_INSPECT_AUDIT_POLICIES` for that audit | Coordinator/Admin assigning another inspector |
+| `CAN_ASSIGN_OTHER_INSPECTOR` | Actor must hold `assign:others` (Admin only); target inspector passes `CAN_INSPECT_AUDIT_POLICIES` for that audit | Admin assigning inspectors cross-department |
 
 ### Structural Policies
 
@@ -176,7 +177,7 @@ CanInspectAudit:
 |---|---|
 | `COORDINATOR_DEPT_SCOPE` | Coordinators can only act within their own department (Admin bypasses) |
 | `CAN_UPDATE_USER` | Self-update always allowed; updating others requires `manage:users` |
-| `CAN_ASSIGN_OTHERS` | Requires `assign:others` capability (Admin / Coordinator) |
+| `CAN_ASSIGN_OTHERS` | Requires `assign:others` capability (Admin only) |
 | `SLOT_OWNER_OR_PRIVILEGED` | Only the assigned slot owner or a privileged role (Supervisor/Coordinator/Admin) may unassign |
 | `ASSIGNED_AUDITOR_ONLY` | Only the auditor assigned to the slot may upload the inspection report |
 | `VALID_STATUS_TRANSITION` | Status changes must follow allowed transitions: `open → assigned → in_progress → submitted → reviewed → closed`. Arbitrary jumps are denied. Admin may override with `system:admin` capability — override must be logged with `auditLogReason` |
