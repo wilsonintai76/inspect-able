@@ -6,7 +6,7 @@
 
 ## 1. Role Hierarchy
 
-```
+```text
 Admin  >  Coordinator  >  Supervisor  >  Guest
   │            │               │           │
   │   inherit Supervisor       │     inherit Guest
@@ -23,7 +23,7 @@ Higher roles inherit **all** capabilities of lower roles. You never need multipl
 ## 2. Administrative Role → Capability Matrix
 
 | Capability | Guest | Supervisor | Coordinator | Admin |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | `view:dashboard` | ✅ | ✅ (inherited) | ✅ (inherited) | ✅ (inherited) |
 | `manage:locations` | — | ✅ (dept-scoped) | ✅ (inherited) | ✅ |
 | `schedule:manage_dept` | — | ✅ | ✅ (inherited) | ✅ (inherited; covered by `schedule:manage_all`) |
@@ -48,7 +48,7 @@ Higher roles inherit **all** capabilities of lower roles. You never need multipl
 ## 3. Inspector Activation
 
 | Trigger | Condition | Capabilities Granted |
-|---|---|---|
+| --- | --- | --- |
 | **Valid Certificate** | `certificationExpiry` is present and ≥ today (org timezone) | `asset_inspector`, `assign:self` |
 
 > **Note:** Inspector is not a role. A valid certificate IS the inspector qualification. No separate `qualifications[]` entry needed. Any user with any role becomes an active inspector when their certificate is valid.
@@ -58,7 +58,7 @@ Higher roles inherit **all** capabilities of lower roles. You never need multipl
 ## 4. Role + Qualification → Combined Capabilities
 
 | Administrative Role | Qualification | Combined Capabilities (Union) |
-|---|---|---|
+| --- | --- | --- |
 | **Admin** | — | Full system administration |
 | **Admin** | Inspector | Full admin + `asset_inspector`, `assign:self` |
 | **Coordinator** | — | Manage own department logistics (schedules, users, locations, groups, mappings). Cannot assign inspectors (COI deadlock). |
@@ -77,7 +77,7 @@ Higher roles inherit **all** capabilities of lower roles. You never need multipl
 ### 5.1 Audit Schedule Actions
 
 | Action | Policies Applied | Who Can Perform |
-|---|---|---|
+| --- | --- | --- |
 | `schedule.assign` | `CAN_SELF_ASSIGN` | Users with `asset_inspector` + `assign:self` |
 | `schedule.unassign` | `SLOT_OWNER_OR_PRIVILEGED` | Slot owner or privileged role |
 | `schedule.lock` | (`schedule:manage_dept` OR `schedule:manage_all`) + per-role scope | Supervisor (own locations), Coordinator (own dept), Admin (all) |
@@ -89,7 +89,7 @@ Higher roles inherit **all** capabilities of lower roles. You never need multipl
 ### 5.2 Audit CRUD
 
 | Action | Policies Applied |
-|---|---|
+| --- | --- |
 | `audit.create` | `system:admin` |
 | `audit.delete` | `system:admin` |
 | `audit.maintenance` | `manage:departments` + `COORDINATOR_DEPT_SCOPE` |
@@ -97,7 +97,7 @@ Higher roles inherit **all** capabilities of lower roles. You never need multipl
 ### 5.3 User Management
 
 | Action | Policies Applied |
-|---|---|
+| --- | --- |
 | `user.create` | `manage:users` + `COORDINATOR_DEPT_SCOPE` |
 | `user.update` | Self-update OR `manage:users` |
 | `user.delete` | `manage:users` |
@@ -107,7 +107,7 @@ Higher roles inherit **all** capabilities of lower roles. You never need multipl
 ### 5.4 Administration
 
 | Action | Required Capability |
-|---|---|
+| --- | --- |
 | `admin.manage` | `system:admin` |
 | `department.manage` | `manage:departments` |
 | `location.manage` | `manage:locations` |
@@ -126,7 +126,7 @@ Higher roles inherit **all** capabilities of lower roles. You never need multipl
 
 These five policies together define who is eligible to be assigned as an inspector:
 
-```
+```text
 CanInspectAudit:
   1. certificate is valid (not expired)               → REQUIRE_ACTIVE_INSPECTOR
   2. audit.department != user.department               → STRICT_COI
@@ -136,7 +136,7 @@ CanInspectAudit:
 ```
 
 | # | Policy | Denial Reason Code | Denial Message |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | 1 | `REQUIRE_ACTIVE_INSPECTOR` | `CERT_EXPIRED` | *Your Inspector certificate is expired or invalid.* |
 | 2 | `STRICT_COI` | `COI_VIOLATION` | *You cannot audit your own department.* |
 | 3 | `NO_SUPERVISOR_CONFLICT` | `SUPERVISOR_CONFLICT` | *You are a Site Supervisor for this location and cannot act as its inspector.* |
@@ -152,7 +152,7 @@ CanInspectAudit:
 ### Core Policies
 
 | Policy | Type | Description |
-|---|---|---|
+| --- | --- | --- |
 | `REQUIRE_ACTIVE_INSPECTOR` | Certificate gate | `certificationExpiry` must be present and ≥ current date in the organization's timezone (Asia/Kuala_Lumpur). A valid certificate IS the inspector qualification — no separate `qualifications[]` entry needed. |
 | `STRICT_COI` | Integrity rule | `user.departmentId ≠ targetDepartmentId` — **no exemptions** |
 | `NO_SUPERVISOR_CONFLICT` | Integrity rule | User must not be listed as supervisor for the target location |
@@ -163,7 +163,7 @@ CanInspectAudit:
 ### Composite Policies
 
 | Composite | Constituent Policies | Used By |
-|---|---|---|
+| --- | --- | --- |
 | `CAN_INSPECT_AUDIT_POLICIES` | `REQUIRE_ACTIVE_INSPECTOR` + `STRICT_COI` + `NO_SUPERVISOR_CONFLICT` + `DATE_WITHIN_PHASE` + `NO_ANNUAL_CONFLICT` | `auditAssignmentGuard` (all CanInspectAudit checks) |
 | `CAN_SELF_ASSIGN` | `REQUIRE_ACTIVE_INSPECTOR` + `STRICT_COI` + `NO_SUPERVISOR_CONFLICT` + `NO_ANNUAL_CONFLICT` + `assign:self` + `NO_DOUBLE_BOOKING` | `schedule.assign` (self-assignment, including to Pending audits with null date). `DATE_WITHIN_PHASE` is excluded — date is validated at pick time via `schedule.set_date`, not re-checked at assignment. |
 | `CAN_ASSIGN_OTHER_INSPECTOR` | Actor must hold `assign:others` (Admin only); target inspector passes `CAN_INSPECT_AUDIT_POLICIES` for that audit | Admin assigning inspectors cross-department |
@@ -171,7 +171,7 @@ CanInspectAudit:
 ### Structural Policies
 
 | Policy | Description |
-|---|---|
+| --- | --- |
 | `COORDINATOR_DEPT_SCOPE` | Coordinators can only act within their own department (Admin bypasses) |
 | `CAN_UPDATE_USER` | Self-update always allowed; updating others requires `manage:users` |
 | `CAN_ASSIGN_OTHERS` | Requires `assign:others` capability (Admin only) |
@@ -187,7 +187,7 @@ CanInspectAudit:
 ### User Record (relevant fields)
 
 | Field | Type | Purpose |
-|---|---|---|
+| --- | --- | --- |
 | `roles` | `string[]` (JSON) | Administrative role hierarchy: `["Admin"]`, `["Coordinator"]`, `["Supervisor"]`, `["Guest"]` |
 | `qualifications` | `string[]` (JSON) | Other operational tags (if any). Inspector is derived from `certificationExpiry`, NOT stored here. |
 | `certificationExpiry` | `string` (ISO date) | Institutional certificate expiry; required by `REQUIRE_ACTIVE_INSPECTOR` to activate inspection actions |
@@ -196,7 +196,7 @@ CanInspectAudit:
 ### Evaluation Context (per-request)
 
 | Field | Source | Purpose |
-|---|---|---|
+| --- | --- | --- |
 | `targetDepartmentId` | Audit's `department_id` | COI: compare against user's department |
 | `supervisorIds` | Audit's `supervisor_id` (comma-separated) | Supervisor conflict check |
 | `scheduleDate` | Audit schedule date | Date being assigned or updated; used by `DATE_WITHIN_PHASE` and `NO_ANNUAL_CONFLICT` |
