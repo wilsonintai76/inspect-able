@@ -78,17 +78,14 @@ router.post('/audits', zValidator('json', auditSchema), requirePolicy('audit.cre
   
   let phaseId = audit.phaseId;
   if (audit.date) {
-    const phaseCount = await c.env.DB.prepare('SELECT COUNT(*) as cnt FROM audit_phases').first<{cnt:number}>();
-    if ((phaseCount?.cnt ?? 0) > 0) {
-      const nd = normDate(audit.date);
-      const matchingPhase = await c.env.DB.prepare(
-        'SELECT id FROM audit_phases WHERE start_date <= ? AND end_date >= ? LIMIT 1'
-      ).bind(nd, nd).first<{ id: string }>();
-      if (!matchingPhase) {
-        return c.json({ error: 'Selected date must fall within a configured audit phase.' }, 400);
-      }
-      phaseId = matchingPhase.id;
+    const nd = normDate(audit.date);
+    const phases = await c.env.DB.prepare('SELECT id, start_date, end_date FROM audit_phases').all();
+    const phaseRows = (phases.results ?? []) as { id: string; start_date: string; end_date: string }[];
+    const matchingPhase = phaseRows.find(p => nd >= normDate(p.start_date) && nd <= normDate(p.endDate));
+    if (phaseRows.length > 0 && !matchingPhase) {
+      return c.json({ error: 'Selected date must fall within a configured audit phase.' }, 400);
     }
+    if (matchingPhase) phaseId = matchingPhase.id;
   } else {
     phaseId = null;
   }
@@ -140,19 +137,16 @@ router.patch('/audits/:id', zValidator('json', patchAuditSchema), patchAuditPerm
   // Pending audits stay Unscheduled (phase_id=NULL) until all slots filled.
   if (updates.date !== undefined) {
     if (updates.date) {
-      const phaseCount = await c.env.DB.prepare('SELECT COUNT(*) as cnt FROM audit_phases').first<{cnt:number}>();
-      if ((phaseCount?.cnt ?? 0) > 0) {
-        const nd = normDate(updates.date);
-        const matchingPhase = await c.env.DB.prepare(
-          'SELECT id FROM audit_phases WHERE start_date <= ? AND end_date >= ? LIMIT 1'
-        ).bind(nd, nd).first<{ id: string }>();
-        if (!matchingPhase) {
-          return c.json({ error: 'Selected date must fall within a configured audit phase.' }, 400);
-        }
-        // Only set phase if status is also transitioning to In Progress
-        if (updates.status === 'In Progress') {
-          updates.phaseId = matchingPhase.id;
-        }
+      const nd = normDate(updates.date);
+      const phases = await c.env.DB.prepare('SELECT id, start_date, end_date FROM audit_phases').all();
+      const phaseRows = (phases.results ?? []) as { id: string; start_date: string; end_date: string }[];
+      const matchingPhase = phaseRows.find(p => nd >= normDate(p.start_date) && nd <= normDate(p.end_date));
+      if (phaseRows.length > 0 && !matchingPhase) {
+        return c.json({ error: 'Selected date must fall within a configured audit phase.' }, 400);
+      }
+      // Only set phase if status is also transitioning to In Progress
+      if (matchingPhase && updates.status === 'In Progress') {
+        updates.phaseId = matchingPhase.id;
       }
     } else {
       updates.phaseId = null;

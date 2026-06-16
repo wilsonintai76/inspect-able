@@ -342,11 +342,10 @@ export const patchAuditPermissionGuard = async (c: Context<{ Bindings: Bindings;
     // 2. Phase check: only enforce if phases are configured
     if (updates.date !== null && updates.date !== '') {
       const nd = normDate(updates.date);
-      const matchingPhase = await c.env.DB.prepare(
-        'SELECT id FROM audit_phases WHERE start_date <= ? AND end_date >= ? LIMIT 1'
-      ).bind(nd, nd).first<{ id: string }>();
-      const phaseCount = await c.env.DB.prepare('SELECT COUNT(*) as cnt FROM audit_phases').first<{cnt:number}>();
-      if (!matchingPhase && (phaseCount?.cnt ?? 0) > 0) {
+      const phases = await c.env.DB.prepare('SELECT id, start_date, end_date FROM audit_phases').all();
+      const phaseRows = (phases.results ?? []) as { id: string; start_date: string; end_date: string }[];
+      const matchingPhase = phaseRows.find(p => nd >= normDate(p.start_date) && nd <= normDate(p.end_date));
+      if (phaseRows.length > 0 && !matchingPhase) {
         return c.json({ error: 'Forbidden: Selected date falls outside of all configured inspection phases.' }, 422);
       }
     }

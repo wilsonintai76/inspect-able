@@ -99,8 +99,6 @@ export const AuditorAssignmentSlot: React.FC<AuditorAssignmentSlotProps> = ({
     disableReason = "This audit date has already passed.";
   } else if (!hasPhases) {
     disableReason = "Scheduling is locked until an active phase is configured.";
-  } else if (!isDateValid) {
-    disableReason = "The current audit date is outside the authorized phase window.";
   }
 
   const eligibleOfficers = React.useMemo(() => {
