@@ -98,5 +98,3 @@ media.post('/archive', async (c) => {
 
   return c.json({ success: true, key, url: `/api/media/${key.replace(/\//g, '%2F')}` });
 });
-
-export const mediaRoutes = media;
