@@ -81,7 +81,7 @@ router.post('/audits', zValidator('json', auditSchema), requirePolicy('audit.cre
     const nd = normDate(audit.date);
     const phases = await c.env.DB.prepare('SELECT id, start_date, end_date FROM audit_phases').all();
     const phaseRows = (phases.results ?? []) as { id: string; start_date: string; end_date: string }[];
-    const matchingPhase = phaseRows.find(p => nd >= normDate(p.start_date) && nd <= normDate(p.endDate));
+    const matchingPhase = phaseRows.find(p => nd >= normDate(p.start_date) && nd <= normDate(p.end_date));
     if (phaseRows.length > 0 && !matchingPhase) {
       return c.json({ error: 'Selected date must fall within a configured audit phase.' }, 400);
     }
