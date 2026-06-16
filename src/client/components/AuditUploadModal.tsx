@@ -257,6 +257,16 @@ export const AuditUploadModal: React.FC<AuditUploadModalProps> = ({
   };
 
   const handleDeleteReport = async (reportId: string) => {
+    if (reportId === '__legacy__') {
+      // Legacy report not in audit_reports — clear via direct PATCH
+      await fetch(`/api/audits/${audit.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reportPath: null }),
+      }).catch(() => {});
+      onClose(); // close modal; parent refetches schedule
+      return;
+    }
     try {
       const res = await fetch(`/api/audits/${audit.id}/reports/${reportId}`, { method: 'DELETE' });
       if (res.ok) {
@@ -264,6 +274,13 @@ export const AuditUploadModal: React.FC<AuditUploadModalProps> = ({
       }
     } catch { /* silent */ }
   };
+
+  // Build a virtual report entry for the legacy reportPath (not in audit_reports table)
+  const legacyReport: AuditReport | null = (reports.length === 0 && audit.reportPath?.startsWith('http'))
+    ? { id: '__legacy__', auditId: audit.id, filePath: audit.reportPath, fileName: 'KEW-PA 11 (current)', uploadedAt: null }
+    : null;
+
+  const allReports = legacyReport ? [legacyReport, ...reports] : reports;
 
   return (
     <div className="fixed inset-0 z-200 flex items-center justify-center p-4">
@@ -305,19 +322,19 @@ export const AuditUploadModal: React.FC<AuditUploadModalProps> = ({
           </div>
 
           {/* Previous KEW-PA 11 Uploads */}
-          {!loadingReports && reports.length > 0 && (
+          {!loadingReports && allReports.length > 0 && (
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-[10px] font-black uppercase text-slate-500 tracking-widest">
-                <History className="w-3.5 h-3.5" /> Previous Uploads ({reports.length})
+                <History className="w-3.5 h-3.5" /> Previous Uploads ({allReports.length})
               </div>
               <div className="space-y-1.5 max-h-40 overflow-y-auto">
-                {reports.map((r) => (
+                {allReports.map((r) => (
                   <div key={r.id} className="flex items-center justify-between p-3 bg-slate-50 border border-slate-200 rounded-xl">
                     <div className="flex items-center gap-2.5 min-w-0">
                       <FileText className="w-4 h-4 text-emerald-600 shrink-0" />
                       <div className="min-w-0">
                         <div className="text-[11px] font-bold text-slate-700 truncate">{r.fileName || 'KEW-PA 11'}</div>
-                        <div className="text-[9px] text-slate-400 font-medium">{r.uploadedAt ? new Date(r.uploadedAt).toLocaleDateString('en-GB') : ''}</div>
+                        <div className="text-[9px] text-slate-400 font-medium">{r.uploadedAt ? new Date(r.uploadedAt).toLocaleDateString('en-GB') : 'Existing upload'}</div>
                       </div>
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">
@@ -337,27 +354,12 @@ export const AuditUploadModal: React.FC<AuditUploadModalProps> = ({
             </div>
           )}
 
-          {/* Current Document if already exists */}
-          {audit.reportPath && (audit.reportPath.startsWith('http') || audit.reportPath.startsWith('/')) && (
-            <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-2xl flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 bg-emerald-100 rounded-lg flex items-center justify-center text-emerald-600">
-                  <CheckCircle2 className="w-4 h-4" />
-                </div>
-                <div>
-                  <div className="text-[9px] font-black text-emerald-700 uppercase tracking-widest leading-none mb-1">Already Documented</div>
-                  <div className="text-[10px] text-emerald-600 font-medium">
-                    KEW-PA 11 PDF is stored in Cloudflare R2
-                  </div>
-                </div>
-              </div>
-              <a 
-                href={audit.reportPath}
-                target="_blank"
-                rel="noreferrer"
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-white text-emerald-600 border border-emerald-200 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-50 transition-colors shadow-sm"
-              >
-                View PDF <ExternalLink className="w-3 h-3" />
+          {/* Current Document — compact view when reports already listed above */}
+          {reports.length > 0 && audit.reportPath && (audit.reportPath.startsWith('http') || audit.reportPath.startsWith('/')) && (
+            <div className="p-3 bg-emerald-50/50 border border-emerald-100 rounded-xl text-center text-[10px] text-emerald-600 font-medium">
+              Latest report: <a href={audit.reportPath} target="_blank" rel="noreferrer" className="font-bold underline">View PDF</a>
+            </div>
+          )}
               </a>
             </div>
           )}
