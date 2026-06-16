@@ -584,24 +584,33 @@ router.post('/users/:id/reset-password', requirePolicy('user.update', emptyConte
 
 // ─── Multi-KEWPA Report Upload ────────────────────────────────────────
 
-// Access guard: only admin or assigned inspector can manage reports
+// Access guard: admin, assigned inspector, supervisor of location, or coordinator of dept
 const reportAccessGuard = async (c: Context<{ Bindings: Bindings; Variables: Variables }>, next: Next) => {
   const caller = c.get('user')!;
   const caps = deriveCapabilities(caller as any);
   if (caps.has('system:admin')) return next();
-  if (!caps.has('asset_inspector')) {
-    return c.json({ error: 'Only qualified inspectors or admins can manage KEW-PA 11 reports.' }, 403);
-  }
-  // Inspector must be assigned to this audit
+
   const auditId = c.req.param('id');
   const audit = await c.env.DB.prepare(
-    'SELECT auditor1_id, auditor2_id FROM audit_schedules WHERE id = ?'
-  ).bind(auditId).first<{ auditor1_id: string | null; auditor2_id: string | null }>();
+    'SELECT auditor1_id, auditor2_id, supervisor_id, department_id FROM audit_schedules WHERE id = ?'
+  ).bind(auditId).first<{ auditor1_id: string | null; auditor2_id: string | null; supervisor_id: string | null; department_id: string | null }>();
   if (!audit) return c.json({ error: 'Audit not found' }, 404);
-  if (audit.auditor1_id !== caller.id && audit.auditor2_id !== caller.id) {
-    return c.json({ error: 'You can only upload reports for audits you are assigned to.' }, 403);
+
+  // Assigned inspector
+  if (caps.has('asset_inspector') && (audit.auditor1_id === caller.id || audit.auditor2_id === caller.id)) {
+    return next();
   }
-  return next();
+  // Supervisor of this location
+  if (caps.has('manage:locations')) {
+    const supIds = (audit.supervisor_id || '').split(',').map(id => id.trim()).filter(Boolean);
+    if (supIds.includes(caller.id)) return next();
+  }
+  // Coordinator of this department
+  if (caps.has('manage:departments') && audit.department_id === (caller as any).departmentId) {
+    return next();
+  }
+
+  return c.json({ error: 'You are not authorized to manage KEW-PA 11 reports for this audit.' }, 403);
 };
 
 // List all reports for an audit
