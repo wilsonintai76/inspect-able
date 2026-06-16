@@ -76,6 +76,10 @@ export const AuditTableRow: React.FC<AuditTableRowProps> = ({
   const isLocked = isAuditLocked(audit);
   const isEffectivelyLocked = isLocked || audit.status === 'In Progress' || audit.status === 'Completed';
 
+  // Coordinator dept-scope: can only assign others within own department
+  const isOwnDept = currentUser?.departmentId === audit.departmentId;
+  const canAssignOthersHere = canAssignOthers && (!isCoordinator || isOwnDept);
+
   // Per-row date permission: any user who can view the matrix may pick dates;
   // Privileged roles (Admin/Coordinator/Supervisor) can always edit dates even on locked rows;
   // other users are blocked when the row is locked / In-Progress / Completed.
@@ -381,7 +385,7 @@ export const AuditTableRow: React.FC<AuditTableRowProps> = ({
               users={users}
               currentUser={currentUser ?? null}
               canManageAssignments={(canEditDates || canSelfAssignPerm || canAssignOthers || canSelfAssignSelf) && !isLocked}
-              canAssignOthers={canAssignOthers && !isLocked}
+              canAssignOthers={canAssignOthersHere && !isLocked}
               isAdmin={isAdmin}
               canSelfAssignSelf={canSelfAssignSelf && !isLocked}
               userCanAudit={userCanAudit}

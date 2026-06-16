@@ -194,8 +194,13 @@ export const auditAssignmentGuard = async (
       if (!auditor) continue;
 
       if (canAssignOthers && isCoordinatorCaller && !isAdminCaller) {
+        // Coordinator can only assign inspectors FROM their own department
         if (!caller.departmentId || auditor.department_id !== caller.departmentId) {
           return c.json({ error: 'Forbidden: coordinators may only assign Inspectors from their own department' }, 403);
+        }
+        // Coordinator can only assign TO audits in their own department
+        if (targetDeptId && caller.departmentId !== targetDeptId) {
+          return c.json({ error: 'Forbidden: coordinators may only assign Inspectors to audits in their own department' }, 403);
         }
       }
 
