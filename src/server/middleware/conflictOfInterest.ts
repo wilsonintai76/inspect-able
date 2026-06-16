@@ -213,11 +213,13 @@ export const auditAssignmentGuard = async (
         qualifications: qualificationsParsed,
       };
 
-      // Run PBAC engine checks for schedule.assign on the assignee
+      // Run PBAC engine checks for schedule.assign on the assignee.
+      // dateInAnyPhase: true — date was already validated by date picker
       const evalResult = evaluateAccess(pbaoAuditor, 'schedule.assign', {
         targetDepartmentId: targetDeptId,
         supervisorIds,
         hasAnnualConflict,
+        dateInAnyPhase: true,  // SKIP: date validated separately at date-pick time
       });
 
       if (!evalResult.allowed) {
