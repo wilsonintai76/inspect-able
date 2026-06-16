@@ -635,7 +635,7 @@ const PBAC_REASON_MESSAGES: Record<string, string> = {
   LOCATION_YEAR_CONFLICT:
     'Conflict: This location is already scheduled to be inspected in the calendar year of the scheduled date.',
   DATE_OUTSIDE_PHASE:
-    'The scheduled date falls outside the selected audit phase.',
+    'The scheduled date does not fall within any configured audit phase (Phase 1, 2, or 3).',
   AUTH_REQUIRED:
     'Authentication required. Please sign in.',
   PBAC_CONTEXT_ERROR:

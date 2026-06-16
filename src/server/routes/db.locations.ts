@@ -88,15 +88,11 @@ router.post('/locations', requirePolicy('location.manage', emptyContextBuilder()
       loc.isActive !== undefined ? (loc.isActive ? 1 : 0) : 1,
       loc.status ?? 'Active'
     ).run();
-    // Auto-generate audit schedule for the new location
-    const activePhase = await c.env.DB.prepare(
-      "SELECT id FROM audit_phases WHERE status = 'Active' ORDER BY start_date DESC LIMIT 1"
-    ).first<{ id: string }>();
-    
+    // Auto-generate audit schedule for the new location (unscheduled — no phase pre-assigned)
     if (loc.departmentId) {
       await c.env.DB.prepare(
-        `INSERT OR IGNORE INTO audit_schedules (id, department_id, location_id, supervisor_id, status, phase_id) VALUES (?, ?, ?, ?, 'Pending', ?)`
-      ).bind(crypto.randomUUID(), loc.departmentId, id, loc.supervisorId || null, activePhase?.id || null).run();
+        `INSERT OR IGNORE INTO audit_schedules (id, department_id, location_id, supervisor_id, status, phase_id) VALUES (?, ?, ?, ?, 'Pending', NULL)`
+      ).bind(crypto.randomUUID(), loc.departmentId, id, loc.supervisorId || null).run();
       invalidateScheduleCache(c.env.SETTINGS);
     }
 
@@ -394,10 +390,6 @@ router.post('/locations/bulk', requirePolicy('location.manage', emptyContextBuil
     }
 
     // 4. Batch Insert
-    const activePhase = await c.env.DB.prepare(
-      "SELECT id FROM audit_phases WHERE status = 'Active' ORDER BY start_date DESC LIMIT 1"
-    ).first<{ id: string }>();
-
     const statements = processedLocs.flatMap((loc: any) => {
       const id = loc.id || crypto.randomUUID();
       const locInsert = c.env.DB.prepare(
@@ -423,8 +415,8 @@ router.post('/locations/bulk', requirePolicy('location.manage', emptyContextBuil
       const stmts = [locInsert];
       if (loc.departmentId) {
         stmts.push(c.env.DB.prepare(
-          `INSERT OR IGNORE INTO audit_schedules (id, department_id, location_id, supervisor_id, status, phase_id) VALUES (?, ?, ?, ?, 'Pending', ?)`
-        ).bind(crypto.randomUUID(), loc.departmentId, id, loc.supervisorId || null, activePhase?.id || null));
+          `INSERT OR IGNORE INTO audit_schedules (id, department_id, location_id, supervisor_id, status, phase_id) VALUES (?, ?, ?, ?, 'Pending', NULL)`
+        ).bind(crypto.randomUUID(), loc.departmentId, id, loc.supervisorId || null));
       }
       return stmts;
     });
@@ -495,8 +487,8 @@ router.post('/locations/upsert', requirePolicy('location.manage', emptyContextBu
       const stmts = [locUpsert];
       if (l.departmentId) {
         stmts.push(c.env.DB.prepare(
-          `INSERT OR IGNORE INTO audit_schedules (id, department_id, location_id, supervisor_id, status, phase_id) VALUES (?, ?, ?, ?, 'Pending', ?)`
-        ).bind(crypto.randomUUID(), l.departmentId, id, l.supervisorId || null, activePhase?.id || null));
+          `INSERT OR IGNORE INTO audit_schedules (id, department_id, location_id, supervisor_id, status, phase_id) VALUES (?, ?, ?, ?, 'Pending', NULL)`
+        ).bind(crypto.randomUUID(), l.departmentId, id, l.supervisorId || null));
       }
       return stmts;
     });
