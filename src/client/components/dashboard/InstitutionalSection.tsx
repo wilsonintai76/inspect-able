@@ -429,11 +429,12 @@ export const InstitutionalSection: React.FC<InstitutionalSectionProps> = ({
   const tabOptions = useMemo(() => {
     const isCoordinator = hasCapability(currentUser, 'manage:users') || hasCapability(currentUser, 'system:admin');
     const isSupervisor = hasCapability(currentUser, 'schedule:manage_dept') || hasCapability(currentUser, 'schedule:manage_all');
+    const isInspector = hasCapability(currentUser, 'asset_inspector') || isQAIActive;
     return [
       { id: 'institution', label: 'Institution Overview', icon: Trophy, visible: true, count: null },
       { id: 'department', label: 'My Department', icon: Users, visible: isCoordinator, count: coordStaffGaps.length },
       { id: 'supervisor', label: 'My Supervised Sites', icon: MapPin, visible: isSupervisor, count: supPendingApprovals.length + supUpcomingInspections.filter(s => s.status === 'In Progress').length },
-      { id: 'assignments', label: 'My Assignments', icon: CalendarDays, visible: true, count: mySchedules.filter(s => s.status !== 'Completed').length },
+      { id: 'assignments', label: 'My Assignments', icon: CalendarDays, visible: isInspector, count: mySchedules.filter(s => s.status !== 'Completed').length },
     ];
   }, [currentUser, coordStaffGaps, supPendingApprovals, supUpcomingInspections, mySchedules]);
 
@@ -441,8 +442,9 @@ export const InstitutionalSection: React.FC<InstitutionalSectionProps> = ({
     if (hasCapability(currentUser, 'system:admin')) return 'institution';
     if (hasCapability(currentUser, 'manage:users')) return 'department';
     if (hasCapability(currentUser, 'schedule:manage_dept')) return 'supervisor';
-    return 'assignments';
-  }, [currentUser]);
+    if (hasCapability(currentUser, 'asset_inspector') || isQAIActive) return 'assignments';
+    return 'institution'; // Guest without inspector: show overview only
+  }, [currentUser, isQAIActive]);
 
   const [activeTab, setActiveTab] = useState<string>(defaultTab);
 
