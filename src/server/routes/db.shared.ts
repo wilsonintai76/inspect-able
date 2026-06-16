@@ -295,6 +295,17 @@ export const patchAuditPermissionGuard = async (c: Context<{ Bindings: Bindings;
     return c.json({ error: 'Forbidden: Supervisors can only modify audits for locations they supervise.' }, 403);
   }
 
+  // Inspector-only: can only modify audits they are assigned to
+  const isAssignedAuditor = 
+    existing.auditor1_id === caller.id || 
+    existing.auditor2_id === caller.id ||
+    updates.auditor1Id === caller.id ||
+    updates.auditor2Id === caller.id;
+  const isInspectorOnly = canAudit && !isAdmin && !isCoordinator && !isSupervisor;
+  if (isInspectorOnly && !isAssignedAuditor) {
+    return c.json({ error: 'Forbidden: Inspectors can only modify audits they are assigned to.' }, 403);
+  }
+
   // Early return for Admin or Coordinator within their own department
   if (isAdmin || (isCoordinator && isOwnDept)) return next();
 
@@ -332,12 +343,6 @@ export const patchAuditPermissionGuard = async (c: Context<{ Bindings: Bindings;
     }
   }
 
-
-  const isAssignedAuditor = 
-    existing.auditor1_id === caller.id || 
-    existing.auditor2_id === caller.id ||
-    updates.auditor1Id === caller.id ||
-    updates.auditor2Id === caller.id;
 
   if (updates.date !== undefined) {
     // 1. Lock check: If locked, block regular users from changing the date
