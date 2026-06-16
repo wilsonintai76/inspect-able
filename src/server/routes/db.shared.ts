@@ -106,7 +106,10 @@ export const auditLockGuard = async (c: Context<{ Bindings: Bindings; Variables:
   const caller = c.get('user')!;
   const caps = deriveCapabilities({ id: caller.id, email: caller.email, role: caller.role, roles: caller.roles || [], departmentId: caller.departmentId || null, certificationExpiry: caller.certificationExpiry || null });
 
-  if (caps.has('system:admin') || caps.has('manage:departments') || caps.has('manage:locations')) return next();
+  if (caps.has('system:admin') || caps.has('manage:departments')) return next();
+
+  // Supervisor: only for locations they supervise
+  const isSupervisorOnly = caps.has('manage:locations') && !caps.has('manage:departments') && !caps.has('system:admin');
 
   const id = c.req.param('id');
   const updates = (c.req as any).valid('json') as Record<string, any>;
@@ -285,8 +288,12 @@ export const patchAuditPermissionGuard = async (c: Context<{ Bindings: Bindings;
     }
   }
 
-  // A Supervisor is only privileged within their own department
-  const isSupervisorPrivileged = isSupervisor && isOwnDept;
+  // A Supervisor is only privileged within their own department AND locations they supervise
+  const supIds = existing.supervisor_id ? existing.supervisor_id.split(',').map(id => id.trim()).filter(Boolean) : [];
+  const isSupervisorOfThisLocation = supIds.includes(caller.id);
+  if (isSupervisor && !isAdmin && !isCoordinator && !isSupervisorOfThisLocation) {
+    return c.json({ error: 'Forbidden: Supervisors can only modify audits for locations they supervise.' }, 403);
+  }
 
   // Early return for Admin or Coordinator within their own department
   if (isAdmin || (isCoordinator && isOwnDept)) return next();
