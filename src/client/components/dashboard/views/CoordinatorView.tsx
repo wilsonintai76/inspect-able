@@ -72,11 +72,8 @@ export const CoordinatorView: React.FC<CoordinatorViewProps> = ({
               <span className="font-bold text-slate-400">Department Audit Progress</span>
               <span className="font-black text-white">{coordStats.progress}% Completed</span>
             </div>
-            <div className="w-full bg-slate-800 rounded-full h-3">
-              <div 
-                className="bg-indigo-500 h-3 rounded-full transition-all duration-500" 
-                style={{ width: `${coordStats.progress}%` }}
-              ></div>
+            <div className="w-full bg-slate-800 rounded-full h-3" style={{ '--progress': `${coordStats.progress}%` } as React.CSSProperties}>
+              <div className="bg-indigo-500 h-3 rounded-full transition-all duration-500 w-(--progress)"></div>
             </div>
           </div>
         </div>

@@ -92,7 +92,7 @@ export const MainAppLayout: React.FC<MainAppLayoutProps> = ({
                           Manual Pemeriksaan Aset Alih Kerajaan (SPPA)
                         </DialogTitle>
                       </DialogHeader>
-                      <div className="flex-grow w-full h-full relative bg-slate-950">
+                      <div className="grow w-full h-full relative bg-slate-950">
                         <iframe 
                           src="/manuals/sppa-manual.pdf#toolbar=0" 
                           className="absolute inset-0 w-full h-full border-0"

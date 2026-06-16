@@ -55,7 +55,7 @@ export const GlobalModals: React.FC<GlobalModalsProps> = ({
     <>
       {/* Custom Confirm Modal */}
       {confirmState && (
-        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-in fade-in">
+        <div className="fixed inset-0 z-300 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-in fade-in">
           <div className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl animate-in zoom-in-95">
             <h3 className="text-lg font-bold text-slate-900 mb-2">{confirmState.title}</h3>
             <p className="text-sm text-slate-600 mb-6">{confirmState.message}</p>
@@ -97,7 +97,7 @@ export const GlobalModals: React.FC<GlobalModalsProps> = ({
 
       {/* Forced Password Update Modal */}
       {showForcePasswordModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md animate-in fade-in">
+        <div className="fixed inset-0 z-100 flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md animate-in fade-in">
           <div className="bg-white rounded-[2rem] p-8 max-w-md w-full shadow-2xl border border-blue-50 animate-in zoom-in-95">
             <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center mb-6">
               <Key className="w-8 h-8 text-blue-600" />
@@ -162,7 +162,7 @@ export const GlobalModals: React.FC<GlobalModalsProps> = ({
 
       {/* Profile Incomplete Reminder */}
       {showProfileCompleteModal && (
-        <div className="fixed inset-0 z-[90] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in">
+        <div className="fixed inset-0 z-90 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in">
           <div className="bg-white rounded-[2rem] p-8 max-w-md w-full shadow-2xl border border-amber-50 animate-in zoom-in-95">
             <div className="w-16 h-16 bg-amber-50 rounded-2xl flex items-center justify-center mb-6">
               <UserCheck className="w-8 h-8 text-amber-600" />
