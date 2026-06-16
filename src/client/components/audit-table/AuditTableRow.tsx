@@ -98,7 +98,7 @@ export const AuditTableRow: React.FC<AuditTableRowProps> = ({
     if (newDate) {
       const isValid = isDateInValidPhase(newDate, audit.phaseId);
       if (!isValid) {
-        alert('Please select a date that falls within one of the active inspection phases.');
+        alert('Selected date must fall within any configured audit phase (Phase 1, 2, or 3).');
         setEditingDate(false);
         return;
       }

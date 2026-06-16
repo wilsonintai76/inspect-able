@@ -163,11 +163,10 @@ export const AuditTable: React.FC<AuditTableProps> = ({
     return loc?.contact || '';
   };
 
-  const isDateInValidPhase = (dateStr: string, phaseId: string): boolean => {
+  const isDateInValidPhase = (dateStr: string, _phaseId: string): boolean => {
     if (!dateStr) return true; 
-    const phase = auditPhases.find(p => p.id === phaseId);
-    if (!phase) return false;
-    return dateStr >= phase.startDate && dateStr <= phase.endDate;
+    // Check ALL phases — users can plan ahead across any phase
+    return auditPhases.some(p => dateStr >= p.startDate && dateStr <= p.endDate);
   };
 
   const handleDateChange = (id: string, newDate: string, phaseId: string) => {
