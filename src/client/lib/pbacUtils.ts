@@ -9,9 +9,25 @@
  * ── ROLES ARE HIERARCHICAL ──────────────────────────────────────────────
  * Higher roles inherit ALL capabilities of lower roles.
  *
- *   Admin > Coordinator > Supervisor > Staff (guest)
+ *   Admin > Coordinator > Supervisor > Guest (base)
  *
- * Certified Officer = any role + valid cert → asset_inspector + assign:self
+ * ── Roles vs Qualifications ────────────────────────────────────────────
+ * Roles define ADMINISTRATIVE scope. Qualifications (e.g. "Inspector")
+ * grant OPERATIONAL capabilities (self-assign, inspect). The PBAC engine
+ * derives capabilities from BOTH and unions them.
+ *
+ *   - Coordinator + Inspector:
+ *     Can manage department (Coordinator capabilities) AND self-assign to
+ *     cross-department audits (Inspector capabilities).
+ *
+ *   - Supervisor + Inspector:
+ *     Can manage locations in department AND self-assign as Inspector.
+ *
+ *   - Guest + Inspector:
+ *     Read-only dashboard view AND self-assign as Inspector.
+ *
+ *   - Admin + Inspector:
+ *     Full administrative controls AND self-assign as Inspector.
  * ─────────────────────────────────────────────────────────────────────────
  */
 
@@ -87,15 +103,19 @@ function deriveClientRoleCapabilities(user: ClientUser | null): Set<string> {
   return caps;
 }
 
+/**
+ * Derives capability strings from user qualifications.
+ * Inspector qualification alone grants asset_inspector + assign:self.
+ * Valid certificate is checked separately by CERT_VALID policy in engine.
+ */
 function deriveClientQualificationCapabilities(user: ClientUser | null): Set<string> {
   const caps = new Set<string>();
   if (!user) return caps;
 
-  // ── Qualified Asset Inspector (QAI) ─────────────────────────────────
-  // Qualifications contain "Inspector" OR user has a valid certificate -> has asset_inspector and assign:self capabilities.
-  const today = new Date().toISOString().split('T')[0];
-  const isCertValid = !!user.certificationExpiry && user.certificationExpiry >= today;
-  const hasInspectorQual = user.qualifications?.includes('Inspector') || isCertValid;
+  // ── Inspector Qualification ─────────────────────────────────────────
+  // Qualification grants capabilities; certificate validity is a separate
+  // policy gate (CERT_VALID) checked at action time, not at derivation.
+  const hasInspectorQual = user.qualifications?.includes('Inspector') ?? false;
   if (hasInspectorQual) {
     caps.add('asset_inspector');
     caps.add('assign:self');

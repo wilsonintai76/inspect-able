@@ -8,6 +8,7 @@ import {
   AlertTriangle, Phone, UserCheck, RotateCcw, FileText, ExternalLink, Upload, Mail, MapPin, Boxes,
 } from 'lucide-react';
 
+
 export interface AuditTableRowProps {
   audit: AuditSchedule;
   users: User[];
@@ -95,14 +96,7 @@ export const AuditTableRow: React.FC<AuditTableRowProps> = ({
 
   const commitDateEdit = (newDate: string) => {
     if (newDate) {
-      const isValid = auditPhases.some(p => {
-        const start = new Date(p.startDate);
-        const end = new Date(p.endDate);
-        start.setHours(0, 0, 0, 0);
-        end.setHours(23, 59, 59, 999);
-        const d = new Date(newDate);
-        return d >= start && d <= end;
-      });
+      const isValid = isDateInValidPhase(newDate, audit.phaseId);
       if (!isValid) {
         alert('Please select a date that falls within one of the active inspection phases.');
         setEditingDate(false);
@@ -132,14 +126,7 @@ export const AuditTableRow: React.FC<AuditTableRowProps> = ({
     ? auditPhases.reduce((max, p) => p.endDate > max ? p.endDate : max, auditPhases[0].endDate)
     : undefined;
 
-  const isDateValid = !audit.date || auditPhases.some(p => {
-    const start = new Date(p.startDate);
-    const end = new Date(p.endDate);
-    start.setHours(0, 0, 0, 0);
-    end.setHours(23, 59, 59, 999);
-    const d = new Date(audit.date);
-    return d >= start && d <= end;
-  });
+  const isDateValid = !audit.date || auditPhases.some(p => audit.date >= p.startDate && audit.date <= p.endDate);
   const locationLevel = loc?.level;
   const canLock = isAdmin || isCoordinator || isSupervisor || isInspector; // Admin, Coordinator, Supervisor & Inspector can unlock
   const allFieldsSet = !!(audit.date && audit.supervisorId && audit.auditor1Id && audit.auditor2Id);

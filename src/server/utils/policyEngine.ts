@@ -40,7 +40,7 @@ export interface PolicyEvaluationContext {
   targetDepartmentId?: string | null;
   /** The ID of the target user (for user.update self-update checks). */
   targetUserId?: string | null;
-  /** The current status of the schedule slot (e.g. 'open', 'assigned'). */
+  /** The current status of the schedule slot (e.g. 'Pending', 'In Progress'). */
   scheduleStatus?: string | null;
   /** The auditor ID of an already-filled slot (for double-booking checks). */
   existingAuditor1Id?: string | null;
@@ -49,6 +49,20 @@ export interface PolicyEvaluationContext {
   supervisorIds?: string[];
   /** Whether the system is in open-audit mode (bypasses cross-audit matrix). */
   isOpenAuditMode?: boolean;
+  /** Schedule date being assigned/updated (for DATE_WITHIN_PHASE, NO_ANNUAL_CONFLICT). */
+  scheduleDate?: string | null;
+  /** Selected phase start date boundary (for DATE_WITHIN_PHASE). */
+  phaseStartDate?: string | null;
+  /** Selected phase end date boundary (for DATE_WITHIN_PHASE). */
+  phaseEndDate?: string | null;
+  /** Current schedule status value (for VALID_STATUS_TRANSITION). */
+  currentStatus?: string | null;
+  /** Target status to transition to (for VALID_STATUS_TRANSITION). */
+  nextStatus?: string | null;
+  /** Current schedule record ID (excluded from NO_ANNUAL_CONFLICT on edit). */
+  currentScheduleId?: string | null;
+  /** Pre-computed annual conflict flag (set by checkLocationYearConflict). */
+  hasAnnualConflict?: boolean;
   /** Extra facts any custom policy can consume. */
   [key: string]: any;
 }
@@ -94,8 +108,7 @@ export type PbacAction =
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /**
- * Derives a set of capability strings from the user's current D1 fields.
- * This is the bridge between legacy RBAC roles and the PBAC capability model.
+ * Derives capability strings from the user's administrative Role.
  *
  * ── ROLES ARE HIERARCHICAL ──────────────────────────────────────────────
  * Higher roles inherit ALL capabilities of lower roles.
@@ -105,8 +118,24 @@ export type PbacAction =
  * Example: A Coordinator automatically gets Supervisor + Guest capabilities.
  * You never need to assign multiple roles like "Coordinator+Supervisor".
  *
- * ── Certified Officer ───────────────────────────────────────────────────
- * Any role + valid certification → asset_inspector (can perform audits).
+ * ── Roles vs Qualifications ────────────────────────────────────────────
+ * Roles define ADMINISTRATIVE scope (manage users, departments, etc.).
+ * Qualifications (e.g. "Inspector") grant OPERATIONAL capabilities
+ * (self-assign to audits, inspect assets). They are derived separately
+ * in deriveQualificationCapabilities() and unioned by deriveCapabilities().
+ *
+ *   - Coordinator + Inspector:
+ *     Can manage department (Coordinator capabilities) AND self-assign to
+ *     cross-department audits (Inspector capabilities).
+ *
+ *   - Supervisor + Inspector:
+ *     Can manage locations in department AND self-assign as Inspector.
+ *
+ *   - Guest + Inspector:
+ *     Read-only dashboard view AND self-assign as Inspector.
+ *
+ *   - Admin + Inspector:
+ *     Full administrative controls AND self-assign as Inspector.
  * ─────────────────────────────────────────────────────────────────────────
  */
 function deriveRoleCapabilities(user: PbaoUser): Set<string> {
@@ -165,20 +194,28 @@ function deriveRoleCapabilities(user: PbaoUser): Set<string> {
 }
 
 /**
- * Derives capability strings from the user's field qualifications.
- * A Qualification is an operational capability overlay, separate from an administrative Role.
+ * Derives capability strings from the user's Qualifications.
+ *
+ * A Qualification is an operational capability overlay — it grants inspection
+ * authority regardless of administrative Role. The policy engine unions
+ * qualification-derived capabilities with role-derived capabilities.
+ *
+ * ── Inspector Qualification ────────────────────────────────────────────
+ * Grants asset_inspector (can perform audits) and assign:self (can claim
+ * open audit slots). Activated by either:
+ *   - An explicit "Inspector" entry in the qualifications[] array, OR
+ *   - A valid (non-expired) certificationExpiry date.
  */
 function deriveQualificationCapabilities(user: PbaoUser): Set<string> {
   const caps = new Set<string>();
 
-  // ── Qualified Asset Inspector (QAI) ──────────────────────────────────
-  // Qualifications contain "Inspector" OR user has a valid certificate -> has asset_inspector and assign:self capabilities.
-  const today = new Date().toISOString().split('T')[0];
-  const isCertValid = !!user.certificationExpiry && user.certificationExpiry >= today;
-  const hasInspectorQual = user.qualifications?.includes('Inspector') || isCertValid;
+  // ── Inspector Qualification ────────────────────────────────────────────
+  // Qualification grants capabilities; certificate validity is a separate
+  // policy gate (CERT_VALID) checked at action time, not at derivation.
+  const hasInspectorQual = user.qualifications?.includes('Inspector') ?? false;
   if (hasInspectorQual) {
     caps.add('asset_inspector');
-    caps.add('assign:self');  // QAI → can self-assign to audit slots
+    caps.add('assign:self');
   }
 
   return caps;
@@ -226,14 +263,14 @@ const STRICT_COI: PolicyDefinition = {
 /**
  * NO_DOUBLE_BOOKING — Slot Availability
  *
- * DENY when the schedule slot is already filled (not 'open').
- * This is the PBAC equivalent of the atomic UPDATE WHERE status='open' guard.
+ * DENY when the schedule slot is already filled ('Pending' means open/unfilled).
  */
 const NO_DOUBLE_BOOKING: PolicyDefinition = {
   name: 'NO_DOUBLE_BOOKING',
   description: 'Cannot assign to a slot that is already taken',
   evaluate(_user, ctx) {
-    if (ctx.scheduleStatus && ctx.scheduleStatus !== 'open') {
+    // Slots with auditor1_id filled are no longer open
+    if (ctx.existingAuditor1Id && ctx.existingAuditor1Id.length > 0) {
       return { allowed: false, reason: 'SLOT_LOCKED' };
     }
     return { allowed: true };
@@ -241,14 +278,16 @@ const NO_DOUBLE_BOOKING: PolicyDefinition = {
 };
 
 /**
- * REQUIRE_INSPECTOR — Capability Gate
+ * REQUIRE_INSPECTOR — Inspector Qualification Gate
  *
- * DENY if the user lacks the 'asset_inspector' capability
- * (i.e. no valid certificationExpiry date, or cert is expired).
+ * DENY if the user lacks the 'asset_inspector' capability.
+ * The 'asset_inspector' capability is granted when:
+ *   - qualifications[] contains "Inspector", OR
+ *   - certificationExpiry is present and not expired.
  */
 const REQUIRE_INSPECTOR: PolicyDefinition = {
   name: 'REQUIRE_INSPECTOR',
-  description: 'User must hold a valid inspecting officer certification',
+  description: 'User must hold the Inspector qualification or a valid certificate',
   evaluate(user, _ctx) {
     const caps = deriveCapabilities(user);
     if (!caps.has('asset_inspector')) {
@@ -277,16 +316,18 @@ const NO_SUPERVISOR_CONFLICT: PolicyDefinition = {
 };
 
 /**
- * CERT_VALID — Certification Expiry Gate
+ * CERT_VALID — Certificate Expiry Gate
  *
- * DENY if the user's certification has expired.
- * Separate from REQUIRE_INSPECTOR so we can give a distinct error message.
+ * DENY if the user's institutional certificate has expired.
+ * Uses organization timezone (Asia/Kuala_Lumpur) per PBAC Matrix.
  */
 const CERT_VALID: PolicyDefinition = {
   name: 'CERT_VALID',
-  description: 'Inspecting officer certificate must not be expired',
+  description: 'Inspector certificate must not be expired',
   evaluate(user, _ctx) {
-    const today = new Date().toISOString().split('T')[0];
+    // Use Asia/Kuala_Lumpur timezone per PBAC Matrix spec
+    const now = new Date();
+    const today = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Kuala_Lumpur' });
     const certExpiry = user.certificationExpiry;
     if (!certExpiry || certExpiry < today) {
       return { allowed: false, reason: 'CERT_EXPIRED' };
@@ -298,7 +339,8 @@ const CERT_VALID: PolicyDefinition = {
 /**
  * NO_ANNUAL_CONFLICT — Scheduling boundary
  * 
- * DENY if the location is already scheduled to be inspected in the same calendar year.
+ * DENY if the location is already scheduled to be inspected in the
+ * calendar year of scheduleDate (not system year).
  */
 const NO_ANNUAL_CONFLICT: PolicyDefinition = {
   name: 'NO_ANNUAL_CONFLICT',
@@ -306,6 +348,30 @@ const NO_ANNUAL_CONFLICT: PolicyDefinition = {
   evaluate(_user, ctx) {
     if (ctx.hasAnnualConflict) {
       return { allowed: false, reason: 'LOCATION_YEAR_CONFLICT' };
+    }
+    return { allowed: true };
+  },
+};
+
+/**
+ * DATE_WITHIN_PHASE — Phase Scheduling Rule
+ *
+ * DENY if the schedule date falls outside the selected audit phase.
+ * Also denies if scheduleDate, phaseStartDate, or phaseEndDate is missing.
+ */
+const DATE_WITHIN_PHASE: PolicyDefinition = {
+  name: 'DATE_WITHIN_PHASE',
+  description: 'Schedule date must fall within the selected audit phase',
+  evaluate(_user, ctx) {
+    const scheduleDate = ctx.scheduleDate;
+    const phaseStart = ctx.phaseStartDate;
+    const phaseEnd = ctx.phaseEndDate;
+    // Missing any boundary → deny
+    if (!scheduleDate || !phaseStart || !phaseEnd) {
+      return { allowed: false, reason: 'DATE_OUTSIDE_PHASE' };
+    }
+    if (scheduleDate < phaseStart || scheduleDate > phaseEnd) {
+      return { allowed: false, reason: 'DATE_OUTSIDE_PHASE' };
     }
     return { allowed: true };
   },
@@ -390,6 +456,37 @@ const COORDINATOR_DEPT_SCOPE: PolicyDefinition = {
 };
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// Composite Policy Groups
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * ─── CanInspectAudit — Inspection Eligibility Rules ────────────────────
+ *
+ * These five policies together gate who is eligible to be assigned as an
+ * inspector for a given audit schedule. They encode the business rule:
+ *
+ *   CanInspectAudit (6 policies per PBAC Matrix):
+ *     1. user.qualifications contains "Inspector"       → REQUIRE_INSPECTOR
+ *     2. user.certificate is valid (not expired)        → CERT_VALID
+ *     3. audit.department != user.department            → STRICT_COI
+ *     4. user is not the site supervisor of this loc    → NO_SUPERVISOR_CONFLICT
+ *     5. schedule date is inside the selected phase     → DATE_WITHIN_PHASE
+ *     6. location not already inspected in scheduleDate year → NO_ANNUAL_CONFLICT
+ *
+ * Used by 'schedule.assign' via CAN_SELF_ASSIGN and by
+ * auditAssignmentGuard for cross-department assignment validation.
+ * ───────────────────────────────────────────────────────────────────────
+ */
+const CAN_INSPECT_AUDIT_POLICIES: PolicyDefinition[] = [
+  REQUIRE_INSPECTOR,
+  CERT_VALID,
+  STRICT_COI,
+  NO_SUPERVISOR_CONFLICT,
+  DATE_WITHIN_PHASE,
+  NO_ANNUAL_CONFLICT,
+];
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // Action → Policy Mapping
 // ═══════════════════════════════════════════════════════════════════════════════
 
@@ -398,25 +495,34 @@ const COORDINATOR_DEPT_SCOPE: PolicyDefinition = {
  * Policies are evaluated in order; the first DENY short-circuits.
  */
 const ACTION_POLICIES: Record<PbacAction, PolicyDefinition[]> = {
-  // ── Audit schedule — self-assignment (caller = assignee) ──────────────
+  // ── Audit schedule — self-assignment (CAN_SELF_ASSIGN per matrix) ────
   'schedule.assign': [
-    REQUIRE_INSPECTOR,
-    CERT_VALID,
-    STRICT_COI,
-    NO_SUPERVISOR_CONFLICT,
-    NO_ANNUAL_CONFLICT,
+    ...CAN_INSPECT_AUDIT_POLICIES,         // All 6 CanInspectAudit checks
+    REQUIRE_CAPABILITY('assign:self', 'MISSING_CAPABILITY'),
     NO_DOUBLE_BOOKING,
   ],
-  // ── Audit schedule — unassign self ────────────────────────────────────
-  'schedule.unassign': [],
-  // ── Audit schedule — lock/unlock (Supervisor/Admin gated in handler) ──
-  'schedule.lock': [],
+  // ── Audit schedule — unassign (SLOT_OWNER_OR_PRIVILEGED) ──────────────
+  // Handled by handler-level checks; PBAC gates basic access
+  'schedule.unassign': [
+    REQUIRE_CAPABILITY('schedule:manage_dept', 'MISSING_CAPABILITY'),
+  ],
+  // ── Audit schedule — lock/unlock ──────────────────────────────────────
+  'schedule.lock': [
+    REQUIRE_CAPABILITY('schedule:manage_dept', 'MISSING_CAPABILITY'),
+  ],
   // ── Audit schedule — set date ─────────────────────────────────────────
-  'schedule.set_date': [],
-  // ── Audit schedule — toggle status ────────────────────────────────────
-  'schedule.set_status': [],
+  'schedule.set_date': [
+    REQUIRE_CAPABILITY('schedule:manage_dept', 'MISSING_CAPABILITY'),
+    DATE_WITHIN_PHASE,
+  ],
+  // ── Audit schedule — set status ───────────────────────────────────────
+  'schedule.set_status': [
+    REQUIRE_CAPABILITY('schedule:manage_dept', 'MISSING_CAPABILITY'),
+  ],
   // ── Audit schedule — upload report ────────────────────────────────────
-  'schedule.upload_report': [],
+  'schedule.upload_report': [
+    CERT_VALID,
+  ],
   // ── Audit CRUD — create (assign-others) ──────────────────────────────
   'audit.create': [
     REQUIRE_CAPABILITY('assign:others', 'MISSING_CAPABILITY'),
@@ -454,7 +560,7 @@ const ACTION_POLICIES: Record<PbacAction, PolicyDefinition[]> = {
   ],
   // ── Admin operations ──────────────────────────────────────────────────
   'admin.manage': [
-    REQUIRE_CAPABILITY('manage:departments', 'MISSING_CAPABILITY'),
+    REQUIRE_CAPABILITY('system:admin', 'MISSING_CAPABILITY'),
   ],
   'department.manage': [
     REQUIRE_CAPABILITY('manage:departments', 'MISSING_CAPABILITY'),
@@ -529,13 +635,15 @@ const PBAC_REASON_MESSAGES: Record<string, string> = {
   SLOT_LOCKED:
     'This slot was just claimed by someone else.',
   MISSING_CAPABILITY:
-    'Access Denied: Your role does not permit this operation.',
+    'Access Denied: Inspector qualification is required for this operation.',
   SUPERVISOR_CONFLICT:
     'Conflict of Interest: You are a designated Site Supervisor for this location and cannot act as its inspector.',
   CERT_EXPIRED:
-    'Certification Required: Your inspecting officer certificate is expired or invalid.',
+    'Certification Required: Your Inspector certificate is expired or invalid.',
   LOCATION_YEAR_CONFLICT:
-    'Conflict: This location is already scheduled to be inspected in the same calendar year.',
+    'Conflict: This location is already scheduled to be inspected in the calendar year of the scheduled date.',
+  DATE_OUTSIDE_PHASE:
+    'The scheduled date falls outside the selected audit phase.',
   AUTH_REQUIRED:
     'Authentication required. Please sign in.',
   PBAC_CONTEXT_ERROR:

@@ -120,7 +120,6 @@ export const useAppActions = (props: AppActionsProps) => {
   const handleLoginSuccess = useCallback(async (userProfile: User) => {
     setCurrentUser(userProfile); setViewState('app'); setActiveView('dashboard');
     sessionStorage.setItem('audit_pro_session', JSON.stringify(userProfile));
-    if ((userProfile.roles || []).some(r => r === 'Admin' || r === 'Coordinator')) { /* defaults removed */ }
     loadAllData();
   }, [setCurrentUser, setViewState, setActiveView, loadAllData]);
 

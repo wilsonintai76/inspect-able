@@ -169,14 +169,35 @@ export const statusTransitionGuard = async (c: Context<{ Bindings: Bindings; Var
 
   const allowed = VALID_TRANSITIONS[existing.status] || [];
   if (!allowed.includes(updates.status)) {
-    return c.json(
-      {
-        error: `Invalid status transition: '${existing.status}' → '${updates.status}' is not permitted`,
-        allowedTransitions: allowed,
-        code: 'INVALID_TRANSITION',
-      },
-      422,
-    );
+    // ── Admin override: system:admin + auditLogReason required ──────────
+    const caller = c.get('user')!;
+    const caps = deriveCapabilities(caller as any);
+    const isAdmin = caps.has('system:admin');
+    const auditLogReason = (updates as any).auditLogReason as string | undefined;
+    if (isAdmin && auditLogReason && auditLogReason.trim().length > 0) {
+      // Admin override: log and proceed
+      console.log(`[PBAC] Admin status override by ${caller.id}: ${existing.status} → ${updates.status}, reason: ${auditLogReason}`);
+      // Fall through to continue with guard checks below
+    } else if (isAdmin && !auditLogReason) {
+      return c.json(
+        {
+          error: `Admin override requires auditLogReason. Transition '${existing.status}' → '${updates.status}' is not normally permitted.`,
+          allowedTransitions: allowed,
+          code: 'INVALID_TRANSITION',
+          adminOverrideAvailable: true,
+        },
+        422,
+      );
+    } else {
+      return c.json(
+        {
+          error: `Invalid status transition: '${existing.status}' → '${updates.status}' is not permitted`,
+          allowedTransitions: allowed,
+          code: 'INVALID_TRANSITION',
+        },
+        422,
+      );
+    }
   }
 
   if (updates.status === 'In Progress') {
@@ -240,8 +261,8 @@ export const patchAuditPermissionGuard = async (c: Context<{ Bindings: Bindings;
     // If they are also a certified inspector, and only modifying inspector-allowed fields, we let them proceed.
     // Otherwise, they are blocked by coordinator department scoping.
     if (canAudit) {
-      const adminOnlyFields = ['phaseId', 'departmentId', 'locationId'];
-      const hasAdminOnlyFields = adminOnlyFields.some(f => updates[f] !== undefined);
+      const isModifyingPhaseDirectly = updates.phaseId !== undefined && updates.date === undefined;
+      const hasAdminOnlyFields = updates.departmentId !== undefined || updates.locationId !== undefined || isModifyingPhaseDirectly;
       if (hasAdminOnlyFields) {
         return c.json({ error: 'Forbidden: Coordinator can only modify audits in their own department', code: 'DEPT_SCOPE_VIOLATION' }, 403);
       }

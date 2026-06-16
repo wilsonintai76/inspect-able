@@ -400,10 +400,11 @@ pub.patch('/kiosk/schedules/:id', async (c) => {
           const matchingPhase = await c.env.DB.prepare(
             'SELECT id FROM audit_phases WHERE start_date <= ? AND end_date >= ? LIMIT 1'
           ).bind(date, date).first<{ id: string }>();
-          if (matchingPhase) {
-            updates.push('phase_id = ?');
-            values.push(matchingPhase.id);
+          if (!matchingPhase) {
+            return c.json({ error: 'Selected date must fall within a configured audit phase.' }, 400);
           }
+          updates.push('phase_id = ?');
+          values.push(matchingPhase.id);
         }
       }
 
@@ -535,9 +536,10 @@ pub.patch('/kiosk/schedules/:id/date', async (c) => {
       const matchingPhase = await c.env.DB.prepare(
         'SELECT id FROM audit_phases WHERE start_date <= ? AND end_date >= ? LIMIT 1'
       ).bind(date, date).first<{ id: string }>();
-      if (matchingPhase) {
-        phaseId = matchingPhase.id;
+      if (!matchingPhase) {
+        return c.json({ error: 'Selected date must fall within a configured audit phase.' }, 400);
       }
+      phaseId = matchingPhase.id;
     }
 
     if (existing && existing.location_id) {
@@ -553,15 +555,9 @@ pub.patch('/kiosk/schedules/:id/date', async (c) => {
       }
     }
 
-    if (phaseId) {
-      await c.env.DB.prepare(
-        `UPDATE audit_schedules SET date = ?, phase_id = ? WHERE id = ?`
-      ).bind(date, phaseId, scheduleId).run();
-    } else {
-      await c.env.DB.prepare(
-        `UPDATE audit_schedules SET date = ? WHERE id = ?`
-      ).bind(date ?? null, scheduleId).run();
-    }
+    await c.env.DB.prepare(
+      `UPDATE audit_schedules SET date = ?, phase_id = ? WHERE id = ?`
+    ).bind(date ?? null, phaseId ?? null, scheduleId).run();
 
     // Auto-activation check (Pending -> In Progress once assignments are complete)
     const updatedSchedule = await c.env.DB.prepare(

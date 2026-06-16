@@ -4,16 +4,24 @@ import { deriveCapabilities, evaluateAccess, getReasonMessage, PbaoUser } from '
 import { checkLocationYearConflict } from '../routes/db.shared';
 
 // ─── auditAssignmentGuard ─────────────────────────────────────────────────────
-// Enforces two business rules on any request that sets auditor1Id / auditor2Id:
+// Enforces business rules on any request that sets auditor1Id / auditor2Id.
+// Complements the CanInspectAudit policies in policyEngine.ts (which gate
+// the 'schedule.assign' action) with request-level validation:
 //
 //  Rule 1 — Self-assignment only (for non-privileged roles):
-//    Users without 'edit:audit:assign:others' (i.e. Auditors, Supervisors)
-//    may only place their OWN id into an auditor slot.
+//    Users without 'assign:others' capability (i.e. Inspectors without
+//    Coordinator/Admin role) may only place their OWN id into an auditor slot.
 //
 //  Rule 2 — Conflict of interest (applies to ALL roles including Admin):
-//    a) An auditor cannot be assigned to audit their own department.
-//    b) An auditor can only be assigned to a department that has an active
-//       cross_audit_permissions entry linking their department to the target.
+//    a) An auditor cannot be assigned to audit their own department (STRICT_COI).
+//    b) The auditor must hold the Inspector qualification (REQUIRE_INSPECTOR).
+//    c) The auditor's certificate must be valid (CERT_VALID).
+//    d) A site supervisor cannot inspect their own location (NO_SUPERVISOR_CONFLICT).
+//    e) A location can only be inspected once per calendar year (NO_ANNUAL_CONFLICT).
+//
+//  Rule 3 — Cross-audit permissions (non-open-audit mode):
+//    An active cross_audit_permissions entry must link the auditor's
+//    department to the target department.
 //
 // Assumes zValidator has already run (body is at c.req.valid('json')).
 // Works for both POST /audits (new) and PATCH /audits/:id (updates).
@@ -187,7 +195,7 @@ export const auditAssignmentGuard = async (
 
       if (canAssignOthers && isCoordinatorCaller && !isAdminCaller) {
         if (!caller.departmentId || auditor.department_id !== caller.departmentId) {
-          return c.json({ error: 'Forbidden: coordinators may only assign qualified asset inspectors from their own department' }, 403);
+          return c.json({ error: 'Forbidden: coordinators may only assign Inspectors from their own department' }, 403);
         }
       }
 
@@ -215,10 +223,10 @@ export const auditAssignmentGuard = async (
       if (!evalResult.allowed) {
         const reason = evalResult.reason || 'UNKNOWN';
         if (reason === 'MISSING_CAPABILITY') {
-          return c.json({ error: 'Assignment blocked: the selected auditor does not hold a valid inspecting officer qualification', code: 'MISSING_CAPABILITY' }, 403);
+          return c.json({ error: 'Assignment blocked: the selected auditor does not hold the Inspector qualification', code: 'MISSING_CAPABILITY' }, 403);
         }
         if (reason === 'CERT_EXPIRED') {
-          return c.json({ error: 'Assignment blocked: the selected auditor does not hold a valid institutional certificate', code: 'CERT_EXPIRED' }, 403);
+          return c.json({ error: 'Assignment blocked: the selected auditor does not hold a valid Inspector certificate', code: 'CERT_EXPIRED' }, 403);
         }
         if (reason === 'COI_VIOLATION') {
           return c.json({ error: 'Conflict of interest: an auditor cannot be assigned to audit their own department', code: 'SELF_DEPARTMENT' }, 409);

@@ -153,10 +153,7 @@ export const useAuditActions = (props: UseAuditActionsProps) => {
       const audit = snapshot;
       let resolvedPhaseId: string | null = null;
       if (date) {
-        resolvedPhaseId = auditPhases.find(p => {
-          const d = new Date(date);
-          return d >= new Date(p.startDate) && d <= new Date(p.endDate);
-        })?.id ?? null;
+        resolvedPhaseId = auditPhases.find(p => date >= p.startDate && date <= p.endDate)?.id ?? null;
       }
       let updates: Partial<AuditSchedule> = { date, phaseId: resolvedPhaseId };
       if (audit) {
@@ -165,10 +162,7 @@ export const useAuditActions = (props: UseAuditActionsProps) => {
           updates.status = 'In Progress';
           updates.isLocked = true;
           if (!resolvedPhaseId) {
-            const matchingPhase = auditPhases.find(p => {
-              const d = new Date(date);
-              return d >= new Date(p.startDate) && d <= new Date(p.endDate);
-            });
+            const matchingPhase = auditPhases.find(p => date >= p.startDate && date <= p.endDate);
             if (matchingPhase) updates.phaseId = matchingPhase.id;
           }
         } else if (currentStatus === 'In Progress' && (!date || !audit.supervisorId || !audit.auditor1Id || !audit.auditor2Id)) {

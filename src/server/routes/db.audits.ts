@@ -81,9 +81,10 @@ router.post('/audits', zValidator('json', auditSchema), requirePolicy('audit.cre
     const matchingPhase = await c.env.DB.prepare(
       'SELECT id FROM audit_phases WHERE start_date <= ? AND end_date >= ? LIMIT 1'
     ).bind(audit.date, audit.date).first<{ id: string }>();
-    if (matchingPhase) {
-      phaseId = matchingPhase.id;
+    if (!matchingPhase) {
+      return c.json({ error: 'Selected date must fall within a configured audit phase.' }, 400);
     }
+    phaseId = matchingPhase.id;
   } else {
     phaseId = null;
   }
@@ -137,9 +138,10 @@ router.patch('/audits/:id', zValidator('json', patchAuditSchema), patchAuditPerm
       const matchingPhase = await c.env.DB.prepare(
         'SELECT id FROM audit_phases WHERE start_date <= ? AND end_date >= ? LIMIT 1'
       ).bind(updates.date, updates.date).first<{ id: string }>();
-      if (matchingPhase) {
-        updates.phaseId = matchingPhase.id;
+      if (!matchingPhase) {
+        return c.json({ error: 'Selected date must fall within a configured audit phase.' }, 400);
       }
+      updates.phaseId = matchingPhase.id;
     } else {
       updates.phaseId = null;
     }

@@ -167,13 +167,7 @@ export const AuditTable: React.FC<AuditTableProps> = ({
     if (!dateStr) return true; 
     const phase = auditPhases.find(p => p.id === phaseId);
     if (!phase) return false;
-    
-    const d = new Date(dateStr);
-    const start = new Date(phase.startDate);
-    const end = new Date(phase.endDate);
-    start.setHours(0,0,0,0);
-    end.setHours(23,59,59,999);
-    return d >= start && d <= end;
+    return dateStr >= phase.startDate && dateStr <= phase.endDate;
   };
 
   const handleDateChange = (id: string, newDate: string, phaseId: string) => {
@@ -182,12 +176,7 @@ export const AuditTable: React.FC<AuditTableProps> = ({
         return;
     }
     if (newDate) {
-        const matchingPhase = auditPhases.find(p => {
-          const start = new Date(p.startDate); start.setHours(0, 0, 0, 0);
-          const end = new Date(p.endDate); end.setHours(23, 59, 59, 999);
-          const d = new Date(newDate);
-          return d >= start && d <= end;
-        });
+        const matchingPhase = auditPhases.find(p => newDate >= p.startDate && newDate <= p.endDate);
 
         if (!matchingPhase) {
           alert("Warning: Selected date falls outside of all configured audit phases!");

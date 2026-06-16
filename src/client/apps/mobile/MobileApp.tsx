@@ -20,6 +20,7 @@ import { authService } from '../../services/auth';
 import { getAuthToken } from '../../services/honoClient';
 import { User } from '@shared/types';
 import { BRANDING } from '../../constants';
+import { hasCapability } from '../../lib/pbacUtils';
 
 export const MobileApp: React.FC = () => {
   // ── Auth state ────────────────────────────────────────────────────────────
@@ -859,14 +860,13 @@ showToast(`Plan Overwritten: Inspection reassigned from ${targetSchedule.phaseNa
   }
 
   const primaryRole = currentUser.roles[0] || 'Guest';
-  const roleBadgeClass: Record<string, string> = {
-    Admin: 'bg-rose-100 text-rose-700',
-    Coordinator: 'bg-purple-100 text-purple-700',
-    Supervisor: 'bg-blue-100 text-blue-700',
-    Auditor: 'bg-emerald-100 text-emerald-700',
-    Staff: 'bg-slate-100 text-slate-600',
-  };
-  const roleClass = roleBadgeClass[primaryRole] ?? roleBadgeClass.Staff;
+  // Use capabilities for badge color (PBAC-aligned), role name for display label
+  const isAdmin = hasCapability(currentUser, 'system:admin');
+  const isCoordinator = hasCapability(currentUser, 'manage:departments') && !isAdmin;
+  const isSupervisor = hasCapability(currentUser, 'manage:locations') && !isCoordinator && !isAdmin;
+  const isInspector = hasCapability(currentUser, 'asset_inspector');
+  const badgeColorPalette = isAdmin ? 'red' : isCoordinator ? 'purple' : isSupervisor ? 'blue' : isInspector ? 'green' : 'gray';
+  const displayRole = isAdmin ? 'Admin' : isCoordinator ? 'Coordinator' : isSupervisor ? 'Supervisor' : isInspector ? 'Inspector' : primaryRole;
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
@@ -995,8 +995,8 @@ showToast(`Plan Overwritten: Inspection reassigned from ${targetSchedule.phaseNa
                     <Text fontSize="2xs" fontWeight="bold" color="fg" maxW="20" truncate>
                       {currentUser.name.split(' ')[0]}
                     </Text>
-                    <Badge colorPalette={primaryRole === 'Admin' ? 'red' : primaryRole === 'Coordinator' ? 'purple' : primaryRole === 'Supervisor' ? 'blue' : primaryRole === 'Auditor' ? 'green' : 'gray'} variant="subtle" size="xs" fontWeight="bold">
-                      {primaryRole.toUpperCase()}
+                    <Badge colorPalette={badgeColorPalette} variant="subtle" size="xs" fontWeight="bold">
+                      {displayRole.toUpperCase()}
                     </Badge>
                   </VStack>
                 </Button>
