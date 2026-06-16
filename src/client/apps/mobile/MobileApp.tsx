@@ -864,7 +864,10 @@ showToast(`Plan Overwritten: Inspection reassigned from ${targetSchedule.phaseNa
   const isAdmin = hasCapability(currentUser, 'system:admin');
   const isCoordinator = hasCapability(currentUser, 'manage:departments') && !isAdmin;
   const isSupervisor = hasCapability(currentUser, 'manage:locations') && !isCoordinator && !isAdmin;
-  const isInspector = hasCapability(currentUser, 'asset_inspector');
+  // Inspector: explicit qualification OR valid certificate (backward compat)
+  const isCertValid = !!(currentUser?.certificationExpiry)
+    && currentUser.certificationExpiry! >= new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kuala_Lumpur' });
+  const isInspector = hasCapability(currentUser, 'asset_inspector') || isCertValid;
   const badgeColorPalette = isAdmin ? 'red' : isCoordinator ? 'purple' : isSupervisor ? 'blue' : isInspector ? 'green' : 'gray';
   const displayRole = isAdmin ? 'Admin' : isCoordinator ? 'Coordinator' : isSupervisor ? 'Supervisor' : isInspector ? 'Inspector' : primaryRole;
   const roleBadgeClass: Record<string, string> = {

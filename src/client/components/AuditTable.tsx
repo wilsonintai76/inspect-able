@@ -84,8 +84,8 @@ export const AuditTable: React.FC<AuditTableProps> = ({
   // Match mobile: any user who can view the schedule matrix can pick dates (lock/completed state enforced per-row)
   const canEditDates = hasCapability(pbacUser, 'manage:departments') || hasCapability(pbacUser, 'system:admin') || hasCapability(pbacUser, 'manage:locations') || hasCapability(pbacUser, 'asset_inspector') || isCertified;
   const canSendApprovalReminder = hasCapability(pbacUser, 'manage:departments') || hasCapability(pbacUser, 'system:admin');
-  const canViewMatrixSchedule = hasCapability(pbacUser, 'manage:departments') || hasCapability(pbacUser, 'system:admin') || hasCapability(pbacUser, 'manage:locations') || hasCapability(pbacUser, 'asset_inspector');
-  const isInspector = hasCapability(pbacUser, 'asset_inspector');
+  const canViewMatrixSchedule = hasCapability(pbacUser, 'manage:departments') || hasCapability(pbacUser, 'system:admin') || hasCapability(pbacUser, 'manage:locations') || hasCapability(pbacUser, 'asset_inspector') || isCertified;
+  const isInspector = hasCapability(pbacUser, 'asset_inspector') || isCertified;
 
   const canSelfAssignPerm = canSelfAssignSelf; // PBAC replaces old perm check
   const hasFieldRole = hasCapability(pbacUser, 'assign:self');
