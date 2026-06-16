@@ -68,15 +68,12 @@ export const AuditorAssignmentSlot: React.FC<AuditorAssignmentSlotProps> = ({
   const isUserSupervisor = supervisorIds.includes(currentUser?.id || '');
 
   // Check eligibility: Has field role + Valid Cert + No Conflict
-  // Note: isDateValid and isPast are used for display only — phase is a projection guideline, not a hard block
-  const hasDate = !!audit.date;
-  const isDisabled = isAssigned || !canSelfAssignSelf || !userCanAudit || isCurrentUserAssigned || isPast || !hasDate || !hasPhases || isUserOverLimit || isUserSupervisor;
+  // Note: date is auto-resolved in handleSelfAssign if not set — users can assign first, pick date later
+  const isDisabled = isAssigned || !canSelfAssignSelf || !userCanAudit || isCurrentUserAssigned || isPast || !hasPhases || isUserOverLimit || isUserSupervisor;
   
   let disableReason = "";
   if (isAssigned) {
     disableReason = "Slot already occupied";
-  } else if (!hasDate) {
-    disableReason = "Date Required: An inspection date must be set before self-assignment. Click the date field or 'Pick' button on the left to set a date.";
   } else if (isUserSupervisor) {
     disableReason = "Conflict of Interest: You are a designated Site Supervisor for this location and cannot act as its inspector.";
   } else if (isUserOverLimit) {
