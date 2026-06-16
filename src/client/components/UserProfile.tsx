@@ -120,6 +120,15 @@ export const UserProfile: React.FC<UserProfileProps> = ({ user, departments, onU
     return user.certificationExpiry >= today ? 'Valid' : 'Expired';
   }, [user.certificationExpiry]);
 
+  // Effective qualifications: include "Inspector" if cert is valid (backward compat)
+  const effectiveQualifications = useMemo(() => {
+    const quals = [...(user.qualifications || [])];
+    if (certStatus === 'Valid' && !quals.includes('Inspector')) {
+      quals.push('Inspector');
+    }
+    return quals;
+  }, [user.qualifications, certStatus]);
+
   return (
     <div className="max-w-3xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20">
       <div className="bg-white rounded-[32px] border border-slate-200 shadow-sm overflow-hidden">
@@ -337,8 +346,8 @@ export const UserProfile: React.FC<UserProfileProps> = ({ user, departments, onU
                      <div className="p-4 bg-white rounded-2xl border border-slate-100 shadow-sm">
                         <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Eligible Claims</p>
                         <div className="flex flex-wrap gap-2 mt-2">
-                          {user.qualifications && user.qualifications.length > 0 ? (
-                            user.qualifications.map((qual: string) => (
+                          {effectiveQualifications.length > 0 ? (
+                            effectiveQualifications.map((qual: string) => (
                               <span key={qual} className="px-2.5 py-1 bg-blue-50 text-blue-600 border border-blue-100 rounded-lg text-xs font-black uppercase tracking-wider">
                                 {qual}
                               </span>
