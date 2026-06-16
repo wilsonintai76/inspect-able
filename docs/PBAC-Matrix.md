@@ -68,7 +68,7 @@ Higher roles inherit **all** capabilities of lower roles. You never need multipl
 | **Guest** | — | View dashboard only |
 | **Guest** | Inspector | Dashboard view + self-assign as inspector. Can pick dates anywhere; change/unlock only on assigned audits. |
 
-> **Design principle:** Never store `Coordinator + Inspector` as a role. Store `{ role: "Coordinator", qualifications: ["Inspector"] }` and let the policy engine derive the combined capability set.
+> **Design principle:** Never store `Coordinator + Inspector` as a role. Store `{ role: "Coordinator" }`. Inspector is derived from a valid `certificationExpiry`, NOT from `qualifications[]`. The policy engine unions role capabilities + certificate-derived capabilities.
 
 ---
 
@@ -81,8 +81,8 @@ Higher roles inherit **all** capabilities of lower roles. You never need multipl
 | `schedule.assign` | `CAN_SELF_ASSIGN` | Users with `asset_inspector` + `assign:self` |
 | `schedule.unassign` | `SLOT_OWNER_OR_PRIVILEGED` | Slot owner or privileged role |
 | `schedule.lock` | (`schedule:manage_dept` OR `schedule:manage_all`) + per-role scope | Supervisor (own locations), Coordinator (own dept), Admin (all) |
-| `schedule.set_date` (pick) | `DATE_WITHIN_PHASE` only | Any inspector: first-time date pick on any location (COI + phase checked) |
-| `schedule.set_date` (change) | Per-role scope + `DATE_WITHIN_PHASE` | Supervisor (own locations), Coordinator (own dept), Inspector (assigned audits), Admin (all) |
+| `schedule.set_date` (pick) | `REQUIRE_ACTIVE_INSPECTOR` + `DATE_WITHIN_PHASE` | Active inspector: first-time date pick on any audit (phase checked, COI NOT checked at pick time — COI is checked at assignment) |
+| `schedule.set_date` (change) | `schedule:manage_dept` + `DATE_WITHIN_PHASE` + per-role scope | Supervisor (own locations), Coordinator (own dept), Inspector (assigned audits), Admin (all) |
 | `schedule.set_status` | (`schedule:manage_dept` OR `schedule:manage_all`) + `VALID_STATUS_TRANSITION` | Supervisor / Admin |
 | `schedule.upload_report` | `ASSIGNED_AUDITOR_ONLY` + `CERT_VALID` | Assigned auditor (certificate must be valid at upload time) |
 
@@ -90,8 +90,8 @@ Higher roles inherit **all** capabilities of lower roles. You never need multipl
 
 | Action | Policies Applied |
 |---|---|
-| `audit.create` | `assign:others` + `COORDINATOR_DEPT_SCOPE` |
-| `audit.delete` | `assign:others` + `COORDINATOR_DEPT_SCOPE` |
+| `audit.create` | `system:admin` |
+| `audit.delete` | `system:admin` |
 | `audit.maintenance` | `manage:departments` + `COORDINATOR_DEPT_SCOPE` |
 
 ### 5.3 User Management
@@ -156,7 +156,7 @@ CanInspectAudit:
 | `REQUIRE_ACTIVE_INSPECTOR` | Certificate gate | `certificationExpiry` must be present and ≥ current date in the organization's timezone (Asia/Kuala_Lumpur). A valid certificate IS the inspector qualification — no separate `qualifications[]` entry needed. |
 | `STRICT_COI` | Integrity rule | `user.departmentId ≠ targetDepartmentId` — **no exemptions** |
 | `NO_SUPERVISOR_CONFLICT` | Integrity rule | User must not be listed as supervisor for the target location |
-| `DATE_WITHIN_PHASE` | Phase scheduling rule | `scheduleDate` must fall within ANY configured audit phase (Phase 1, 2, or 3). Allows planning ahead across all phases. If `scheduleDate` is missing or no phase contains the date, deny with `DATE_OUTSIDE_PHASE` |
+| `DATE_WITHIN_PHASE` | Phase scheduling rule | If `scheduleDate` is null and status is `Pending`, allow. If `scheduleDate` is present, it must fall within any configured audit phase (Phase 1, 2, or 3). If present but outside all phases, deny with `DATE_OUTSIDE_PHASE`. |
 | `NO_ANNUAL_CONFLICT` | Scheduling rule | Location must not have an active or completed inspection in the calendar year of `scheduleDate`; cancelled/deleted schedules are ignored. When updating an existing schedule, the current record's own `scheduleId`/`auditId` is excluded from the conflict check |
 | `NO_DOUBLE_BOOKING` | Concurrency gate | Schedule slot must be `'open'` |
 
@@ -165,7 +165,7 @@ CanInspectAudit:
 | Composite | Constituent Policies | Used By |
 |---|---|---|
 | `CAN_INSPECT_AUDIT_POLICIES` | `REQUIRE_ACTIVE_INSPECTOR` + `STRICT_COI` + `NO_SUPERVISOR_CONFLICT` + `DATE_WITHIN_PHASE` + `NO_ANNUAL_CONFLICT` | `auditAssignmentGuard` (all CanInspectAudit checks) |
-| `CAN_SELF_ASSIGN` | `CAN_INSPECT_AUDIT_POLICIES` + `assign:self` + `NO_DOUBLE_BOOKING` | `schedule.assign` (self-assignment to an open audit slot) |
+| `CAN_SELF_ASSIGN` | `REQUIRE_ACTIVE_INSPECTOR` + `STRICT_COI` + `NO_SUPERVISOR_CONFLICT` + `NO_ANNUAL_CONFLICT` + `assign:self` + `NO_DOUBLE_BOOKING` | `schedule.assign` (self-assignment to an open audit slot). `DATE_WITHIN_PHASE` is excluded — date is validated at pick time via `schedule.set_date`, not re-checked at assignment. |
 | `CAN_ASSIGN_OTHER_INSPECTOR` | Actor must hold `assign:others` (Admin only); target inspector passes `CAN_INSPECT_AUDIT_POLICIES` for that audit | Admin assigning inspectors cross-department |
 
 ### Structural Policies
@@ -189,7 +189,7 @@ CanInspectAudit:
 | Field | Type | Purpose |
 |---|---|---|
 | `roles` | `string[]` (JSON) | Administrative role hierarchy: `["Admin"]`, `["Coordinator"]`, `["Supervisor"]`, `["Guest"]` |
-| `qualifications` | `string[]` (JSON) | Operational qualifications: e.g. `["Inspector"]` |
+| `qualifications` | `string[]` (JSON) | Other operational tags (if any). Inspector is derived from `certificationExpiry`, NOT stored here. |
 | `certificationExpiry` | `string` (ISO date) | Institutional certificate expiry; required by `CERT_VALID` to activate inspection actions |
 | `departmentId` | `string` | User's home department (for COI checks) |
 
@@ -215,9 +215,9 @@ CanInspectAudit:
 ## 9. Key Design Principles
 
 1. **Roles are hierarchical.** Higher roles inherit all lower-role capabilities.
-2. **Qualifications are orthogonal.** Inspector is a qualification, never a role — stored in `qualifications[]`, not `roles[]`.
+2. **Qualifications are orthogonal.** Inspector is a certificate-derived status, never a role — derived from valid `certificationExpiry`, NOT stored in `qualifications[]`. Other qualification tags (if any) go in `qualifications[]`.
 3. **PBAC unions capabilities.** `deriveCapabilities() = deriveRoleCapabilities() ∪ deriveQualificationCapabilities()`.
 4. **Policies are pure functions.** Each returns `{ allowed, reason? }`; first DENY short-circuits.
 5. **STRICT_COI has no exemptions.** Even Admins cannot audit their own department.
 6. **Never check role strings in UI code.** Always use `hasCapability(user, 'system:admin')`.
-7. **Avoid role explosion.** Store `{ role: "Coordinator", qualifications: ["Inspector"] }`, never `"Coordinator+Inspector"`.
+7. **Avoid role explosion.** Store `{ role: "Coordinator" }`, never `"Coordinator+Inspector"`. Inspector status comes from certificate validity, not the role or qualifications array.
