@@ -288,19 +288,24 @@ export const patchAuditPermissionGuard = async (c: Context<{ Bindings: Bindings;
     }
   }
 
-  // A Supervisor is only privileged within their own department AND locations they supervise
-  const supIds = existing.supervisor_id ? existing.supervisor_id.split(',').map(id => id.trim()).filter(Boolean) : [];
-  const isSupervisorOfThisLocation = supIds.includes(caller.id);
-  if (isSupervisor && !isAdmin && !isCoordinator && !isSupervisorOfThisLocation) {
-    return c.json({ error: 'Forbidden: Supervisors can only modify audits for locations they supervise.' }, 403);
-  }
-
-  // Inspector-only: can only modify audits they are assigned to
+  // Compute assigned-auditor status (used by supervisor + inspector scope below)
   const isAssignedAuditor = 
     existing.auditor1_id === caller.id || 
     existing.auditor2_id === caller.id ||
     updates.auditor1Id === caller.id ||
     updates.auditor2Id === caller.id;
+
+  // Supervisor scope: can only modify locations they supervise OR own department.
+  // Supervisor+Inspector acting as inspector: also allowed for assigned audits.
+  const supIds = existing.supervisor_id ? existing.supervisor_id.split(',').map(id => id.trim()).filter(Boolean) : [];
+  const isSupervisorOfThisLocation = supIds.includes(caller.id);
+  const supervisorBlocked = isSupervisor && !isAdmin && !isCoordinator
+    && !isSupervisorOfThisLocation && !isOwnDept && !isAssignedAuditor;
+  if (supervisorBlocked) {
+    return c.json({ error: 'Forbidden: Supervisors can only modify audits for locations they supervise or within their own department.' }, 403);
+  }
+
+  // Inspector-only: can only modify audits they are assigned to
   const isInspectorOnly = canAudit && !isAdmin && !isCoordinator && !isSupervisor;
   if (isInspectorOnly && !isAssignedAuditor) {
     return c.json({ error: 'Forbidden: Inspectors can only modify audits they are assigned to.' }, 403);
