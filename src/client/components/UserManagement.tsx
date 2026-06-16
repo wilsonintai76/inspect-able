@@ -670,11 +670,11 @@ export const UserManagement: React.FC<UserManagementProps> = ({
                              {/* Certification indicator — shown if user has valid cert, regardless of role */}
                              {user.certificationExpiry && user.certificationExpiry >= new Date().toISOString().split('T')[0] && (
                                <span className="px-2 py-0.5 rounded text-[8px] font-black uppercase border bg-emerald-50 text-emerald-600 border-emerald-200">
-                                 Certified
+                                 Inspector
                                </span>
                              )}
-                             {/* Inspector Qualification indicator */}
-                             {user.qualifications && user.qualifications.includes('Inspector') && (
+                             {/* Inspector Qualification indicator (show in blue if they have the qualification but no active cert) */}
+                             {!(user.certificationExpiry && user.certificationExpiry >= new Date().toISOString().split('T')[0]) && user.qualifications && user.qualifications.includes('Inspector') && (
                                <span className="px-2 py-0.5 rounded text-[8px] font-black uppercase border bg-indigo-50 text-indigo-600 border-indigo-200">
                                  Inspector
                                </span>
