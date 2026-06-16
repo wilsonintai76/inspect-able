@@ -612,23 +612,45 @@ router.post('/audits/maintenance/migrate-kewpa-folder', requirePolicy('system.re
     for (const obj of list.objects) {
       if (!kewpaPattern.test(obj.key)) continue;
       const newKey = `kewpa/${obj.key}`;
-      // Copy to new location
+      // Copy to new location using R2 stream
       const source = await c.env.MEDIA.get(obj.key);
       if (source) {
-        await c.env.MEDIA.put(newKey, (source as any).body, {
+        await c.env.MEDIA.put(newKey, source.body, {
           httpMetadata: (source as any).httpMetadata || { contentType: 'application/pdf' },
         });
-        // Update references in DB
-        const oldPath = `/api/media/${obj.key}`;
-        const newPath = `/api/media/${newKey}`;
-        await c.env.DB.prepare('UPDATE audit_schedules SET report_path = ? WHERE report_path = ?').bind(newPath, oldPath).run();
-        await c.env.DB.prepare('UPDATE audit_reports SET file_path = ? WHERE file_path = ?').bind(newPath, oldPath).run();
+        // Update DB paths — handle both relative (/api/media/...) and absolute URLs
+        const oldRel = `/api/media/${obj.key}`;
+        const newRel = `/api/media/${newKey}`;
+        // Update any row where report_path ends with the old path
+        await c.env.DB.prepare(
+          "UPDATE audit_schedules SET report_path = REPLACE(report_path, ?, ?) WHERE report_path LIKE ?"
+        ).bind(oldRel, newRel, `%${oldRel}`).run();
+        await c.env.DB.prepare(
+          "UPDATE audit_reports SET file_path = REPLACE(file_path, ?, ?) WHERE file_path LIKE ?"
+        ).bind(oldRel, newRel, `%${oldRel}`).run();
         // Delete original
         await c.env.MEDIA.delete(obj.key);
         moved++;
       }
     }
     return c.json({ success: true, moved, message: `Moved ${moved} KEWPA files from root to kewpa/ folder.` });
+  } catch (err: any) {
+    return c.json({ error: err.message }, 500);
+  }
+});
+
+// ─── Maintenance: Fix broken KEWPA paths after migration ─────────────
+router.post('/audits/maintenance/fix-kewpa-paths', requirePolicy('system.reset', emptyContextBuilder()), async (c) => {
+  try {
+    // Fix audit_schedules: /api/media/1700000000-file.pdf → /api/media/kewpa/1700000000-file.pdf
+    const r1 = await c.env.DB.prepare(
+      "UPDATE audit_schedules SET report_path = REPLACE(report_path, '/api/media/', '/api/media/kewpa/') WHERE report_path LIKE '%/api/media/%' AND report_path NOT LIKE '%/api/media/kewpa/%'"
+    ).run();
+    const r2 = await c.env.DB.prepare(
+      "UPDATE audit_reports SET file_path = REPLACE(file_path, '/api/media/', '/api/media/kewpa/') WHERE file_path LIKE '%/api/media/%' AND file_path NOT LIKE '%/api/media/kewpa/%'"
+    ).run();
+    const fixed = (r1.meta?.changes || 0) + (r2.meta?.changes || 0);
+    return c.json({ success: true, fixed, message: `Fixed ${fixed} broken KEWPA paths.` });
   } catch (err: any) {
     return c.json({ error: err.message }, 500);
   }

@@ -336,6 +336,19 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
             <button
               onClick={async () => {
                 try {
+                  const r = await fetch('/api/db/audits/maintenance/fix-kewpa-paths', { method: 'POST' });
+                  const d = await r.json() as any;
+                  if (!r.ok) { showToast?.(d.error || `HTTP ${r.status}`, 'warning'); return; }
+                  showToast?.(d.message || `Fixed ${d.fixed} paths`);
+                } catch (e: any) { showToast?.(e.message || 'Fix failed', 'warning'); }
+              }}
+              className="flex items-center gap-2 px-4 py-2 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs font-bold hover:bg-rose-100 transition-colors"
+            >
+              <HardDrive className="w-3.5 h-3.5" /> Fix Broken KEWPA Links
+            </button>
+            <button
+              onClick={async () => {
+                try {
                   const r = await fetch('/api/db/audits/maintenance/sync-reports-from-r2', { method: 'POST' });
                   const d = await r.json() as any;
                   if (!r.ok) { showToast?.(d.error || `HTTP ${r.status}`, 'warning'); return; }
