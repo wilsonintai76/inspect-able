@@ -295,14 +295,13 @@ export const patchAuditPermissionGuard = async (c: Context<{ Bindings: Bindings;
     updates.auditor1Id === caller.id ||
     updates.auditor2Id === caller.id;
 
-  // Supervisor scope: can only modify locations they supervise OR own department.
-  // Supervisor+Inspector acting as inspector: also allowed for assigned audits.
+  // Supervisor scope: can only modify locations they supervise OR audits they're assigned to
   const supIds = existing.supervisor_id ? existing.supervisor_id.split(',').map(id => id.trim()).filter(Boolean) : [];
   const isSupervisorOfThisLocation = supIds.includes(caller.id);
   const supervisorBlocked = isSupervisor && !isAdmin && !isCoordinator
-    && !isSupervisorOfThisLocation && !isOwnDept && !isAssignedAuditor;
+    && !isSupervisorOfThisLocation && !isAssignedAuditor;
   if (supervisorBlocked) {
-    return c.json({ error: 'Forbidden: Supervisors can only modify audits for locations they supervise or within their own department.' }, 403);
+    return c.json({ error: 'Forbidden: Supervisors can only modify audits for locations they supervise or audits they are assigned to.' }, 403);
   }
 
   // Inspector-only: can only modify audits they are assigned to
