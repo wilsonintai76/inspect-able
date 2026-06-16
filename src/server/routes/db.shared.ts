@@ -329,12 +329,13 @@ export const patchAuditPermissionGuard = async (c: Context<{ Bindings: Bindings;
       return c.json({ error: 'Forbidden: Locked audits cannot have their dates modified.' }, 403);
     }
 
-    // 2. Phase check: Verify the date falls within an active phase
+    // 2. Phase check: only enforce if phases are configured
     if (updates.date !== null && updates.date !== '') {
       const matchingPhase = await c.env.DB.prepare(
         'SELECT id FROM audit_phases WHERE start_date <= ? AND end_date >= ? LIMIT 1'
       ).bind(updates.date, updates.date).first<{ id: string }>();
-      if (!matchingPhase) {
+      const phaseCount = await c.env.DB.prepare('SELECT COUNT(*) as cnt FROM audit_phases').first<{cnt:number}>();
+      if (!matchingPhase && (phaseCount?.cnt ?? 0) > 0) {
         return c.json({ error: 'Forbidden: Selected date falls outside of all configured inspection phases.' }, 422);
       }
     }

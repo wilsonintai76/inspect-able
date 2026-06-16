@@ -467,12 +467,11 @@ export const MobileApp: React.FC = () => {
     const targetSchedule = schedules.find(s => s.id === scheduleId);
     if (!targetSchedule) return;
 
-    // ── Immediate phase validation for instant feedback ──────────────────
+    // ── Phase validation: only enforce if phases are configured ──────────
     const matchingPhase = phases.find(p => p.startDate <= date && date <= p.endDate);
 
-    if (!matchingPhase) {
+    if (!matchingPhase && phases.length > 0) {
       showToast("Warning: Selected date falls outside of all configured inspection phases!", "warning");
-      // Explicitly reset the date to empty — don't call the API
       setSchedules(prev => prev.map(s => s.id === scheduleId ? { ...s, date: '' } : s));
       return;
     }

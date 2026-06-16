@@ -165,7 +165,8 @@ export const AuditTable: React.FC<AuditTableProps> = ({
 
   const isDateInValidPhase = (dateStr: string, _phaseId: string): boolean => {
     if (!dateStr) return true; 
-    // Check ALL phases — users can plan ahead across any phase
+    // No phases configured → allow any date (admin hasn't set up phases yet)
+    if (auditPhases.length === 0) return true;
     return auditPhases.some(p => dateStr >= p.startDate && dateStr <= p.endDate);
   };
 
@@ -175,6 +176,11 @@ export const AuditTable: React.FC<AuditTableProps> = ({
         return;
     }
     if (newDate) {
+        // No phases configured → allow any date
+        if (auditPhases.length === 0) {
+          onUpdateDate(id, newDate);
+          return;
+        }
         const matchingPhase = auditPhases.find(p => newDate >= p.startDate && newDate <= p.endDate);
 
         if (!matchingPhase) {
