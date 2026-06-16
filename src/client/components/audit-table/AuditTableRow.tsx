@@ -8,6 +8,15 @@ import {
   AlertTriangle, Phone, UserCheck, RotateCcw, FileText, ExternalLink, Upload, Mail, MapPin, Boxes,
 } from 'lucide-react';
 
+/** Normalize date to YYYY-MM-DD for safe string comparison */
+const norm = (d: string): string => {
+  if (!d) return d;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(d)) return d;
+  const parts = d.split('/');
+  if (parts.length === 3 && parts[2]?.length === 4) return `${parts[2]}-${parts[1].padStart(2,'0')}-${parts[0].padStart(2,'0')}`;
+  return d;
+};
+
 
 export interface AuditTableRowProps {
   audit: AuditSchedule;
@@ -126,7 +135,7 @@ export const AuditTableRow: React.FC<AuditTableRowProps> = ({
     ? auditPhases.reduce((max, p) => p.endDate > max ? p.endDate : max, auditPhases[0].endDate)
     : undefined;
 
-  const isDateValid = !audit.date || auditPhases.some(p => audit.date >= p.startDate && audit.date <= p.endDate);
+  const isDateValid = !audit.date || auditPhases.some(p => norm(audit.date!) >= norm(p.startDate) && norm(audit.date!) <= norm(p.endDate));
   const locationLevel = loc?.level;
   const canLock = isAdmin || isCoordinator || isSupervisor || isInspector; // Admin, Coordinator, Supervisor & Inspector can unlock
   const allFieldsSet = !!(audit.date && audit.supervisorId && audit.auditor1Id && audit.auditor2Id);

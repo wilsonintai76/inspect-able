@@ -2,6 +2,19 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { AuditSchedule, User, UserRole, Department, Location, AuditPhase, Building as BuildingType, SystemActivity } from '@shared/types';
 import { hasCapability } from '../lib/pbacUtils';
 
+/** Normalize a date string to YYYY-MM-DD — handles both DD/MM/YYYY and YYYY-MM-DD */
+const normalizeDate = (d: string): string => {
+  if (!d) return d;
+  // Already YYYY-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}$/.test(d)) return d;
+  // DD/MM/YYYY → YYYY-MM-DD
+  const parts = d.split('/');
+  if (parts.length === 3 && parts[2]?.length === 4) {
+    return `${parts[2]}-${parts[1].padStart(2,'0')}-${parts[0].padStart(2,'0')}`;
+  }
+  return d;
+};
+
 import { AuditReportModal } from './AuditReportModal';
 import { AuditUploadModal } from './AuditUploadModal';
 import { AssetStatusModal } from './AssetStatusModal';
@@ -167,7 +180,8 @@ export const AuditTable: React.FC<AuditTableProps> = ({
     if (!dateStr) return true; 
     // No phases configured → allow any date (admin hasn't set up phases yet)
     if (auditPhases.length === 0) return true;
-    return auditPhases.some(p => dateStr >= p.startDate && dateStr <= p.endDate);
+    const nd = normalizeDate(dateStr);
+    return auditPhases.some(p => nd >= normalizeDate(p.startDate) && nd <= normalizeDate(p.endDate));
   };
 
   const handleDateChange = (id: string, newDate: string, phaseId: string) => {
@@ -181,7 +195,8 @@ export const AuditTable: React.FC<AuditTableProps> = ({
           onUpdateDate(id, newDate);
           return;
         }
-        const matchingPhase = auditPhases.find(p => newDate >= p.startDate && newDate <= p.endDate);
+        const nd = normalizeDate(newDate);
+        const matchingPhase = auditPhases.find(p => nd >= normalizeDate(p.startDate) && nd <= normalizeDate(p.endDate));
 
         if (!matchingPhase) {
           alert("Warning: Selected date falls outside of all configured audit phases!");

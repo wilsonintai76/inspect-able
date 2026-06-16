@@ -19,10 +19,32 @@ import { auditAssignmentGuard } from '../middleware/conflictOfInterest';
 
 const router = new Hono<{ Bindings: Bindings, Variables: Variables }>();
 // Audit Phases
+/** Normalize DD/MM/YYYY → YYYY-MM-DD for safe string comparison */
+function normDate(d: string): string {
+  if (!d) return d;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(d)) return d;
+  const parts = d.split('/');
+  if (parts.length === 3 && parts[2]?.length === 4)
+    return `${parts[2]}-${parts[1].padStart(2,'0')}-${parts[0].padStart(2,'0')}`;
+  return d;
+}
+
 router.get('/audit-phases', async (c) => {
   try {
     const { results } = await c.env.DB.prepare('SELECT * FROM audit_phases').all();
-    return c.json((results || []).map((p: any) => ({
+    const rows = (results || []) as any[];
+    // Auto-repair: normalize DD/MM/YYYY dates to YYYY-MM-DD in DB
+    for (const p of rows) {
+      const sd = normDate(p.start_date);
+      const ed = normDate(p.end_date);
+      if (sd !== p.start_date || ed !== p.end_date) {
+        await c.env.DB.prepare('UPDATE audit_phases SET start_date = ?, end_date = ? WHERE id = ?')
+          .bind(sd, ed, p.id).run();
+        p.start_date = sd;
+        p.end_date = ed;
+      }
+    }
+    return c.json(rows.map((p: any) => ({
       ...p,
       startDate: p.start_date,
       endDate: p.end_date

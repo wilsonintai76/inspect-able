@@ -468,7 +468,12 @@ export const MobileApp: React.FC = () => {
     if (!targetSchedule) return;
 
     // ── Phase validation: only enforce if phases are configured ──────────
-    const matchingPhase = phases.find(p => p.startDate <= date && date <= p.endDate);
+    const nd = date.includes('/') ? (() => { const p = date.split('/'); return `${p[2]}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')}`; })() : date;
+    const matchingPhase = phases.find(p => {
+      const ps = p.startDate.includes('/') ? (() => { const pp = p.startDate.split('/'); return `${pp[2]}-${pp[1].padStart(2,'0')}-${pp[0].padStart(2,'0')}`; })() : p.startDate;
+      const pe = p.endDate.includes('/') ? (() => { const pp = p.endDate.split('/'); return `${pp[2]}-${pp[1].padStart(2,'0')}-${pp[0].padStart(2,'0')}`; })() : p.endDate;
+      return nd >= ps && nd <= pe;
+    });
 
     if (!matchingPhase && phases.length > 0) {
       showToast("Warning: Selected date falls outside of all configured inspection phases!", "warning");
