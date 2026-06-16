@@ -328,8 +328,9 @@ pub.patch('/kiosk/schedules/:id', async (c) => {
           quals = JSON.parse(user.qualifications || '[]');
         } catch (e) {}
 
-        if (!quals.includes('Inspector') || !certExpiry || certExpiry < todayStr) {
-          return c.json({ error: 'ACTION BLOCKED: The selected inspecting officer must hold a valid, active certificate and Inspector qualification.' }, 403);
+        const hasValidCert = !!certExpiry && certExpiry >= todayStr;
+        if (!hasValidCert) {
+          return c.json({ error: 'ACTION BLOCKED: The selected inspecting officer must hold a valid, active certificate.' }, 403);
         }
 
         // Conflict of interest: auditor cannot also be the supervisor for this schedule
