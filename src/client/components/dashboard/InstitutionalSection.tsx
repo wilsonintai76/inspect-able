@@ -27,6 +27,7 @@ import { StatCard } from './Widgets';
 import { KPIStatsWidget } from '../KPIStatsWidget';
 import { InspectorRosterGaps } from './widgets/InspectorRosterGaps';
 import { InspectionStatusTable } from './widgets/InspectionStatusTable';
+import { hasCapability } from '../../lib/pbacUtils';
 
 // Role-scoped views
 import { CoordinatorView } from './views/CoordinatorView';
@@ -426,8 +427,8 @@ export const InstitutionalSection: React.FC<InstitutionalSectionProps> = ({
   // ── TAB SELECTION STATE AND ELIGIBILITY ────────────────────────────
   // ───────────────────────────────────────────────────────────────────
   const tabOptions = useMemo(() => {
-    const isCoordinator = currentUser.roles.includes('Coordinator') || currentUser.roles.includes('Admin');
-    const isSupervisor = currentUser.roles.includes('Supervisor') || currentUser.roles.includes('Admin');
+    const isCoordinator = hasCapability(currentUser, 'manage:users') || hasCapability(currentUser, 'system:admin');
+    const isSupervisor = hasCapability(currentUser, 'schedule:manage_dept') || hasCapability(currentUser, 'schedule:manage_all');
     return [
       { id: 'institution', label: 'Institution Overview', icon: Trophy, visible: true, count: null },
       { id: 'department', label: 'My Department', icon: Users, visible: isCoordinator, count: coordStaffGaps.length },
@@ -437,9 +438,9 @@ export const InstitutionalSection: React.FC<InstitutionalSectionProps> = ({
   }, [currentUser, coordStaffGaps, supPendingApprovals, supUpcomingInspections, mySchedules]);
 
   const defaultTab = useMemo(() => {
-    if (currentUser.roles.includes('Admin')) return 'institution';
-    if (currentUser.roles.includes('Coordinator')) return 'department';
-    if (currentUser.roles.includes('Supervisor')) return 'supervisor';
+    if (hasCapability(currentUser, 'system:admin')) return 'institution';
+    if (hasCapability(currentUser, 'manage:users')) return 'department';
+    if (hasCapability(currentUser, 'schedule:manage_dept')) return 'supervisor';
     return 'assignments';
   }, [currentUser]);
 

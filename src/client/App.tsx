@@ -27,6 +27,7 @@ import { MobileApp } from './apps/mobile/MobileApp';
 // Hooks
 import { useAppData } from './hooks/useAppData';
 import { useAppActions } from './hooks/useAppActions';
+import { hasCapability } from './lib/pbacUtils';
 
 // Icons
 import { ShieldCheck, Monitor } from 'lucide-react';
@@ -259,11 +260,11 @@ const App: React.FC = () => {
 
   const checkProfileComplete = (u: any) => {
     if (!u) return false;
-    if ((u.roles || []).includes('Admin')) return true;
+    if (hasCapability(u, 'system:admin')) return true;
     return !!(u.departmentId && u.contactNumber && u.designation);
   };
 
-  const isAdminUser = currentUser.roles?.includes('Admin');
+  const isAdminUser = hasCapability(currentUser, 'system:admin');
   const visibleUsers = isAdminUser ? users : users.filter(u => u.departmentId === currentUser.departmentId);
   const visibleDepartments = isAdminUser ? departmentsWithAssets : departmentsWithAssets.filter(d => d.id === currentUser?.departmentId);
   const visibleLocations = isAdminUser ? locations : locations.filter(l => l.departmentId === currentUser.departmentId);

@@ -7,6 +7,7 @@ import {
 } from '@chakra-ui/react';
 import { MobileSchedule, MobileUser, MobilePhase, AssignRole } from './types';
 import { StatusBadge } from './StatusBadge';
+import { hasCapability } from '../../../lib/pbacUtils';
 
 const ROLE_LABELS: Record<AssignRole, string> = {
   supervisor: 'Supervisor',
@@ -67,8 +68,8 @@ export const ScheduleCard: React.FC<Props> = ({
   };
 
   const currentUser = users.find(u => u.id === currentUserId);
-  const isAdmin = currentUserRoles.includes('Admin');
-  const isCoSupervisor = currentUserRoles.includes('Coordinator') || currentUserRoles.includes('Supervisor');
+  const isAdmin = hasCapability(currentUser || null, 'system:admin');
+  const isCoSupervisor = hasCapability(currentUser || null, 'manage:users') || hasCapability(currentUser || null, 'schedule:manage_dept');
   const isOwnDept = currentUser?.departmentId === schedule.departmentId;
   const isPrivileged = isAdmin || (isCoSupervisor && isOwnDept);
   

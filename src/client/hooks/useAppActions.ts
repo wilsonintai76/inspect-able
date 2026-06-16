@@ -6,6 +6,7 @@ import { authService } from '../services/auth';
 import { useAuditActions } from './useAuditActions';
 import { useEntityActions } from './useEntityActions';
 import { useSystemActions } from './useSystemActions';
+import { hasCapability } from '../lib/pbacUtils';
 
 // ── Props (trimmed — sub-hooks take their own subsets) ────────────────────
 
@@ -145,7 +146,7 @@ export const useAppActions = (props: AppActionsProps) => {
 
   const handleViewChange = (view: AppView) => {
     if (!currentUser) return;
-    const isAdmin = (currentUser.roles || []).includes('Admin');
+    const isAdmin = hasCapability(currentUser, 'system:admin');
     if (view !== 'profile' && view !== 'overview' && !isAdmin) {
       if (!(currentUser.departmentId && currentUser.contactNumber)) { showToast('Complete profile', 'info'); setActiveView('profile'); return; }
     }
