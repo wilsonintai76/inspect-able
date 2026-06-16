@@ -102,6 +102,16 @@ function mapProfileToUser(profile: any): User {
   }
   result.roles = Array.isArray(result.roles) && result.roles.length > 0 ? result.roles : ['Guest'];
 
+  // Always ensure qualifications is a valid array
+  if (typeof result.qualifications === 'string') {
+    try {
+      result.qualifications = JSON.parse(result.qualifications);
+    } catch {
+      result.qualifications = [];
+    }
+  }
+  result.qualifications = Array.isArray(result.qualifications) ? result.qualifications : [];
+
   if (result.contact_number) result.contactNumber = result.contact_number;
   if (result.is_verified !== undefined) result.isVerified = !!result.is_verified;
   if (result.last_active) result.lastActive = result.last_active;
