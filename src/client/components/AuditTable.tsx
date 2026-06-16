@@ -95,11 +95,11 @@ export const AuditTable: React.FC<AuditTableProps> = ({
   const canViewAllSchedule = hasCapability(pbacUser, 'schedule:manage_all');
   const canViewOwnSchedule = hasCapability(pbacUser, 'schedule:manage_dept');
   // Match mobile: any user who can view the schedule matrix can pick dates (lock/completed state enforced per-row)
-  const canEditDates = hasCapability(pbacUser, 'manage:departments') || hasCapability(pbacUser, 'system:admin') || hasCapability(pbacUser, 'manage:locations') || hasCapability(pbacUser, 'asset_inspector') || isCertified;
+  const canEditDates = hasCapability(pbacUser, 'manage:departments') || hasCapability(pbacUser, 'system:admin') || hasCapability(pbacUser, 'manage:locations') || hasCapability(pbacUser, 'asset_inspector');
   const canSendApprovalReminder = hasCapability(pbacUser, 'manage:departments') || hasCapability(pbacUser, 'system:admin');
   // Matrix schedule view: Admin sees all, Inspector sees cross-dept, others see own dept only
-  const canViewMatrixSchedule = hasCapability(pbacUser, 'schedule:manage_all') || hasCapability(pbacUser, 'asset_inspector') || isCertified;
-  const isInspector = hasCapability(pbacUser, 'asset_inspector') || isCertified;
+  const canViewMatrixSchedule = hasCapability(pbacUser, 'schedule:manage_all') || hasCapability(pbacUser, 'asset_inspector');
+  const isInspector = hasCapability(pbacUser, 'asset_inspector');
 
   const canSelfAssignPerm = canSelfAssignSelf; // PBAC replaces old perm check
   const hasFieldRole = hasCapability(pbacUser, 'assign:self');
