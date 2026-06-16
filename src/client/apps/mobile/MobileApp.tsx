@@ -762,8 +762,8 @@ showToast(`Plan Overwritten: Inspection reassigned from ${targetSchedule.phaseNa
 
   // ── Certified-officer gate (PBAC: qualifications contains Inspector + valid cert) ────────
   const todayStr = new Date().toISOString().split('T')[0];
-  const hasInspectorQual = !!currentUser.qualifications?.includes('Inspector');
   const hasCert = !!(currentUser.certificationExpiry && currentUser.certificationExpiry >= todayStr);
+  const hasInspectorQual = !!currentUser.qualifications?.includes('Inspector') || hasCert;
 
   if (!hasInspectorQual || !hasCert) {
     return (
