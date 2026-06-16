@@ -56,7 +56,8 @@ export const useAuditActions = (props: UseAuditActionsProps) => {
           updated.isLocked = true;
           const matchingPhase = auditPhases.find(p => {
             const d = new Date(updated.date!);
-            return d >= new Date(p.startDate) && d <= new Date(p.endDate);
+            const ns = (s: string) => { if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s; const pp = s.split('/'); return pp.length===3&&pp[2]?.length===4 ? `${pp[2]}-${pp[1].padStart(2,'0')}-${pp[0].padStart(2,'0')}` : s; };
+            return d >= new Date(ns(p.startDate)) && d <= new Date(ns(p.endDate));
           });
           if (matchingPhase) updated.phaseId = matchingPhase.id;
         } else if (updated.status === 'In Progress' && (!updated.date || !updated.supervisorId || !updated.auditor1Id || !updated.auditor2Id)) {
@@ -123,7 +124,9 @@ export const useAuditActions = (props: UseAuditActionsProps) => {
           // Phase assigned only now — when all slots filled and status → In Progress
           const matchingPhase = auditPhases.find(p => {
             const d = new Date(finalDate);
-            return d >= new Date(p.startDate) && d <= new Date(p.endDate);
+            // Normalize phase dates (DD/MM/YYYY → YYYY-MM-DD) before Date parse
+            const ns = (s: string) => { if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s; const pp = s.split('/'); return pp.length===3&&pp[2]?.length===4 ? `${pp[2]}-${pp[1].padStart(2,'0')}-${pp[0].padStart(2,'0')}` : s; };
+            return d >= new Date(ns(p.startDate)) && d <= new Date(ns(p.endDate));
           });
           if (matchingPhase) updates.phaseId = matchingPhase.id;
         } else if (currentStatus === 'In Progress' && (!finalDate || !finalSupervisor || !finalAuditor1 || !finalAuditor2)) {
@@ -146,7 +149,8 @@ export const useAuditActions = (props: UseAuditActionsProps) => {
       const audit = snapshot;
       let resolvedPhaseId: string | null = null;
       if (date) {
-        resolvedPhaseId = auditPhases.find(p => date >= p.startDate && date <= p.endDate)?.id ?? null;
+        const ns = (s: string) => { if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s; const pp = s.split('/'); return pp.length===3&&pp[2]?.length===4 ? `${pp[2]}-${pp[1].padStart(2,'0')}-${pp[0].padStart(2,'0')}` : s; };
+        resolvedPhaseId = auditPhases.find(p => date >= ns(p.startDate) && date <= ns(p.endDate))?.id ?? null;
       }
       let updates: Partial<AuditSchedule> = { date };
       if (audit) {

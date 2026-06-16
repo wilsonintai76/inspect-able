@@ -268,8 +268,8 @@ export const AuditTable: React.FC<AuditTableProps> = ({
       const today = new Date().toISOString().split('T')[0];
       const matchingPhase = auditPhases.find(p => {
         const d = new Date(today);
-        const start = new Date(p.startDate); start.setHours(0,0,0,0);
-        const end = new Date(p.endDate); end.setHours(23,59,59,999);
+        const start = new Date(normalizeDate(p.startDate)); start.setHours(0,0,0,0);
+        const end = new Date(normalizeDate(p.endDate)); end.setHours(23,59,59,999);
         return d >= start && d <= end;
       });
       if (matchingPhase) {
@@ -288,8 +288,8 @@ export const AuditTable: React.FC<AuditTableProps> = ({
     // Phase resolution: ensure phaseId matches the resolved date
     const datePhase = auditPhases.find(p => {
       const d = new Date(resolvedDate);
-      const start = new Date(p.startDate); start.setHours(0,0,0,0);
-      const end = new Date(p.endDate); end.setHours(23,59,59,999);
+      const start = new Date(normalizeDate(p.startDate)); start.setHours(0,0,0,0);
+      const end = new Date(normalizeDate(p.endDate)); end.setHours(23,59,59,999);
       return d >= start && d <= end;
     });
     if (datePhase && datePhase.id !== resolvedPhaseId) {
