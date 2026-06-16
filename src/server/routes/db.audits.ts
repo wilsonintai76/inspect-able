@@ -644,10 +644,27 @@ router.post('/audits/:id/reports', reportAccessGuard, async (c) => {
   }
 });
 
-// Delete a specific report
+// Delete a specific report (DB row + R2 file)
 router.delete('/audits/:id/reports/:reportId', reportAccessGuard, async (c) => {
   const { id: auditId, reportId } = c.req.param();
   try {
+    // Fetch the file_path before deleting the row
+    const report = await c.env.DB.prepare(
+      'SELECT file_path FROM audit_reports WHERE id = ? AND audit_id = ?'
+    ).bind(reportId, auditId).first<{ file_path: string }>();
+    
+    if (!report) {
+      return c.json({ error: 'Report not found' }, 404);
+    }
+
+    // Delete from R2 storage
+    try {
+      const url = new URL(report.file_path);
+      const key = url.pathname.replace(/^\//, ''); // strip leading slash
+      await c.env.MEDIA.delete(key);
+    } catch { /* R2 delete is best-effort; file may already be gone */ }
+
+    // Delete from database
     await c.env.DB.prepare('DELETE FROM audit_reports WHERE id = ? AND audit_id = ?').bind(reportId, auditId).run();
     return c.json({ success: true });
   } catch (err: any) {
