@@ -666,6 +666,23 @@ router.delete('/audits/:id/reports/:reportId', reportAccessGuard, async (c) => {
 
     // Delete from database
     await c.env.DB.prepare('DELETE FROM audit_reports WHERE id = ? AND audit_id = ?').bind(reportId, auditId).run();
+
+    // If no reports remain, revert status from Completed to In Progress
+    const remaining = await c.env.DB.prepare(
+      'SELECT COUNT(*) as count FROM audit_reports WHERE audit_id = ?'
+    ).bind(auditId).first<{ count: number }>();
+    if (remaining && remaining.count === 0) {
+      const audit = await c.env.DB.prepare(
+        'SELECT status FROM audit_schedules WHERE id = ?'
+      ).bind(auditId).first<{ status: string }>();
+      if (audit && audit.status === 'Completed') {
+        await c.env.DB.prepare(
+          "UPDATE audit_schedules SET status = 'In Progress' WHERE id = ?"
+        ).bind(auditId).run();
+        invalidateScheduleCache(c.env.SETTINGS);
+      }
+    }
+
     return c.json({ success: true });
   } catch (err: any) {
     return c.json({ error: err.message }, 500);

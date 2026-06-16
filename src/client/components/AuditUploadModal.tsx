@@ -326,8 +326,9 @@ export const AuditUploadModal: React.FC<AuditUploadModalProps> = ({
                         View
                       </a>
                       <button onClick={() => handleDeleteReport(r.id)}
-                        className="p-1.5 text-slate-400 hover:text-rose-500 transition-colors rounded-lg hover:bg-rose-50">
-                        <Trash2 className="w-3.5 h-3.5" />
+                        className="flex items-center gap-1 px-2 py-1 text-[9px] font-bold text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
+                        title="Delete this upload">
+                        <Trash2 className="w-3 h-3" /> Delete
                       </button>
                     </div>
                   </div>
