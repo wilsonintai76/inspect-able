@@ -77,7 +77,6 @@ export const AuditTableRow: React.FC<AuditTableRowProps> = ({
   const isEffectivelyLocked = isLocked || audit.status === 'In Progress' || audit.status === 'Completed';
 
   // Coordinator dept-scope: can only assign others within own department
-  const isOwnDept = currentUser?.departmentId === audit.departmentId;
   const canAssignOthersHere = canAssignOthers && (!isCoordinator || isOwnDept);
 
   // Per-row date permission: any user who can view the matrix may pick dates;
