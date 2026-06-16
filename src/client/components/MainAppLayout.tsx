@@ -118,7 +118,7 @@ export const MainAppLayout: React.FC<MainAppLayoutProps> = ({
                 </>
               )}
               <button onClick={() => handleViewChange('profile')} className="flex items-center gap-2 p-1 pr-3 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-all">
-                <div className="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold text-sm">{currentUser.name[0]}</div>
+                <div className="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold text-sm">{currentUser.name?.[0] || '?'}</div>
                 <span className="text-xs font-bold text-slate-700 hidden sm:block">{currentUser.name}</span>
               </button>
             </div>

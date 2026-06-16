@@ -38,7 +38,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ user, departments, onU
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (token) headers['Authorization'] = `Bearer ${token}`;
     fetch('/api/auth/accounts', { credentials: 'include', headers })
-      .then(r => r.json())
+      .then(r => r.ok ? r.json() : Promise.reject())
       .then((d: any) => setLinkedAccounts(d.success ? d.accounts : []))
       .catch(() => setLinkedAccounts([]));
   }, [user.id]);
@@ -129,7 +129,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ user, departments, onU
               <img src={user.picture} className="w-24 h-24 rounded-2xl object-cover" alt="Profile" />
             ) : (
               <div className="w-24 h-24 bg-blue-600 rounded-2xl flex items-center justify-center text-white text-3xl font-black">
-                {user.name[0]}
+                {user.name?.[0] || '?'}
               </div>
             )}
           </div>

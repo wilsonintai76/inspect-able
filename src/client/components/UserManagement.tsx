@@ -651,7 +651,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400 font-black border border-slate-200">
-                          {user.name[0]}
+                          {user.name?.[0] || '?'}
                         </div>
                         <div>
                           <div className="text-sm font-bold text-slate-900">{user.name}</div>
