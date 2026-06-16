@@ -8,7 +8,7 @@ import { KPISettings } from './KPISettings';
 import { suggestThresholds } from '../services/aiService';
 
 import { ArchivedLocationsPanel } from './ArchivedLocationsPanel';
-import { Zap, Sliders, AlertCircle, Eye, Calendar, UserCheck, Users, UserPlus, Edit, ShieldAlert, ShieldCheck, Network, Lock, Unlock, RotateCcw, Building2, Trash2, Database, RefreshCcw } from 'lucide-react';
+import { Zap, Sliders, AlertCircle, Eye, Calendar, UserCheck, Users, UserPlus, Edit, ShieldAlert, ShieldCheck, Network, Lock, Unlock, RotateCcw, Building2, Trash2, Database, RefreshCcw, HardDrive, FileArchive } from 'lucide-react';
 import { BackupManager } from './BackupManager';
 import { AuditConstraints } from './AuditConstraints';
 import { BrandingSettings } from './BrandingSettings';
@@ -312,6 +312,44 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
       )}
 
       {isAdmin && <BrandingSettings showToast={showToast} />}
+
+      {isAdmin && (
+        <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
+          <h3 className="text-sm font-black text-slate-800 flex items-center gap-2 mb-4">
+            <Database className="w-4 h-4 text-amber-500" />
+            Data Maintenance
+          </h3>
+          <div className="flex flex-wrap gap-3">
+            <button
+              onClick={async () => {
+                try {
+                  const r = await fetch('/api/audits/maintenance/cleanup-orphaned-reports', { method: 'POST' });
+                  const d = await r.json();
+                  showToast?.(d.message || `Cleaned ${d.deleted} files`);
+                } catch { showToast?.('Cleanup failed', 'warning'); }
+              }}
+              className="flex items-center gap-2 px-4 py-2 bg-amber-50 border border-amber-200 text-amber-700 rounded-xl text-xs font-bold hover:bg-amber-100 transition-colors"
+            >
+              <Trash2 className="w-3.5 h-3.5" /> Clean Orphaned R2 Reports
+            </button>
+            <button
+              onClick={async () => {
+                try {
+                  const r = await fetch('/api/audits/maintenance/sync-reports-from-r2', { method: 'POST' });
+                  const d = await r.json();
+                  showToast?.(d.message || `Synced ${d.created} reports`);
+                } catch { showToast?.('Sync failed', 'warning'); }
+              }}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-50 border border-blue-200 text-blue-700 rounded-xl text-xs font-bold hover:bg-blue-100 transition-colors"
+            >
+              <RefreshCcw className="w-3.5 h-3.5" /> Sync Legacy Reports to DB
+            </button>
+          </div>
+          <p className="text-[10px] text-slate-400 mt-3">
+            "Clean" removes R2 files not linked to any audit. "Sync" imports existing report paths into the multi-upload history.
+          </p>
+        </div>
+      )}
 
       {isAdmin && <BackupManager />}
 
