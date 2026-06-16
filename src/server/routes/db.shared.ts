@@ -266,8 +266,8 @@ export const patchAuditPermissionGuard = async (c: Context<{ Bindings: Bindings;
   const updates = (c.req as any).valid('json') as Record<string, any>;
 
   const existing = await c.env.DB.prepare(
-    'SELECT department_id, supervisor_id, auditor1_id, auditor2_id, status, is_locked FROM audit_schedules WHERE id = ?'
-  ).bind(id).first<{ department_id: string | null; supervisor_id: string | null; auditor1_id: string | null; auditor2_id: string | null; status: string; is_locked: number | null }>();
+    'SELECT department_id, supervisor_id, auditor1_id, auditor2_id, status, is_locked, date FROM audit_schedules WHERE id = ?'
+  ).bind(id).first<{ department_id: string | null; supervisor_id: string | null; auditor1_id: string | null; auditor2_id: string | null; status: string; is_locked: number | null; date: string | null }>();
 
   if (!existing) return next();
 
