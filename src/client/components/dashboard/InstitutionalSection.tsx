@@ -694,7 +694,6 @@ export const InstitutionalSection: React.FC<InstitutionalSectionProps> = ({
           supStats={supStats}
           supPendingApprovals={supPendingApprovals}
           supUpcomingInspections={supUpcomingInspections}
-          onToggleLock={onToggleLock}
         />
       )}
 

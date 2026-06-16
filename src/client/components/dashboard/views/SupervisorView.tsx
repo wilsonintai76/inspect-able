@@ -4,11 +4,8 @@ import {
   Package, 
   CheckCircle2, 
   FileText, 
-  Clock, 
-  Lock, 
-  Unlock, 
-  ExternalLink,
-  CalendarDays
+  CalendarDays,
+  ExternalLink
 } from 'lucide-react';
 import { Location } from '@shared/types';
 import { StatCard } from '../Widgets';
@@ -25,7 +22,6 @@ interface SupervisorViewProps {
   };
   supPendingApprovals: any[];
   supUpcomingInspections: any[];
-  onToggleLock?: (id: string) => Promise<void>;
 }
 
 export const SupervisorView: React.FC<SupervisorViewProps> = ({
@@ -33,7 +29,6 @@ export const SupervisorView: React.FC<SupervisorViewProps> = ({
   supStats,
   supPendingApprovals,
   supUpcomingInspections,
-  onToggleLock,
 }) => {
   const renderAssetBreakdownSummary = (statuses: Record<string, number> | null | undefined) => {
     if (!statuses || Object.keys(statuses).length === 0) return <span className="text-slate-400 font-medium">No details</span>;
@@ -97,15 +92,15 @@ export const SupervisorView: React.FC<SupervisorViewProps> = ({
         <StatCard icon={CheckCircle2} label="Approved & Completed" value={supStats.completed} color="text-emerald-600" />
       </div>
 
-      {/* Approval Pipeline Widget */}
+      {/* Completed Inspections Widget */}
       <div className="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm">
         <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/30">
           <h3 className="text-sm font-black text-slate-800 flex items-center gap-2">
-            <FileText className="w-4 h-4 text-emerald-500" />
-            Completed Audits Approval Pipeline
+            <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+            Completed Inspections at My Sites
           </h3>
-          <span className="inline-flex px-2 py-0.5 bg-amber-50 text-amber-700 rounded-lg text-[9px] font-black border border-amber-100">
-            Awaiting HOD Lock: {supPendingApprovals.filter(s => !s.isLocked).length}
+          <span className="inline-flex px-2 py-0.5 bg-emerald-50 text-emerald-700 rounded-lg text-[9px] font-black border border-emerald-100">
+            Completed: {supPendingApprovals.length}
           </span>
         </div>
         <div className="overflow-x-auto">
@@ -119,7 +114,7 @@ export const SupervisorView: React.FC<SupervisorViewProps> = ({
                 <th className="px-4 py-3 text-center">Verified Assets</th>
                 <th className="px-4 py-3 text-center">Asset Breakdown</th>
                 <th className="px-4 py-3 text-center">Report Upload</th>
-                <th className="px-5 py-3 text-right">Lock Status & Approval</th>
+                <th className="px-5 py-3 text-right">Status</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -132,7 +127,6 @@ export const SupervisorView: React.FC<SupervisorViewProps> = ({
               ) : (
                 supPendingApprovals.map(s => {
                   const hasReport = !!s.reportPath;
-                  const isLocked = s.isLocked === true;
                   return (
                     <tr key={s.id} className="hover:bg-slate-50/50 transition-colors">
                       <td className="px-5 py-3">
@@ -169,39 +163,9 @@ export const SupervisorView: React.FC<SupervisorViewProps> = ({
                         )}
                       </td>
                       <td className="px-5 py-3 text-right">
-                        <div className="flex justify-end items-center gap-2">
-                          {isLocked ? (
-                            <>
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-lg text-[10px] font-black">
-                                <Lock className="w-2.5 h-2.5" /> Approved
-                              </span>
-                              {onToggleLock && (
-                                <button
-                                  onClick={() => onToggleLock(s.id)}
-                                  className="p-1 hover:bg-slate-100 text-slate-400 hover:text-slate-600 rounded-lg transition-colors"
-                                  title="Unlock schedule"
-                                >
-                                  <Unlock className="w-3.5 h-3.5" />
-                                </button>
-                              )}
-                            </>
-                          ) : (
-                            <>
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-50 text-amber-700 border border-amber-100 rounded-lg text-[10px] font-black animate-pulse">
-                                <Clock className="w-2.5 h-2.5" /> Review
-                              </span>
-                              {onToggleLock && (
-                                <button
-                                  onClick={() => onToggleLock(s.id)}
-                                  className="inline-flex items-center gap-1 px-2.5 py-1 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-[10px] font-bold shadow-sm transition-colors"
-                                  title="Lock & approve inspection"
-                                >
-                                  Approve
-                                </button>
-                              )}
-                            </>
-                          )}
-                        </div>
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-lg text-[10px] font-black">
+                          <CheckCircle2 className="w-2.5 h-2.5" /> Completed
+                        </span>
                       </td>
                     </tr>
                   );
