@@ -318,9 +318,7 @@ router.patch(
       finalQuals.push('Inspector');
     }
   } else {
-    if (updates.certificationExpiry !== undefined || updates.certificationIssued !== undefined) {
-      finalQuals = finalQuals.filter(q => q !== 'Inspector');
-    }
+    finalQuals = finalQuals.filter(q => q !== 'Inspector');
   }
 
   const qualsChanged = JSON.stringify(finalQuals.sort()) !== JSON.stringify(currentQuals.sort());

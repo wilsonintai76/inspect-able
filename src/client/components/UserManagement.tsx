@@ -272,10 +272,10 @@ export const UserManagement: React.FC<UserManagementProps> = ({
     const dbRole = (user.roles && user.roles.length > 0) ? user.roles[0] : 'Guest';
     // If DB role doesn't match designation binding, use the bound role
     const role = (dbRole !== bound && bound !== 'Guest') ? bound : dbRole;
-    const initialQuals = user.qualifications ? [...user.qualifications] : [];
+    const initialQuals = user.qualifications ? user.qualifications.filter(q => q !== 'Inspector') : [];
     const todayStr = new Date().toISOString().split('T')[0];
     const isCertValid = !!user.certificationExpiry && user.certificationExpiry >= todayStr;
-    if (isCertValid && !initialQuals.includes('Inspector')) {
+    if (isCertValid) {
       initialQuals.push('Inspector');
     }
     setFormData({
@@ -580,24 +580,17 @@ export const UserManagement: React.FC<UserManagementProps> = ({
                   <div className="space-y-1 md:col-span-2">
                     <label className="text-[10px] font-black uppercase text-slate-400 block mb-2">Qualifications</label>
                     <div className="flex flex-wrap gap-4">
-                      <label className={`flex items-center gap-2 p-3 rounded-xl border transition-all cursor-pointer ${
+                      <label className={`flex items-center gap-2 p-3 rounded-xl border transition-all cursor-not-allowed opacity-80 ${
                         formData.qualifications.includes('Inspector')
-                        ? 'bg-blue-50 border-blue-200 text-blue-700 shadow-sm' 
-                        : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'
+                        ? 'bg-blue-50 border-blue-100 text-blue-600 shadow-sm' 
+                        : 'bg-slate-50 border-slate-200 text-slate-400'
                       }`}>
                         <input 
                           type="checkbox" 
-                          className="w-4 h-4 text-blue-600 focus:ring-blue-500 border-slate-300 rounded"
+                          disabled={true}
+                          className="w-4 h-4 text-blue-600 focus:ring-blue-500 border-slate-300 rounded cursor-not-allowed"
                           checked={formData.qualifications.includes('Inspector')}
-                          onChange={(e) => {
-                            const checked = e.target.checked;
-                            setFormData(prev => {
-                              const quals = checked 
-                                ? [...prev.qualifications, 'Inspector']
-                                : prev.qualifications.filter(q => q !== 'Inspector');
-                              return { ...prev, qualifications: quals };
-                            });
-                          }}
+                          onChange={() => {}}
                         />
                         <span className="text-xs font-bold">Inspecting Officer (Inspector)</span>
                       </label>
