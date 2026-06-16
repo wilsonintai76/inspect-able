@@ -464,7 +464,10 @@ const CAN_INSPECT_AUDIT_POLICIES: PolicyDefinition[] = [
 const ACTION_POLICIES: Record<PbacAction, PolicyDefinition[]> = {
   // ── Audit schedule — self-assignment (CAN_SELF_ASSIGN per matrix) ────
   'schedule.assign': [
-    ...CAN_INSPECT_AUDIT_POLICIES,         // All 6 CanInspectAudit checks
+    REQUIRE_ACTIVE_INSPECTOR,
+    STRICT_COI,
+    NO_SUPERVISOR_CONFLICT,
+    NO_ANNUAL_CONFLICT,
     REQUIRE_CAPABILITY('assign:self', 'MISSING_CAPABILITY'),
     NO_DOUBLE_BOOKING,
   ],
@@ -490,15 +493,13 @@ const ACTION_POLICIES: Record<PbacAction, PolicyDefinition[]> = {
   'schedule.upload_report': [
     REQUIRE_ACTIVE_INSPECTOR,
   ],
-  // ── Audit CRUD — create (assign-others) ──────────────────────────────
+  // ── Audit CRUD — create (Admin only) ────────────────────────────────
   'audit.create': [
-    REQUIRE_CAPABILITY('assign:others', 'MISSING_CAPABILITY'),
-    COORDINATOR_DEPT_SCOPE,
+    REQUIRE_CAPABILITY('system:admin', 'MISSING_CAPABILITY'),
   ],
-  // ── Audit — delete ────────────────────────────────────────────────────
+  // ── Audit — delete (Admin only) ──────────────────────────────────────
   'audit.delete': [
-    REQUIRE_CAPABILITY('assign:others', 'MISSING_CAPABILITY'),
-    COORDINATOR_DEPT_SCOPE,
+    REQUIRE_CAPABILITY('system:admin', 'MISSING_CAPABILITY'),
   ],
   // ── Audit — maintenance (unassign expired, cleanup archived, send email)
   'audit.maintenance': [

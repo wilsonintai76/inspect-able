@@ -154,7 +154,6 @@ CanInspectAudit:
 | Policy | Type | Description |
 |---|---|---|
 | `REQUIRE_ACTIVE_INSPECTOR` | Certificate gate | `certificationExpiry` must be present and ≥ current date in the organization's timezone (Asia/Kuala_Lumpur). A valid certificate IS the inspector qualification — no separate `qualifications[]` entry needed. |
-| `REQUIRE_SCHEDULE_DATE` | Scheduling gate | `scheduleDate` must not be null. A Pending audit (no date, no supervisor, no inspector) cannot be self-assigned. |
 | `STRICT_COI` | Integrity rule | `user.departmentId ≠ targetDepartmentId` — **no exemptions** |
 | `NO_SUPERVISOR_CONFLICT` | Integrity rule | User must not be listed as supervisor for the target location |
 | `DATE_WITHIN_PHASE` | Phase scheduling rule | If `scheduleDate` is null and status is `Pending`, allow. If `scheduleDate` is present, it must fall within any configured audit phase (Phase 1, 2, or 3). If present but outside all phases, deny with `DATE_OUTSIDE_PHASE`. |
@@ -166,7 +165,7 @@ CanInspectAudit:
 | Composite | Constituent Policies | Used By |
 |---|---|---|
 | `CAN_INSPECT_AUDIT_POLICIES` | `REQUIRE_ACTIVE_INSPECTOR` + `STRICT_COI` + `NO_SUPERVISOR_CONFLICT` + `DATE_WITHIN_PHASE` + `NO_ANNUAL_CONFLICT` | `auditAssignmentGuard` (all CanInspectAudit checks) |
-| `CAN_SELF_ASSIGN` | `REQUIRE_SCHEDULE_DATE` + `REQUIRE_ACTIVE_INSPECTOR` + `STRICT_COI` + `NO_SUPERVISOR_CONFLICT` + `NO_ANNUAL_CONFLICT` + `assign:self` + `NO_DOUBLE_BOOKING` | `schedule.assign` (self-assignment to an open audit slot). `DATE_WITHIN_PHASE` is excluded — date is validated at pick time via `schedule.set_date`, not re-checked at assignment. |
+| `CAN_SELF_ASSIGN` | `REQUIRE_ACTIVE_INSPECTOR` + `STRICT_COI` + `NO_SUPERVISOR_CONFLICT` + `NO_ANNUAL_CONFLICT` + `assign:self` + `NO_DOUBLE_BOOKING` | `schedule.assign` (self-assignment, including to Pending audits with null date). `DATE_WITHIN_PHASE` is excluded — date is validated at pick time via `schedule.set_date`, not re-checked at assignment. |
 | `CAN_ASSIGN_OTHER_INSPECTOR` | Actor must hold `assign:others` (Admin only); target inspector passes `CAN_INSPECT_AUDIT_POLICIES` for that audit | Admin assigning inspectors cross-department |
 
 ### Structural Policies
