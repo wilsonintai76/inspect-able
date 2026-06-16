@@ -154,7 +154,8 @@ export const AuditTable: React.FC<AuditTableProps> = ({
   }, [availableLocations, selectedBlock]);
 
   const getPhaseName = (phaseId: string) => {
-    return auditPhases.find(p => p.id === phaseId)?.name || 'Unknown Phase';
+    if (!phaseId) return 'Unscheduled';
+    return auditPhases.find(p => p.id === phaseId)?.name || 'Unscheduled';
   };
 
   const canAuditDepartment = (targetDeptId: string) => {
@@ -204,10 +205,8 @@ export const AuditTable: React.FC<AuditTableProps> = ({
           return;
         }
 
-        if (matchingPhase.id !== phaseId) {
-          onUpdateAudit(id, { date: newDate, phaseId: matchingPhase.id });
-          return;
-        }
+        // Don't set phaseId yet — Pending audits stay Unscheduled.
+        // Phase is auto-assigned when all fields fill → In Progress.
         onUpdateDate(id, newDate);
     } else {
         onUpdateAudit(id, { date: '', phaseId: null as any });

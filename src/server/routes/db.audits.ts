@@ -136,7 +136,8 @@ router.patch('/audits/:id', zValidator('json', patchAuditSchema), patchAuditPerm
   const updates = c.req.valid('json');
   const isExplicitLockChange = updates.isLocked !== undefined;
 
-  // Date-driven phase auto-routing (skip if no phases configured)
+  // Date-driven phase auto-routing: only assign phase when status is In Progress.
+  // Pending audits stay Unscheduled (phase_id=NULL) until all slots filled.
   if (updates.date !== undefined) {
     if (updates.date) {
       const phaseCount = await c.env.DB.prepare('SELECT COUNT(*) as cnt FROM audit_phases').first<{cnt:number}>();
@@ -148,7 +149,10 @@ router.patch('/audits/:id', zValidator('json', patchAuditSchema), patchAuditPerm
         if (!matchingPhase) {
           return c.json({ error: 'Selected date must fall within a configured audit phase.' }, 400);
         }
-        updates.phaseId = matchingPhase.id;
+        // Only set phase if status is also transitioning to In Progress
+        if (updates.status === 'In Progress') {
+          updates.phaseId = matchingPhase.id;
+        }
       }
     } else {
       updates.phaseId = null;
