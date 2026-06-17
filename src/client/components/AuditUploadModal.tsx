@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { AuditSchedule, AuditReport } from '@shared/types';
-import { X, UploadCloud, FileText, CheckCircle2, AlertTriangle, ExternalLink, Sparkles, Trash2, History } from 'lucide-react';
-import { parsePdfText, extractAssetData } from '../lib/pdfParser';
+import { X, UploadCloud, FileText, CheckCircle2, AlertTriangle, ExternalLink, Trash2, History } from 'lucide-react';
+import { parsePdfText, extractAssetData, extractAssetDataFromText } from '../lib/pdfParser';
 
 interface AuditUploadModalProps {
   audit: AuditSchedule;
@@ -116,47 +116,20 @@ export const AuditUploadModal: React.FC<AuditUploadModalProps> = ({
     setExtractionNote('');
     setExtractedCount(null);
     try {
+      // Step 1: Position-based table extraction (deterministic, no network)
+      const tableResult = await extractAssetData(selectedFile);
+      if (tableResult && Object.keys(tableResult.assetStatuses).length > 0) {
+        applyExtraction(tableResult);
+        return;
+      }
+
+      // Step 2: Regex fallback on raw text
       const fullText = await parsePdfText(selectedFile);
-
       if (fullText.length > 50) {
-        // Step 1: Try direct pattern-matching first (no AI, no network)
-        const directResult = extractAssetData(fullText);
-        if (directResult && directResult.verifiedAssetCount && Object.keys(directResult.assetStatuses).length > 0) {
-          setExtractedCount(directResult.verifiedAssetCount);
-          setManualCount(directResult.verifiedAssetCount.toString());
-          setExtractedStatuses(directResult.assetStatuses);
-          const ms: Record<string, string> = { ...manualStatuses };
-          for (const [k, v] of Object.entries(directResult.assetStatuses)) {
-            if (ms[k] !== undefined) ms[k] = v.toString();
-          }
-          setManualStatuses(ms);
-          setExtractionNote(directResult.notes || '');
-          setExtracting(false);
-          setIsExtracting(false);
-          return; // success — skip AI
-        }
-
-        // Step 2: Fall back to AI extraction
-        const res = await fetch('/api/ai/extract-report-data', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text: fullText }),
-        });
-        if (res.ok) {
-          const data = await res.json() as { verifiedAssetCount: number | null, assetStatuses?: Record<string, number> | null, notes: string };
-          setExtractedCount(data.verifiedAssetCount);
-          if (data.verifiedAssetCount !== null) {
-            setManualCount(data.verifiedAssetCount.toString());
-          }
-          if (data.assetStatuses) {
-            setExtractedStatuses(data.assetStatuses);
-            const ms: Record<string, string> = { ...manualStatuses };
-            for (const [k, v] of Object.entries(data.assetStatuses)) {
-              if (ms[k] !== undefined) ms[k] = v.toString();
-            }
-            setManualStatuses(ms);
-          }
-          setExtractionNote(data.notes || '');
+        const regexResult = extractAssetDataFromText(fullText);
+        if (regexResult && Object.keys(regexResult.assetStatuses).length > 0) {
+          applyExtraction(regexResult);
+          return;
         }
       }
     } catch (err) {
@@ -165,6 +138,24 @@ export const AuditUploadModal: React.FC<AuditUploadModalProps> = ({
       setExtracting(false);
       setIsExtracting(false);
     }
+  };
+
+  const applyExtraction = (data: { verifiedAssetCount: number | null; assetStatuses: Record<string, number>; notes: string }) => {
+    setExtractedCount(data.verifiedAssetCount);
+    if (data.verifiedAssetCount !== null) setManualCount(data.verifiedAssetCount.toString());
+    if (data.assetStatuses) {
+      setExtractedStatuses(data.assetStatuses);
+      setManualStatuses(prev => {
+        const next = { ...prev };
+        for (const [k, v] of Object.entries(data.assetStatuses)) {
+          if (next[k] !== undefined) next[k] = v.toString();
+        }
+        return next;
+      });
+    }
+    setExtractionNote(data.notes || '');
+    setExtracting(false);
+    setIsExtracting(false);
   };
 
   const validateAndSetFile = (selectedFile: File) => {
@@ -412,7 +403,7 @@ export const AuditUploadModal: React.FC<AuditUploadModalProps> = ({
                 {isExtracting ? (
                   <div className="mt-4 flex items-center gap-2 text-[10px] text-blue-600 font-bold bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100">
                     <div className="w-3 h-3 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                    Extracting asset data via AI...
+                    Extracting asset data from table...
                   </div>
                 ) : (
                   <div className="mt-4 w-full text-left space-y-3 bg-white p-4 rounded-xl border border-slate-200">
