@@ -593,7 +593,56 @@ router.post('/users/:id/reset-password', requirePolicy('user.update', emptyConte
 
 // Users
 
-// ─── Multi-KEWPA Report Upload ────────────────────────────────────────
+// ─── Department Asset Status Summary ────────────────────────────────
+router.get('/audits/department-asset-summary', async (c) => {
+  try {
+    // Get all completed audits with asset statuses
+    const { results } = await c.env.DB.prepare(
+      `SELECT s.department_id, s.asset_statuses, d.name as dept_name, d.abbr as dept_abbr, s.location_id, l.name as loc_name
+       FROM audit_schedules s
+       JOIN departments d ON s.department_id = d.id
+       JOIN locations l ON s.location_id = l.id
+       WHERE s.asset_statuses IS NOT NULL AND s.asset_statuses != '' AND s.status = 'Completed'`
+    ).all<{ department_id: string; asset_statuses: string; dept_name: string; dept_abbr: string; location_id: string; loc_name: string }>();
+
+    // Aggregate by department
+    const deptMap = new Map<string, {
+      deptId: string; deptName: string; deptAbbr: string;
+      total: number; statuses: Record<string, number>; locationCount: number;
+    }>();
+
+    for (const row of results || []) {
+      let statuses: Record<string, number> = {};
+      try { statuses = JSON.parse(row.asset_statuses); } catch {}
+
+      if (!deptMap.has(row.department_id)) {
+        deptMap.set(row.department_id, {
+          deptId: row.department_id, deptName: row.dept_name, deptAbbr: row.dept_abbr,
+          total: 0, statuses: {}, locationCount: 0,
+        });
+      }
+      const d = deptMap.get(row.department_id)!;
+      d.locationCount++;
+      for (const [k, v] of Object.entries(statuses)) {
+        d.statuses[k] = (d.statuses[k] || 0) + (typeof v === 'number' ? v : 0);
+        d.total += typeof v === 'number' ? v : 0;
+      }
+    }
+
+    const summary = [...deptMap.values()]
+      .sort((a, b) => b.total - a.total)
+      .map(d => ({
+        ...d,
+        statuses: Object.fromEntries(
+          Object.entries(d.statuses).sort(([, a], [, b]) => b - a)
+        ),
+      }));
+
+    return c.json(summary);
+  } catch (err: any) {
+    return c.json({ error: err.message }, 500);
+  }
+});
 
 // Access guard: admin or assigned inspector only (PBAC: ASSIGNED_AUDITOR_ONLY + REQUIRE_ACTIVE_INSPECTOR)
 const reportAccessGuard = async (c: Context<{ Bindings: Bindings; Variables: Variables }>, next: Next) => {

@@ -27,6 +27,7 @@ import { StatCard } from './Widgets';
 import { KPIStatsWidget } from '../KPIStatsWidget';
 import { InspectorRosterGaps } from './widgets/InspectorRosterGaps';
 import { InspectionStatusTable } from './widgets/InspectionStatusTable';
+import { DepartmentAssetSummary } from './widgets/DepartmentAssetSummary';
 import { hasCapability } from '../../lib/pbacUtils';
 
 // Role-scoped views
@@ -541,6 +542,9 @@ export const InstitutionalSection: React.FC<InstitutionalSectionProps> = ({
 
           {/* Inspection Status Table */}
           <InspectionStatusTable data={inspectionByDept} />
+
+          {/* Department Asset Status Summary */}
+          <DepartmentAssetSummary />
 
           {/* Upcoming Schedule */}
           {upcomingSchedules.length > 0 && (
