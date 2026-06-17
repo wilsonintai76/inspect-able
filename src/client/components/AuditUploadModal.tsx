@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { AuditSchedule, AuditReport } from '@shared/types';
 import { X, UploadCloud, FileText, CheckCircle2, AlertTriangle, ExternalLink, Sparkles, Trash2, History } from 'lucide-react';
-import { parsePdfText } from '../lib/pdfParser';
+import { parsePdfText, extractAssetData } from '../lib/pdfParser';
 
 interface AuditUploadModalProps {
   audit: AuditSchedule;
@@ -118,8 +118,25 @@ export const AuditUploadModal: React.FC<AuditUploadModalProps> = ({
     try {
       const fullText = await parsePdfText(selectedFile);
 
-      // AI Extraction (legacy/main)
       if (fullText.length > 50) {
+        // Step 1: Try direct pattern-matching first (no AI, no network)
+        const directResult = extractAssetData(fullText);
+        if (directResult && directResult.verifiedAssetCount && Object.keys(directResult.assetStatuses).length > 0) {
+          setExtractedCount(directResult.verifiedAssetCount);
+          setManualCount(directResult.verifiedAssetCount.toString());
+          setExtractedStatuses(directResult.assetStatuses);
+          const ms: Record<string, string> = { ...manualStatuses };
+          for (const [k, v] of Object.entries(directResult.assetStatuses)) {
+            if (ms[k] !== undefined) ms[k] = v.toString();
+          }
+          setManualStatuses(ms);
+          setExtractionNote(directResult.notes || '');
+          setExtracting(false);
+          setIsExtracting(false);
+          return; // success — skip AI
+        }
+
+        // Step 2: Fall back to AI extraction
         const res = await fetch('/api/ai/extract-report-data', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
