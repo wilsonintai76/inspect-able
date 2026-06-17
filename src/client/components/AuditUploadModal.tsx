@@ -200,16 +200,32 @@ export const AuditUploadModal: React.FC<AuditUploadModalProps> = ({
 
       const data = await res.json() as { key: string; url: string };
 
+      // Compute SHA-256 hash for duplicate detection
+      let contentHash: string | undefined;
+      try {
+        const buf = await file.arrayBuffer();
+        const hashBuf = await crypto.subtle.digest('SHA-256', buf);
+        contentHash = Array.from(new Uint8Array(hashBuf))
+          .map(b => b.toString(16).padStart(2, '0')).join('');
+      } catch { /* hash is optional */ }
+
       // Save to audit_reports table (multi-KEWPA)
       try {
         const reportRes = await fetch(`/api/db/audits/${audit.id}/reports`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ filePath: data.url, fileName: file.name }),
+          body: JSON.stringify({ filePath: data.url, fileName: file.name, contentHash }),
         });
         if (reportRes.ok) {
           const newReport = await reportRes.json() as AuditReport;
           setReports(prev => [newReport, ...prev]);
+        } else {
+          const err = await reportRes.json() as any;
+          if (err.code === 'DUPLICATE_FILE') {
+            setError('This exact KEW-PA 11 file has already been uploaded for this audit. Check Previous Uploads below.');
+            setUploading(false);
+            return;
+          }
         }
       } catch { /* non-critical */ }
       

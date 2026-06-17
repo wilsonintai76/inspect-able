@@ -32,6 +32,17 @@ router.get('/audits', async (c) => {
         file_name TEXT,
         uploaded_by TEXT,
         uploaded_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        content_hash TEXT,
+        FOREIGN KEY (audit_id) REFERENCES audit_schedules(id)
+      )`
+    ).run().catch(() => {});
+    await c.env.DB.prepare('ALTER TABLE audit_reports ADD COLUMN content_hash TEXT').run().catch(() => {});
+        id TEXT PRIMARY KEY,
+        audit_id TEXT NOT NULL,
+        file_path TEXT NOT NULL,
+        file_name TEXT,
+        uploaded_by TEXT,
+        uploaded_at TEXT DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (audit_id) REFERENCES audit_schedules(id)
       )`
     ).run().catch(() => {});
@@ -739,14 +750,23 @@ router.post('/audits/:id/reports', reportAccessGuard, async (c) => {
   const auditId = c.req.param('id');
   const caller = c.get('user');
   try {
-    const body = await c.req.json<{ filePath: string; fileName?: string }>();
+    const body = await c.req.json<{ filePath: string; fileName?: string; contentHash?: string }>();
     if (!body.filePath) {
       return c.json({ error: 'filePath is required' }, 400);
     }
+    // Check for duplicate by content hash
+    if (body.contentHash) {
+      const existing = await c.env.DB.prepare(
+        'SELECT id FROM audit_reports WHERE audit_id = ? AND content_hash = ?'
+      ).bind(auditId, body.contentHash).first();
+      if (existing) {
+        return c.json({ error: 'DUPLICATE: This exact file has already been uploaded for this audit.', code: 'DUPLICATE_FILE' }, 409);
+      }
+    }
     const id = crypto.randomUUID();
     await c.env.DB.prepare(
-      'INSERT INTO audit_reports (id, audit_id, file_path, file_name, uploaded_by) VALUES (?, ?, ?, ?, ?)'
-    ).bind(id, auditId, body.filePath, body.fileName ?? null, caller?.id ?? null).run();
+      'INSERT INTO audit_reports (id, audit_id, file_path, file_name, uploaded_by, content_hash) VALUES (?, ?, ?, ?, ?, ?)'
+    ).bind(id, auditId, body.filePath, body.fileName ?? null, caller?.id ?? null, body.contentHash ?? null).run();
     return c.json({ id, auditId, filePath: body.filePath, fileName: body.fileName ?? null }, 201);
   } catch (err: any) {
     return c.json({ error: err.message }, 500);
