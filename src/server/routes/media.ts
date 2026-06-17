@@ -4,6 +4,19 @@ import { Bindings, Variables } from '../types';
 
 const media = new Hono<{ Bindings: Bindings, Variables: Variables }>();
 
+// Helper to serve an R2 object with proper headers
+function serveR2Object(c: any, object: any) {
+  const headers = new Headers();
+  if ('writeHttpMetadata' in object) {
+    object.writeHttpMetadata(headers);
+  }
+  if ('httpEtag' in object) {
+    headers.set('etag', object.httpEtag);
+  }
+  headers.set('cache-control', 'public, max-age=31536000, immutable');
+  return c.body(object.body, 200, Object.fromEntries(headers.entries()));
+}
+
 // ── Settings routes (must come before /* catch-all) ─────────────────
 
 media.get('/settings/:key', cache({ cacheName: 'settings', cacheControl: 'public, max-age=60, s-maxage=60' }), async (c) => {
@@ -38,39 +51,34 @@ media.post('/upload', async (c) => {
   return c.json({ key, url: `/api/media/${key}` });
 });
 
-// ── Serve files (catch-all — must be last) ─────────────────────────
+// ── Serve KEW-PA 11 files under kewpa/ prefix ──────────────────────
 
-// GET /api/media/* — serves any R2 file: logos, kewpa/*, root-level files
-media.get('/*', async (c) => {
-  const key = c.req.param('*') || '';
+media.get('/kewpa/:filename', async (c) => {
+  const filename = c.req.param('filename');
+  const key = `kewpa/${filename}`;
   const object = await c.env.MEDIA.get(key);
-
-  if (!object) {
-    return c.notFound();
-  }
-
-  const headers = new Headers();
-  if ('writeHttpMetadata' in object) {
-    (object as any).writeHttpMetadata(headers);
-  }
-  if ('httpEtag' in object) {
-    headers.set('etag', (object as any).httpEtag);
-  }
-  headers.set('cache-control', 'public, max-age=31536000, immutable');
-
-  return c.body((object as any).body, 200, Object.fromEntries(headers.entries()));
+  if (!object) return c.notFound();
+  return serveR2Object(c, object);
 });
 
-export { media as mediaRoutes };
+// ── Serve simple files (logos, old root-level) ─────────────────────
 
-// GET /api/media/archives - List archived reports
+media.get('/:key', async (c) => {
+  const key = c.req.param('key');
+  const object = await c.env.MEDIA.get(key);
+  if (!object) return c.notFound();
+  return serveR2Object(c, object);
+});
+
+// ── Archives list ──────────────────────────────────────────────────
+
 media.get('/archives/list', async (c) => {
   const list = await c.env.MEDIA.list({ prefix: 'reports/' });
   const items = list.objects.map(obj => ({
     key: obj.key,
     uploaded: obj.uploaded,
     size: obj.size,
-    url: `/api/media/${obj.key.replace(/\//g, '%2F')}` // Handle slashes in key for URL
+    url: `/api/media/${obj.key.replace(/\//g, '%2F')}`
   }));
   return c.json({ items });
 });
@@ -98,3 +106,5 @@ media.post('/archive', async (c) => {
 
   return c.json({ success: true, key, url: `/api/media/${key.replace(/\//g, '%2F')}` });
 });
+
+export { media as mediaRoutes };
