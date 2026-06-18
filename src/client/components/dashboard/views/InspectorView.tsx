@@ -25,6 +25,7 @@ interface InspectorViewProps {
   isQAIActive: boolean;
   onUpdateAudit?: (id: string, updates: Partial<AuditSchedule>) => Promise<void>;
   onToggleStatus?: (id: string) => Promise<void>;
+  onSetUploadAudit?: (audit: AuditSchedule) => void;
 }
 
 export const InspectorView: React.FC<InspectorViewProps> = ({
@@ -34,6 +35,7 @@ export const InspectorView: React.FC<InspectorViewProps> = ({
   isQAIActive,
   onUpdateAudit,
   onToggleStatus,
+  onSetUploadAudit,
 }) => {
   return (
     <div className="space-y-6">
@@ -241,14 +243,14 @@ export const InspectorView: React.FC<InspectorViewProps> = ({
                         </button>
                       )}
                       
-                      {isInProgress && (
+                      {isInProgress && onSetUploadAudit && (
                         <div className="flex items-center gap-2">
-                          <a
-                            href="/"
+                          <button
+                            onClick={() => onSetUploadAudit(s)}
                             className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-[10px] font-black uppercase tracking-wider shadow-sm flex items-center gap-1.5 transition-all"
                           >
                             <Upload className="w-3.5 h-3.5" /> Upload KEW-PA 11
-                          </a>
+                          </button>
                         </div>
                       )}
                       

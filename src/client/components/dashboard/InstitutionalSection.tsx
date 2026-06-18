@@ -33,6 +33,7 @@ import { hasCapability } from '../../lib/pbacUtils';
 import { CoordinatorView } from './views/CoordinatorView';
 import { SupervisorView } from './views/SupervisorView';
 import { InspectorView } from './views/InspectorView';
+import { AuditUploadModal } from '../AuditUploadModal';
 
 interface InstitutionalSectionProps {
   currentUser: User;
@@ -50,6 +51,7 @@ interface InstitutionalSectionProps {
   onUpdateAudit?: (id: string, updates: Partial<AuditSchedule>) => Promise<void>;
   onToggleStatus?: (id: string) => Promise<void>;
   onToggleLock?: (id: string) => Promise<void>;
+  onUpdateLocation?: (id: string, updates: Partial<Location>) => Promise<void>;
 }
 
 interface OfficerWorkload {
@@ -65,8 +67,9 @@ interface OfficerWorkload {
 export const InstitutionalSection: React.FC<InstitutionalSectionProps> = ({
   currentUser, users, departments, locations, schedules, phases, kpiTiers, kpiTierTargets,
   institutionKPIs, activities, buildings, openAuditThreshold,
-  onUpdateAudit, onToggleStatus, onToggleLock
+  onUpdateAudit, onToggleStatus, onToggleLock, onUpdateLocation
 }) => {
+  const [uploadAudit, setUploadAudit] = useState<AuditSchedule | null>(null);
   const today = new Date().toISOString().split('T')[0];
 
   // Determine active view elements based on locations and schedules
@@ -705,6 +708,32 @@ export const InstitutionalSection: React.FC<InstitutionalSectionProps> = ({
           isQAIActive={isQAIActive}
           onUpdateAudit={onUpdateAudit}
           onToggleStatus={onToggleStatus}
+          onSetUploadAudit={setUploadAudit}
+        />
+      )}
+
+      {uploadAudit && (
+        <AuditUploadModal
+          audit={uploadAudit}
+          locationName={locations.find(l => l.id === uploadAudit.locationId)?.name || uploadAudit.locationId}
+          locationTotalAssets={locations.find(l => l.id === uploadAudit.locationId)?.totalAssets || 0}
+          onClose={() => setUploadAudit(null)}
+          onComplete={async (id, reportPath, totalAssetsInspected, assetStatusSummary, verifiedAssetCount, assetStatuses, newLocationTotal) => {
+            if (onUpdateAudit) {
+              await onUpdateAudit(id, {
+                status: 'Completed',
+                reportPath,
+                totalAssetsInspected,
+                assetStatusSummary,
+                verifiedAssetCount,
+                assetStatuses
+              });
+            }
+            if (newLocationTotal !== undefined && onUpdateLocation) {
+              await onUpdateLocation(uploadAudit.locationId, { totalAssets: newLocationTotal });
+            }
+            setUploadAudit(null);
+          }}
         />
       )}
     </div>
