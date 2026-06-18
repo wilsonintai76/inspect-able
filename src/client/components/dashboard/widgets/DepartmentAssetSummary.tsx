@@ -48,7 +48,12 @@ export const DepartmentAssetSummary: React.FC = () => {
     </div>
   );
 
-  if (data.length === 0) return null;
+  if (data.length === 0) return (
+    <div className="bg-white border border-dashed border-slate-300 rounded-3xl p-6 text-center shadow-sm">
+      <Package className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+      <p className="text-xs text-slate-400 font-medium">No completed audits with asset data yet.</p>
+    </div>
+  );
 
   const grandTotal = data.reduce((s, d) => s + d.total, 0);
 

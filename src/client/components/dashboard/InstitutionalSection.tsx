@@ -432,7 +432,7 @@ export const InstitutionalSection: React.FC<InstitutionalSectionProps> = ({
     const isInspector = hasCapability(currentUser, 'asset_inspector') || isQAIActive;
     return [
       { id: 'institution', label: 'Institution Overview', icon: Trophy, visible: true, count: null },
-      { id: 'department', label: 'My Department', icon: Users, visible: isCoordinator, count: coordStaffGaps.length },
+      { id: 'department', label: 'My Department', icon: Users, visible: !!currentUser.departmentId, count: coordStaffGaps.length },
       { id: 'supervisor', label: 'My Supervised Sites', icon: MapPin, visible: isSupervisor, count: supPendingApprovals.length + supUpcomingInspections.filter(s => s.status === 'In Progress').length },
       { id: 'assignments', label: 'My Assignments', icon: CalendarDays, visible: isInspector, count: mySchedules.filter(s => s.status !== 'Completed').length },
     ];
