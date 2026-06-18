@@ -56,6 +56,7 @@ export interface AuditTableRowProps {
   onUnassign: (id: string, slot: 1 | 2) => void;
   onSetUploadAudit: (audit: AuditSchedule) => void;
   onSetStatusAudit: (audit: AuditSchedule) => void;
+  onRevertCompleted: (id: string) => void;
   onDeleteAudit?: (id: string) => void;
 }
 
@@ -66,7 +67,7 @@ export const AuditTableRow: React.FC<AuditTableRowProps> = ({
   hasFieldRole, isCertified, canSendApprovalReminder, hasSentApprovalReminder,
   isAuditLocked, isDateInValidPhase, getBuildingAbbr, getUserContact,
   canAuditDepartment, getStatusBadgeStyles,
-  onDateChange, onToggleLock, onAssign, onUnassign, onSetUploadAudit, onSetStatusAudit, onDeleteAudit,
+  onDateChange, onToggleLock, onAssign, onUnassign, onSetUploadAudit, onSetStatusAudit, onRevertCompleted, onDeleteAudit,
 }) => {
   const loc = allLocations.find(l => l.id === audit.locationId);
   const isCurrentUserAssigned = audit.auditor1Id === currentUser?.id || audit.auditor2Id === currentUser?.id;
@@ -436,16 +437,29 @@ export const AuditTableRow: React.FC<AuditTableRowProps> = ({
                 </div>
               )}
 
-              {/* Completed: re-upload option */}
+              {/* Completed: re-upload + revert */}
               {audit.status === 'Completed' && canComplete && (
-                <button
-                  onClick={() => onSetUploadAudit(audit)}
-                  className="flex items-center gap-1 text-[9px] text-emerald-600 font-bold hover:underline"
-                  title="Replace uploaded KEW-PA 11"
-                >
-                  <RotateCcw className="w-2.5 h-2.5" />
-                  Re-upload
-                </button>
+                <div className="flex flex-col items-center gap-1">
+                  <button
+                    onClick={() => onSetUploadAudit(audit)}
+                    className="flex items-center gap-1 text-[9px] text-emerald-600 font-bold hover:underline"
+                    title="Replace uploaded KEW-PA 11"
+                  >
+                    <RotateCcw className="w-2.5 h-2.5" />
+                    Re-upload
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (window.confirm('Revert this inspection back to In Progress?')) {
+                        onRevertCompleted(audit.id);
+                      }
+                    }}
+                    className="flex items-center gap-1 text-[9px] text-amber-600 font-bold hover:underline"
+                    title="Revert to In Progress"
+                  >
+                    ↩ Undo
+                  </button>
+                </div>
               )}
             </div>
           );

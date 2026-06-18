@@ -261,10 +261,25 @@ export const InspectorView: React.FC<InspectorViewProps> = ({
                       )}
                       
                       {isCompleted && (
-                        <span className="text-[10px] font-extrabold text-emerald-600 flex items-center gap-1 bg-emerald-50 px-2 py-1 rounded-lg">
-                          <Check className="w-3 h-3 text-emerald-500" />
-                          Inspection Finished
-                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[10px] font-extrabold text-emerald-600 flex items-center gap-1 bg-emerald-50 px-2 py-1 rounded-lg">
+                            <Check className="w-3 h-3 text-emerald-500" />
+                            Inspection Finished
+                          </span>
+                          {onToggleStatus && (
+                            <button
+                              onClick={() => {
+                                if (window.confirm('Undo — revert this inspection back to In Progress?')) {
+                                  onToggleStatus(s.id);
+                                }
+                              }}
+                              className="text-[9px] font-bold text-amber-600 hover:text-amber-800 bg-amber-50 px-2 py-1 rounded-lg border border-amber-200 transition-colors"
+                              title="Revert to In Progress"
+                            >
+                              ↩ Undo
+                            </button>
+                          )}
+                        </div>
                       )}
                     </div>
                   </div>

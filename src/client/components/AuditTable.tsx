@@ -574,6 +574,7 @@ export const AuditTable: React.FC<AuditTableProps> = ({
                   onUnassign={onUnassign}
                   onSetUploadAudit={setUploadAudit}
                   onSetStatusAudit={setStatusAudit}
+                  onRevertCompleted={(id: string) => onUpdateAudit(id, { status: 'In Progress' })}
                   onDeleteAudit={onDeleteAudit}
                 />
               ))}

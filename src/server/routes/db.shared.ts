@@ -153,7 +153,7 @@ export const zeroAssetGuard = async (c: Context<{ Bindings: Bindings; Variables:
 export const VALID_TRANSITIONS: Record<string, string[]> = {
   'Pending':            ['In Progress'],
   'In Progress':        ['Pending', 'Completed'],
-  'Completed':          [],
+  'Completed':          ['In Progress'], // allow reverting accidental completion
 };
 
 export const statusTransitionGuard = async (c: Context<{ Bindings: Bindings; Variables: Variables }>, next: Next) => {
