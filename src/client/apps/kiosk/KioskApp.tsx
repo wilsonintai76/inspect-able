@@ -638,7 +638,10 @@ export const KioskApp: React.FC = () => {
                   <Typography.Text type="secondary">All departments have QAIs</Typography.Text>
                 </div>
               ) : (
-                staffingGaps.map(d => (
+                staffingGaps.map(d => {
+                  const colors: Record<string, string> = { 'In Use': '#52c41a', 'Broken': '#ff4d4f', 'Under Maintenance': '#faad14', 'Borrowed': '#1890ff', 'Missing': '#cf1322' };
+                  const deptStatus = deptAssetSummary.find((ds: any) => ds.deptId === d.id);
+                  return (
                   <div key={d.id} style={{ padding: '8px 0', borderBottom: '1px solid #f0f0f0' }}>
                     <Space>
                       <Typography.Text strong>{d.abbr || d.name}</Typography.Text>
@@ -652,8 +655,21 @@ export const KioskApp: React.FC = () => {
                         {d.gaps.map((g, i) => <Tag key={i} color="error" style={{ fontSize: 10 }}>{g}</Tag>)}
                       </Space>
                     </div>
+                    {deptStatus && (
+                      <div style={{ marginTop: 6 }}>
+                        <Space size={2} wrap>
+                          {Object.entries(deptStatus.statuses).slice(0, 4).map(([k, v]: any) => (
+                            <Tag key={k} style={{ backgroundColor: colors[k] || '#d9d9d9', color: '#fff', border: 'none', fontSize: 9, lineHeight: '14px' }}>
+                              {k}: {v}
+                            </Tag>
+                          ))}
+                          <Typography.Text type="secondary" style={{ fontSize: 10 }}>| {deptStatus.total} total</Typography.Text>
+                        </Space>
+                      </div>
+                    )}
                   </div>
-                ))
+                );
+                })
               )}
             </Card>
           </Col>
@@ -694,76 +710,6 @@ export const KioskApp: React.FC = () => {
             </Card>
           </Col>
         </Row>
-
-        {/* ── Department Asset Status ───────────────────── */}
-        <Row gutter={16} style={{ marginTop: 16 }}>
-          <Col xs={24}>
-            <Card
-              title={<Space><ApartmentOutlined style={{ color: '#4f46e5' }} />Asset Status by Department</Space>}
-              extra={<Tag color="blue">{deptAssetSummary.length} depts</Tag>}
-              bordered={false}
-              style={{ borderRadius: 12 }}
-            >
-              {deptAssetSummary.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: 32 }}>
-                  <Typography.Text type="secondary">No completed audits with asset status data yet.</Typography.Text>
-                </div>
-              ) : (
-                <Table
-                  dataSource={deptAssetSummary}
-                  rowKey="deptId"
-                  size="small"
-                  pagination={false}
-                  expandable={{
-                    expandedRowRender: (dept: any) => (
-                      <Table
-                        dataSource={dept.locations.filter((l: any) => l.total > 0)}
-                        rowKey="name"
-                        size="small"
-                        pagination={false}
-                        showHeader={false}
-                        columns={[
-                          { title: 'Location', dataIndex: 'name', key: 'name', render: (v: string) => <Typography.Text strong>{v}</Typography.Text> },
-                          {
-                            title: 'Status', key: 'bar', render: (_: any, loc: any) => (
-                              <Space size={4} wrap>
-                                {Object.entries(loc.statuses).map(([k, v]: any) => (
-                                  <Tag key={k} style={{ fontSize: 10 }}>{k}: {v}</Tag>
-                                ))}
-                              </Space>
-                            ),
-                          },
-                          { title: 'Total', dataIndex: 'total', key: 'total', align: 'right', render: (v: number) => <Typography.Text strong>{v}</Typography.Text> },
-                        ]}
-                      />
-                    ),
-                    rowExpandable: (d: any) => (d.locations || []).length > 0,
-                  }}
-                  columns={[
-                    { title: 'Department', dataIndex: 'deptName', key: 'dept', render: (v: string, r: any) => <Space><Typography.Text strong>{r.deptAbbr || v}</Typography.Text><Typography.Text type="secondary" style={{ fontSize: 10 }}>{r.locationCount} locs</Typography.Text></Space> },
-                    {
-                      title: 'Status Breakdown', key: 'bar',
-                      render: (_: any, dept: any) => {
-                        const colors: Record<string, string> = { 'In Use': '#52c41a', 'Not In Use': '#8c8c8c', 'Broken': '#ff4d4f', 'Under Maintenance': '#faad14', 'Borrowed': '#1890ff', 'Missing': '#cf1322' };
-                        return (
-                          <Space size={4} wrap>
-                            {Object.entries(dept.statuses).map(([k, v]: any) => (
-                              <Tag key={k} style={{ backgroundColor: colors[k] || '#d9d9d9', color: '#fff', border: 'none', fontSize: 10 }}>
-                                {k}: {v}
-                              </Tag>
-                            ))}
-                          </Space>
-                        );
-                      },
-                    },
-                    { title: 'Total', dataIndex: 'total', key: 'total', align: 'right', render: (v: number) => <Typography.Text strong style={{ fontSize: 14 }}>{v.toLocaleString()}</Typography.Text> },
-                  ]}
-                />
-              )}
-            </Card>
-          </Col>
-        </Row>
-
       </Layout.Content>
     </Layout>
   );
