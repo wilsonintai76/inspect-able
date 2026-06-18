@@ -711,6 +711,7 @@ pub.get('/stats', async (c) => {
 pub.get('/kiosk-dashboard', async (c) => {
   // Allow cache-bust with ?nocache=1
   const forceRefresh = c.req.query('nocache') === '1';
+  if (forceRefresh) await c.env.SETTINGS.delete('kiosk_dashboard_cache').catch(() => {});
   const cachedDashboard = forceRefresh ? null : await c.env.SETTINGS.get('kiosk_dashboard_cache');
   if (cachedDashboard) {
     c.header('Cache-Control', 'public, max-age=60, s-maxage=60');
