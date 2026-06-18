@@ -11,8 +11,8 @@
 UPDATE users
 SET certification_issued  = '2026-03-10',
     certification_expiry  = '2028-03-10'
-WHERE certification_issued  IS NOT NULL
-   OR certification_expiry  IS NOT NULL;
+WHERE certification_issued IS NOT NULL
+   OR certification_expiry IS NOT NULL;
 
 -- Summary: verify the update
 SELECT COUNT(*) AS affected_users

@@ -81,6 +81,16 @@ CREATE TABLE IF NOT EXISTS locations (
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_locations_unique_name ON locations(name, department_id, level, building_id);
 
+-- Audit Groups Table (must be defined BEFORE cross_audit_permissions)
+CREATE TABLE IF NOT EXISTS audit_groups (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  description TEXT,
+  color TEXT,
+  tier TEXT,
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Cross Audit Permissions Table (Relational Group-Level support)
 CREATE TABLE IF NOT EXISTS cross_audit_permissions (
   id TEXT PRIMARY KEY,
@@ -146,6 +156,8 @@ CREATE TABLE IF NOT EXISTS audit_schedules (
   total_assets_inspected INTEGER,
   asset_status_summary TEXT,
   is_locked INTEGER DEFAULT NULL,
+  verified_asset_count INTEGER,
+  asset_statuses TEXT,
   created_at TEXT DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (department_id) REFERENCES departments(id),
   FOREIGN KEY (location_id) REFERENCES locations(id),
@@ -162,6 +174,7 @@ CREATE TABLE IF NOT EXISTS audit_reports (
   file_name TEXT,
   uploaded_by TEXT,
   uploaded_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  content_hash TEXT,
   FOREIGN KEY (audit_id) REFERENCES audit_schedules(id)
 );
 
@@ -181,16 +194,6 @@ CREATE TABLE IF NOT EXISTS system_settings (
   id TEXT PRIMARY KEY,
   value TEXT NOT NULL, -- JSON string
   updated_at TEXT DEFAULT CURRENT_TIMESTAMP
-);
-
--- Audit Groups Table
-CREATE TABLE IF NOT EXISTS audit_groups (
-  id TEXT PRIMARY KEY,
-  name TEXT NOT NULL,
-  description TEXT,
-  color TEXT,
-  tier TEXT,
-  created_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
 
 -- KPI Tiers Table
