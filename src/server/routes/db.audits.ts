@@ -593,13 +593,15 @@ router.get('/audits/department-asset-summary', async (c) => {
        FROM audit_schedules s
        JOIN departments d ON s.department_id = d.id
        JOIN locations l ON s.location_id = l.id
-       WHERE s.asset_statuses IS NOT NULL AND s.asset_statuses != '' AND s.status = 'Completed'`
+       WHERE s.asset_statuses IS NOT NULL AND s.asset_statuses != '' AND s.status = 'Completed'
+       AND l.status != 'Archived' AND d.is_archived = 0`
     ).all<{ department_id: string; asset_statuses: string; dept_name: string; dept_abbr: string; location_id: string; loc_name: string }>();
 
     // Aggregate by department
     const deptMap = new Map<string, {
       deptId: string; deptName: string; deptAbbr: string;
       total: number; statuses: Record<string, number>; locationCount: number;
+      locations: { name: string; total: number; statuses: Record<string, number> }[];
     }>();
 
     for (const row of results || []) {
@@ -609,11 +611,13 @@ router.get('/audits/department-asset-summary', async (c) => {
       if (!deptMap.has(row.department_id)) {
         deptMap.set(row.department_id, {
           deptId: row.department_id, deptName: row.dept_name, deptAbbr: row.dept_abbr,
-          total: 0, statuses: {}, locationCount: 0,
+          total: 0, statuses: {}, locationCount: 0, locations: [],
         });
       }
       const d = deptMap.get(row.department_id)!;
       d.locationCount++;
+      const locTotal = Object.values(statuses).reduce((s: number, v: any) => s + (typeof v === 'number' ? v : 0), 0);
+      d.locations.push({ name: row.loc_name || 'Unknown', total: locTotal, statuses });
       for (const [k, v] of Object.entries(statuses)) {
         d.statuses[k] = (d.statuses[k] || 0) + (typeof v === 'number' ? v : 0);
         d.total += typeof v === 'number' ? v : 0;
