@@ -7,7 +7,7 @@ import {
   DownOutlined, UpOutlined,
 } from '@ant-design/icons';
 import {
-  Layout, Typography, Row, Col, Card, Statistic,
+  Layout, Typography, Row, Col, Card, Statistic, Progress,
   Table, Tag, Space, Divider, Spin, Button, Timeline,
 } from 'antd';
 import { AutoUpdater } from '../../components/AutoUpdater';
@@ -48,6 +48,7 @@ export const KioskApp: React.FC = () => {
   const [data, setData] = useState<KioskData | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [lastFetch, setLastFetch] = useState<Date | null>(null);
+  const [expandedDept, setExpandedDept] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     try {
@@ -68,7 +69,24 @@ export const KioskApp: React.FC = () => {
     return () => clearInterval(interval);
   }, [fetchData]);
 
-  // Compute department asset summary from existing kiosk data (no extra fetch)
+  // ── Derived data (always computed, defaults to empty when data is null) ──
+  const schedules = (data?.schedules ?? []) as AuditSchedule[];
+  const users = (data?.users ?? []) as User[];
+  const departments = (data?.departments ?? []) as Department[];
+  const locations = (data?.locations ?? []) as Location[];
+  const phases = (data?.phases ?? []) as AuditPhase[];
+  const buildings = (data?.buildings ?? []) as any[];
+  const kpiTiers = (data?.kpiTiers ?? []) as KPITier[];
+  const kpiTierTargets = (data?.kpiTierTargets ?? []) as KPITierTarget[];
+  const institutionKPIs = (data?.institutionKPIs ?? []) as InstitutionKPITarget[];
+  // const activities = (data?.activities ?? []) as SystemActivity[];
+
+  const today = new Date().toISOString().split('T')[0];
+
+  const activeLocations = React.useMemo(() => locations.filter(l => l.status !== 'Archived'), [locations]);
+  const activeLocationIds = React.useMemo(() => new Set(activeLocations.map(l => l.id)), [activeLocations]);
+
+  // Department asset summary computed from existing kiosk data
   const deptAssetSummary = React.useMemo(() => {
     const deptMap = new Map<string, any>();
     schedules.forEach(s => {
@@ -92,23 +110,6 @@ export const KioskApp: React.FC = () => {
     });
     return [...deptMap.values()].sort((a: any, b: any) => b.total - a.total);
   }, [schedules, departments, locations]);
-
-  // ── Derived data (always computed, defaults to empty when data is null) ──
-  const schedules = (data?.schedules ?? []) as AuditSchedule[];
-  const users = (data?.users ?? []) as User[];
-  const departments = (data?.departments ?? []) as Department[];
-  const locations = (data?.locations ?? []) as Location[];
-  const phases = (data?.phases ?? []) as AuditPhase[];
-  const buildings = (data?.buildings ?? []) as any[];
-  const kpiTiers = (data?.kpiTiers ?? []) as KPITier[];
-  const kpiTierTargets = (data?.kpiTierTargets ?? []) as KPITierTarget[];
-  const institutionKPIs = (data?.institutionKPIs ?? []) as InstitutionKPITarget[];
-  // const activities = (data?.activities ?? []) as SystemActivity[];
-
-  const today = new Date().toISOString().split('T')[0];
-
-  const activeLocations = React.useMemo(() => locations.filter(l => l.status !== 'Archived'), [locations]);
-  const activeLocationIds = React.useMemo(() => new Set(activeLocations.map(l => l.id)), [activeLocations]);
 
   const allInspectors = React.useMemo(() => {
     const certified = users.filter(u => {
