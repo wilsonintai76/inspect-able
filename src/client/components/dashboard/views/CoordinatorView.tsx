@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { Department, Location } from '@shared/types';
 import { StatCard } from '../Widgets';
+import { DeptAssetStatus } from '../widgets/DeptAssetStatus';
 
 interface CoordinatorViewProps {
   coordDeptId: string | undefined;
@@ -85,6 +86,9 @@ export const CoordinatorView: React.FC<CoordinatorViewProps> = ({
         <StatCard icon={Package} label="Dept Assets" value={coordStats.totalAssets.toLocaleString()} color="text-blue-600" />
         <StatCard icon={Users} label="Registered Officers" value={coordOfficers.length} color="text-indigo-600" />
       </div>
+
+      {/* Asset Status Summary */}
+      {coordDeptId && <DeptAssetStatus deptId={coordDeptId} />}
 
       {/* Status Breakdown Bar */}
       <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-sm">
