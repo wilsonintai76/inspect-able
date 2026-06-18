@@ -77,7 +77,13 @@ export const InstitutionalSection: React.FC<InstitutionalSectionProps> = ({
   // ── INSTITUTION VIEW METRICS & DATA ────────────────────────────────
   // ───────────────────────────────────────────────────────────────────
   const allOfficers = useMemo(() => {
-    const certified = users.filter(u => u.certificationExpiry && u.certificationExpiry >= today);
+    // Only working inspectors: valid cert + not admin/coordinator (they manage, not inspect)
+    const certified = users.filter(u => {
+      if (!u.certificationExpiry || u.certificationExpiry < today) return false;
+      const caps = hasCapability({ roles: u.roles || [], qualifications: u.qualifications || [], certificationExpiry: u.certificationExpiry }, 'system:admin')
+        || hasCapability({ roles: u.roles || [], qualifications: u.qualifications || [], certificationExpiry: u.certificationExpiry }, 'manage:departments');
+      return !caps; // exclude admins and coordinators
+    });
     const map = new Map<string, OfficerWorkload>();
     certified.forEach(u => {
       const dept = departments.find(d => d.id === u.departmentId);
