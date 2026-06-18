@@ -696,15 +696,19 @@ export const KioskApp: React.FC = () => {
         </Row>
 
         {/* ── Department Asset Status ───────────────────── */}
-        {deptAssetSummary.length > 0 && (
-          <Row gutter={16} style={{ marginTop: 16 }}>
-            <Col xs={24}>
-              <Card
-                title={<Space><ApartmentOutlined style={{ color: '#4f46e5' }} />Asset Status by Department</Space>}
-                extra={<Tag color="blue">{deptAssetSummary.length} depts</Tag>}
-                bordered={false}
-                style={{ borderRadius: 12 }}
-              >
+        <Row gutter={16} style={{ marginTop: 16 }}>
+          <Col xs={24}>
+            <Card
+              title={<Space><ApartmentOutlined style={{ color: '#4f46e5' }} />Asset Status by Department</Space>}
+              extra={<Tag color="blue">{deptAssetSummary.length} depts</Tag>}
+              bordered={false}
+              style={{ borderRadius: 12 }}
+            >
+              {deptAssetSummary.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: 32 }}>
+                  <Typography.Text type="secondary">No completed audits with asset status data yet.</Typography.Text>
+                </div>
+              ) : (
                 <Table
                   dataSource={deptAssetSummary}
                   rowKey="deptId"
@@ -755,10 +759,10 @@ export const KioskApp: React.FC = () => {
                     { title: 'Total', dataIndex: 'total', key: 'total', align: 'right', render: (v: number) => <Typography.Text strong style={{ fontSize: 14 }}>{v.toLocaleString()}</Typography.Text> },
                   ]}
                 />
-              </Card>
-            </Col>
-          </Row>
-        )}
+              )}
+            </Card>
+          </Col>
+        </Row>
 
       </Layout.Content>
     </Layout>
