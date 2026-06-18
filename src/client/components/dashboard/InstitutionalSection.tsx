@@ -8,8 +8,7 @@ import {
   CalendarDays, 
   Trophy, 
   MapPin, 
-  CheckCircle2, 
-  History,
+  CheckCircle2,
   Activity
 } from 'lucide-react';
 import { 
@@ -658,26 +657,6 @@ export const InstitutionalSection: React.FC<InstitutionalSectionProps> = ({
 
           {/* Inspector Roster + Gaps */}
           <InspectorRosterGaps allInspectors={allOfficers} totalInspectors={totalOfficers} staffingGaps={staffingGaps} />
-
-          {/* System Activity */}
-          {activities.length > 0 && (
-            <div className="rounded-3xl border border-slate-200 bg-white shadow-sm p-6">
-              <h3 className="text-sm font-black text-slate-900 mb-4 flex items-center gap-2">
-                <History className="w-4 h-4 text-blue-500" />System Activity
-              </h3>
-              <div className="space-y-3 max-h-80 overflow-y-auto">
-                {activities.slice().reverse().slice(0, 30).map(a => (
-                  <div key={a.id} className="flex gap-3 text-xs">
-                    <div className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${a.type.includes('DELETE') ? 'bg-rose-500' : a.type.includes('CREATE') ? 'bg-emerald-500' : 'bg-blue-500'}`}></div>
-                    <div>
-                      <p className="font-bold text-slate-800">{a.message}</p>
-                      <p className="text-[10px] text-slate-400 mt-0.5">{a.timestamp ? new Date(a.timestamp).toLocaleString() : ''} · {a.type}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
       )}
 
