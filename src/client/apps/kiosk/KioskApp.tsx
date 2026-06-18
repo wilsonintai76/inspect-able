@@ -86,31 +86,6 @@ export const KioskApp: React.FC = () => {
   const activeLocations = React.useMemo(() => locations.filter(l => l.status !== 'Archived'), [locations]);
   const activeLocationIds = React.useMemo(() => new Set(activeLocations.map(l => l.id)), [activeLocations]);
 
-  // Department asset summary computed from existing kiosk data
-  const deptAssetSummary = React.useMemo(() => {
-    const deptMap = new Map<string, any>();
-    schedules.forEach(s => {
-      if (s.status !== 'Completed') return;
-      const statuses = (s as any).assetStatuses as Record<string, number> | null;
-      if (!statuses || Object.keys(statuses).length === 0) return;
-      const dept = departments.find(d => d.id === s.departmentId);
-      if (!dept || dept.isArchived) return;
-      if (!deptMap.has(s.departmentId)) {
-        deptMap.set(s.departmentId, { deptId: s.departmentId, deptName: dept.name, deptAbbr: dept.abbr, total: 0, statuses: {} as Record<string, number>, locationCount: 0, locations: [] as any[] });
-      }
-      const d = deptMap.get(s.departmentId)!;
-      d.locationCount++;
-      const locTotal = Object.values(statuses).reduce((sum: number, v: any) => sum + (typeof v === 'number' ? v : 0), 0);
-      const loc = locations.find(l => l.id === s.locationId);
-      d.locations.push({ name: loc?.name || 'Unknown', total: locTotal, statuses });
-      for (const [k, v] of Object.entries(statuses)) {
-        d.statuses[k] = (d.statuses[k] || 0) + (typeof v === 'number' ? v : 0);
-        d.total += typeof v === 'number' ? v : 0;
-      }
-    });
-    return [...deptMap.values()].sort((a: any, b: any) => b.total - a.total);
-  }, [schedules, departments, locations]);
-
   const allInspectors = React.useMemo(() => {
     const certified = users.filter(u => {
       if (!u.certificationExpiry || u.certificationExpiry < today) return false;
@@ -228,6 +203,13 @@ export const KioskApp: React.FC = () => {
         const completed = deptLocs.filter(l => schedules.find(sc => sc.locationId === l.id)?.status === 'Completed').length;
         const noSupervisor = deptLocs.filter(l => !l.supervisorId).length;
         const progress = totalAssets > 0 ? Math.round((completedAssets / totalAssets) * 100) : 0;
+        // aggregate asset statuses from completed schedules
+        const assetStatuses: Record<string, number> = {};
+        schedules.filter(s => s.departmentId === dept.id && s.status === 'Completed').forEach(s => {
+          const st = (s as any).assetStatuses as Record<string, number> | null;
+          if (st) for (const [k, v] of Object.entries(st)) assetStatuses[k] = (assetStatuses[k] || 0) + (typeof v === 'number' ? v : 0);
+        });
+        const totalStatusAssets = Object.values(assetStatuses).reduce((s, v) => s + v, 0);
         return {
           id: dept.id,
           name: dept.abbr || dept.name,
@@ -238,6 +220,8 @@ export const KioskApp: React.FC = () => {
           completed,
           noSupervisor,
           progress,
+          assetStatuses,
+          totalStatusAssets,
         };
       })
       .filter((d): d is NonNullable<typeof d> => d !== null && d.locs > 0)
@@ -492,6 +476,20 @@ export const KioskApp: React.FC = () => {
                       )}
                     </Space>
 
+                    {/* ── Asset Status Mini Tags ───────────────────────── */}
+                    {d.totalStatusAssets > 0 && (
+                      <div style={{ marginTop: 8 }}>
+                        <Space size={3} wrap>
+                          {Object.entries(d.assetStatuses).slice(0, 5).map(([k, v]) => (
+                            <Tag key={k} style={{
+                              backgroundColor: ({ 'In Use': '#52c41a', 'Broken': '#ff4d4f', 'Under Maintenance': '#faad14', 'Borrowed': '#1890ff', 'Missing': '#cf1322' } as any)[k] || '#d9d9d9',
+                              color: '#fff', border: 'none', fontSize: 10, lineHeight: '16px', margin: 0,
+                            }}>{k}: {v}</Tag>
+                          ))}
+                        </Space>
+                      </div>
+                    )}
+
                     {/* ── Expand Hint ────────────────────────────────── */}
                     <div style={{ marginTop: 10, textAlign: 'center' }}>
                       <Typography.Text style={{ fontSize: 13, color: '#666', fontWeight: 600 }}>
@@ -639,8 +637,6 @@ export const KioskApp: React.FC = () => {
                 </div>
               ) : (
                 staffingGaps.map(d => {
-                  const colors: Record<string, string> = { 'In Use': '#52c41a', 'Broken': '#ff4d4f', 'Under Maintenance': '#faad14', 'Borrowed': '#1890ff', 'Missing': '#cf1322' };
-                  const deptStatus = deptAssetSummary.find((ds: any) => ds.deptId === d.id);
                   return (
                   <div key={d.id} style={{ padding: '8px 0', borderBottom: '1px solid #f0f0f0' }}>
                     <Space>
@@ -654,20 +650,6 @@ export const KioskApp: React.FC = () => {
                         </Tag>
                         {d.gaps.map((g, i) => <Tag key={i} color="error" style={{ fontSize: 10 }}>{g}</Tag>)}
                       </Space>
-                    </div>
-                    <div style={{ marginTop: 4 }}>
-                      {deptStatus && Object.keys(deptStatus.statuses).length > 0 ? (
-                        <Space size={2} wrap>
-                          {Object.entries(deptStatus.statuses).slice(0, 4).map(([k, v]: any) => (
-                            <Tag key={k} style={{ backgroundColor: colors[k] || '#d9d9d9', color: '#fff', border: 'none', fontSize: 9, lineHeight: '14px' }}>
-                              {k}: {v}
-                            </Tag>
-                          ))}
-                          <Typography.Text type="secondary" style={{ fontSize: 10 }}>| {deptStatus.total} total</Typography.Text>
-                        </Space>
-                      ) : (
-                        <Typography.Text type="secondary" style={{ fontSize: 10, fontStyle: 'italic' }}>No asset status data</Typography.Text>
-                      )}
                     </div>
                   </div>
                 );
