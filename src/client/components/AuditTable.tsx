@@ -15,7 +15,6 @@ const normalizeDate = (d: string): string => {
   return d;
 };
 
-import { AuditReportModal } from './AuditReportModal';
 import { AuditUploadModal } from './AuditUploadModal';
 import { AssetStatusModal } from './AssetStatusModal';
 import { Search, Calendar, Zap, FileSpreadsheet } from 'lucide-react';
@@ -63,7 +62,6 @@ export const AuditTable: React.FC<AuditTableProps> = ({
   onDeleteAudit,
   onUpdateLocation,
 }) => {
-  const [reportAudit, setReportAudit] = useState<AuditSchedule | null>(null);
   const [uploadAudit, setUploadAudit] = useState<AuditSchedule | null>(null);
   const [statusAudit, setStatusAudit] = useState<AuditSchedule | null>(null);
   const [selectedBlock, setSelectedBlock] = useState('All');
@@ -574,7 +572,6 @@ export const AuditTable: React.FC<AuditTableProps> = ({
                   onToggleLock={onToggleLock}
                   onAssign={handleSelfAssign}
                   onUnassign={onUnassign}
-                  onSetReportAudit={setReportAudit}
                   onSetUploadAudit={setUploadAudit}
                   onSetStatusAudit={setStatusAudit}
                   onDeleteAudit={onDeleteAudit}
@@ -598,21 +595,6 @@ export const AuditTable: React.FC<AuditTableProps> = ({
         </div>
       </div>
 
-      {reportAudit && (
-        <AuditReportModal
-          audit={reportAudit}
-          resolvedData={{
-            locationName: allLocations.find(l => l.id === reportAudit.locationId)?.name || reportAudit.locationId,
-            departmentName: allDepartments.find(d => d.id === reportAudit.departmentId)?.name || reportAudit.departmentId,
-            auditor1Name: users.find(u => u.id === reportAudit.auditor1Id)?.name || reportAudit.auditor1Id || 'N/A',
-            auditor2Name: users.find(u => u.id === reportAudit.auditor2Id)?.name || reportAudit.auditor2Id || 'N/A',
-            supervisorName: reportAudit.supervisorId?.split(',').map(id => users.find(u => u.id === id.trim())?.name || id).join(', ') || 'N/A',
-            totalAssets: allLocations.find(l => l.id === reportAudit.locationId)?.totalAssets,
-            uninspectedAssets: allLocations.find(l => l.id === reportAudit.locationId)?.uninspectedAssetCount,
-          }}
-          onClose={() => setReportAudit(null)}
-        />
-      )}
 
       {uploadAudit && (
         <AuditUploadModal

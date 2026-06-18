@@ -54,7 +54,6 @@ export interface AuditTableRowProps {
   onToggleLock: (id: string) => void;
   onAssign: (auditId: string, slot: 1 | 2, date: string, phaseId: string, manualUserId?: string) => void;
   onUnassign: (id: string, slot: 1 | 2) => void;
-  onSetReportAudit: (audit: AuditSchedule) => void;
   onSetUploadAudit: (audit: AuditSchedule) => void;
   onSetStatusAudit: (audit: AuditSchedule) => void;
   onDeleteAudit?: (id: string) => void;
@@ -67,7 +66,7 @@ export const AuditTableRow: React.FC<AuditTableRowProps> = ({
   hasFieldRole, isCertified, canSendApprovalReminder, hasSentApprovalReminder,
   isAuditLocked, isDateInValidPhase, getBuildingAbbr, getUserContact,
   canAuditDepartment, getStatusBadgeStyles,
-  onDateChange, onToggleLock, onAssign, onUnassign, onSetReportAudit, onSetUploadAudit, onSetStatusAudit, onDeleteAudit,
+  onDateChange, onToggleLock, onAssign, onUnassign, onSetUploadAudit, onSetStatusAudit, onDeleteAudit,
 }) => {
   const loc = allLocations.find(l => l.id === audit.locationId);
   const isCurrentUserAssigned = audit.auditor1Id === currentUser?.id || audit.auditor2Id === currentUser?.id;
