@@ -217,9 +217,9 @@ export const InspectorView: React.FC<InspectorViewProps> = ({
                       {isCompleted && s.reportPath && (
                         <button
                           onClick={() => window.open(s.reportPath!, '_blank')}
-                          className="inline-flex items-center gap-1 text-[10px] font-black text-indigo-600 hover:text-indigo-800 uppercase"
+                          className="inline-flex items-center gap-1 text-[10px] font-black text-emerald-600 hover:text-emerald-800 bg-emerald-50 px-2 py-1 rounded-lg uppercase"
                         >
-                          <FileText className="w-3.5 h-3.5" /> View Report
+                          <FileText className="w-3.5 h-3.5" /> View KEW-PA 11
                         </button>
                       )}
                     </div>
@@ -245,10 +245,10 @@ export const InspectorView: React.FC<InspectorViewProps> = ({
                           {onToggleStatus && (
                             <button
                               onClick={() => onToggleStatus(s.id)}
-                              className="px-3 py-1.5 border border-slate-300 hover:border-slate-400 text-slate-700 rounded-xl text-[9px] font-black uppercase transition-colors"
-                              title="Mark inspection as complete"
+                              className="px-3 py-1.5 border border-emerald-300 hover:border-emerald-400 text-emerald-700 bg-emerald-50 rounded-xl text-[9px] font-black uppercase transition-colors"
+                              title="Mark as Inspection Finished"
                             >
-                              Mark Done
+                              Finish Inspection
                             </button>
                           )}
                           <button
@@ -261,9 +261,9 @@ export const InspectorView: React.FC<InspectorViewProps> = ({
                       )}
                       
                       {isCompleted && (
-                        <span className="text-[10px] font-extrabold text-slate-400 flex items-center gap-1">
-                          {isLocked ? <Lock className="w-3 h-3 text-emerald-500" /> : <Unlock className="w-3 h-3 text-slate-300" />}
-                          {isLocked ? 'Approved & Locked' : 'Audit Finished'}
+                        <span className="text-[10px] font-extrabold text-emerald-600 flex items-center gap-1 bg-emerald-50 px-2 py-1 rounded-lg">
+                          <Check className="w-3 h-3 text-emerald-500" />
+                          Inspection Finished
                         </span>
                       )}
                     </div>

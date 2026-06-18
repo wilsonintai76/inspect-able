@@ -244,7 +244,7 @@ export const AuditTableRow: React.FC<AuditTableRowProps> = ({
                     ? isLocked ? 'Unlock Inspection (currently locked)' : 'Lock Inspection (legacy slot — click to formally lock)'
                     : !canToggleLock
                     ? 'Fill all fields (date, supervisor, 2 officers) before locking'
-                    : 'Lock & Approve — Freezes date & assignments, sets to In Progress'
+                    : 'Lock — Freezes date & assignments, begins inspection'
                 }
               >
                 {isEffectivelyLocked ? <Lock className="w-3.5 h-3.5" /> : <Unlock className="w-3.5 h-3.5" />}
@@ -415,7 +415,7 @@ export const AuditTableRow: React.FC<AuditTableRowProps> = ({
             <div className="flex flex-col items-center gap-2">
               {/* Status badge */}
               <span className={`inline-flex items-center px-3 py-1.5 rounded-xl text-[10px] font-black uppercase border tracking-widest whitespace-nowrap ${getStatusBadgeStyles(audit.status)}`}>
-                {audit.status}
+                {audit.status === 'Completed' ? 'Inspection Finished' : audit.status}
               </span>
 
               {/* In Progress: upload action */}
