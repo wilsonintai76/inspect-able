@@ -7,7 +7,7 @@ import {
   DownOutlined, UpOutlined,
 } from '@ant-design/icons';
 import {
-  Layout, Typography, Row, Col, Card, Statistic, Progress,
+  Layout, Typography, Row, Col, Card, Statistic,
   Table, Tag, Space, Divider, Spin, Button, Timeline,
 } from 'antd';
 import { AutoUpdater } from '../../components/AutoUpdater';
@@ -48,7 +48,6 @@ export const KioskApp: React.FC = () => {
   const [data, setData] = useState<KioskData | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [lastFetch, setLastFetch] = useState<Date | null>(null);
-  const [expandedDept, setExpandedDept] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     try {
@@ -65,9 +64,34 @@ export const KioskApp: React.FC = () => {
 
   useEffect(() => {
     fetchData();
-    const interval = setInterval(fetchData, 60_000); // 60s — safe for Cloudflare free tier
+    const interval = setInterval(fetchData, 60_000);
     return () => clearInterval(interval);
   }, [fetchData]);
+
+  // Compute department asset summary from existing kiosk data (no extra fetch)
+  const deptAssetSummary = React.useMemo(() => {
+    const deptMap = new Map<string, any>();
+    schedules.forEach(s => {
+      if (s.status !== 'Completed') return;
+      const statuses = (s as any).assetStatuses as Record<string, number> | null;
+      if (!statuses || Object.keys(statuses).length === 0) return;
+      const dept = departments.find(d => d.id === s.departmentId);
+      if (!dept || dept.isArchived) return;
+      if (!deptMap.has(s.departmentId)) {
+        deptMap.set(s.departmentId, { deptId: s.departmentId, deptName: dept.name, deptAbbr: dept.abbr, total: 0, statuses: {} as Record<string, number>, locationCount: 0, locations: [] as any[] });
+      }
+      const d = deptMap.get(s.departmentId)!;
+      d.locationCount++;
+      const locTotal = Object.values(statuses).reduce((sum: number, v: any) => sum + (typeof v === 'number' ? v : 0), 0);
+      const loc = locations.find(l => l.id === s.locationId);
+      d.locations.push({ name: loc?.name || 'Unknown', total: locTotal, statuses });
+      for (const [k, v] of Object.entries(statuses)) {
+        d.statuses[k] = (d.statuses[k] || 0) + (typeof v === 'number' ? v : 0);
+        d.total += typeof v === 'number' ? v : 0;
+      }
+    });
+    return [...deptMap.values()].sort((a: any, b: any) => b.total - a.total);
+  }, [schedules, departments, locations]);
 
   // ── Derived data (always computed, defaults to empty when data is null) ──
   const schedules = (data?.schedules ?? []) as AuditSchedule[];
@@ -669,6 +693,72 @@ export const KioskApp: React.FC = () => {
             </Card>
           </Col>
         </Row>
+
+        {/* ── Department Asset Status ───────────────────── */}
+        {deptAssetSummary.length > 0 && (
+          <Row gutter={16} style={{ marginTop: 16 }}>
+            <Col xs={24}>
+              <Card
+                title={<Space><ApartmentOutlined style={{ color: '#4f46e5' }} />Asset Status by Department</Space>}
+                extra={<Tag color="blue">{deptAssetSummary.length} depts</Tag>}
+                bordered={false}
+                style={{ borderRadius: 12 }}
+              >
+                <Table
+                  dataSource={deptAssetSummary}
+                  rowKey="deptId"
+                  size="small"
+                  pagination={false}
+                  expandable={{
+                    expandedRowRender: (dept: any) => (
+                      <Table
+                        dataSource={dept.locations.filter((l: any) => l.total > 0)}
+                        rowKey="name"
+                        size="small"
+                        pagination={false}
+                        showHeader={false}
+                        columns={[
+                          { title: 'Location', dataIndex: 'name', key: 'name', render: (v: string) => <Typography.Text strong>{v}</Typography.Text> },
+                          {
+                            title: 'Status', key: 'bar', render: (_: any, loc: any) => (
+                              <Space size={4} wrap>
+                                {Object.entries(loc.statuses).map(([k, v]: any) => (
+                                  <Tag key={k} style={{ fontSize: 10 }}>{k}: {v}</Tag>
+                                ))}
+                              </Space>
+                            ),
+                          },
+                          { title: 'Total', dataIndex: 'total', key: 'total', align: 'right', render: (v: number) => <Typography.Text strong>{v}</Typography.Text> },
+                        ]}
+                      />
+                    ),
+                    rowExpandable: (d: any) => (d.locations || []).length > 0,
+                  }}
+                  columns={[
+                    { title: 'Department', dataIndex: 'deptName', key: 'dept', render: (v: string, r: any) => <Space><Typography.Text strong>{r.deptAbbr || v}</Typography.Text><Typography.Text type="secondary" style={{ fontSize: 10 }}>{r.locationCount} locs</Typography.Text></Space> },
+                    {
+                      title: 'Status Breakdown', key: 'bar',
+                      render: (_: any, dept: any) => {
+                        const colors: Record<string, string> = { 'In Use': '#52c41a', 'Not In Use': '#8c8c8c', 'Broken': '#ff4d4f', 'Under Maintenance': '#faad14', 'Borrowed': '#1890ff', 'Missing': '#cf1322' };
+                        return (
+                          <Space size={4} wrap>
+                            {Object.entries(dept.statuses).map(([k, v]: any) => (
+                              <Tag key={k} style={{ backgroundColor: colors[k] || '#d9d9d9', color: '#fff', border: 'none', fontSize: 10 }}>
+                                {k}: {v}
+                              </Tag>
+                            ))}
+                          </Space>
+                        );
+                      },
+                    },
+                    { title: 'Total', dataIndex: 'total', key: 'total', align: 'right', render: (v: number) => <Typography.Text strong style={{ fontSize: 14 }}>{v.toLocaleString()}</Typography.Text> },
+                  ]}
+                />
+              </Card>
+            </Col>
+          </Row>
+        )}
+
       </Layout.Content>
     </Layout>
   );

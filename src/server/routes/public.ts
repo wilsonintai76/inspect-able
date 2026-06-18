@@ -723,7 +723,7 @@ pub.get('/kiosk-dashboard', async (c) => {
       phasesResult, buildingsResult, kpiTiersResult, kpiTargetsResult,
       instKpisResult,
     ] = await db.batch([
-      db.prepare(`SELECT id, department_id, location_id, supervisor_id, auditor1_id, auditor2_id, date, status, phase_id, report_path, total_assets_inspected, asset_status_summary, is_locked FROM audit_schedules ORDER BY date ASC`),
+      db.prepare(`SELECT id, department_id, location_id, supervisor_id, auditor1_id, auditor2_id, date, status, phase_id, report_path, total_assets_inspected, asset_status_summary, asset_statuses, verified_asset_count, is_locked FROM audit_schedules ORDER BY date ASC`),
       db.prepare(`SELECT id, name, email, designation, department_id, roles, status, is_verified, certification_issued, certification_expiry, contact_number, qualifications FROM users WHERE status = 'Active' ORDER BY name ASC`),
       db.prepare(`SELECT id, name, abbr, head_of_dept_id, description, audit_group_id, is_exempted, is_archived, tier, is_task_force FROM departments ORDER BY name ASC`),
       db.prepare(`SELECT id, name, abbr, department_id, building_id, level, description, supervisor_id, contact, total_assets, status FROM locations ORDER BY name ASC`),
@@ -742,6 +742,8 @@ pub.get('/kiosk-dashboard', async (c) => {
       reportPath: r.report_path, 
       totalAssetsInspected: r.total_assets_inspected,
       assetStatusSummary: r.asset_status_summary,
+      assetStatuses: r.asset_statuses ? JSON.parse(r.asset_statuses) : null,
+      verifiedAssetCount: r.verified_asset_count,
       isLocked: r.is_locked === null ? undefined : (r.is_locked === 1),
     });
 
