@@ -272,7 +272,12 @@ export const InstitutionalSection: React.FC<InstitutionalSectionProps> = ({
   const coordStaffGaps = useMemo(() => {
     if (!coordDeptId || !coordDept) return [];
     const deptUsers = users.filter(u => u.departmentId === coordDeptId);
-    const certified = deptUsers.filter(u => u.certificationExpiry && u.certificationExpiry >= today);
+    const certified = deptUsers.filter(u => {
+      if (!u.certificationExpiry || u.certificationExpiry < today) return false;
+      const caps = hasCapability({ roles: u.roles || [], qualifications: u.qualifications || [], certificationExpiry: u.certificationExpiry }, 'system:admin')
+        || hasCapability({ roles: u.roles || [], qualifications: u.qualifications || [], certificationExpiry: u.certificationExpiry }, 'manage:departments');
+      return !caps; // exclude admins/coordinators from inspector count
+    });
     const hasHod = !!coordDept.headOfDeptId;
     return [
       !hasHod && 'No HOD (Head of Department) Assigned',
@@ -283,7 +288,13 @@ export const InstitutionalSection: React.FC<InstitutionalSectionProps> = ({
 
   const coordOfficers = useMemo(() => {
     if (!coordDeptId) return [];
-    const deptUsers = users.filter(u => u.departmentId === coordDeptId);
+    // Only working inspectors: exclude Admins and Coordinators from workload
+    const deptUsers = users.filter(u => {
+      if (u.departmentId !== coordDeptId) return false;
+      const caps = hasCapability({ roles: u.roles || [], qualifications: u.qualifications || [], certificationExpiry: u.certificationExpiry }, 'system:admin')
+        || hasCapability({ roles: u.roles || [], qualifications: u.qualifications || [], certificationExpiry: u.certificationExpiry }, 'manage:departments');
+      return !caps;
+    });
     
     return deptUsers.map(u => {
       const isCertified = !!(u.certificationExpiry && u.certificationExpiry >= today);
