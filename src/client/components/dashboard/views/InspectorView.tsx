@@ -4,10 +4,11 @@ import {
   FileText, 
   Clock, 
   Lock, 
-  Unlock, 
-  ExternalLink, 
-  ShieldCheck, 
-  Check 
+  Unlock,
+  ExternalLink,
+  ShieldCheck,
+  Check,
+  Upload,
 } from 'lucide-react';
 import { User, AuditSchedule } from '@shared/types';
 
@@ -242,21 +243,12 @@ export const InspectorView: React.FC<InspectorViewProps> = ({
                       
                       {isInProgress && (
                         <div className="flex items-center gap-2">
-                          {onToggleStatus && (
-                            <button
-                              onClick={() => onToggleStatus(s.id)}
-                              className="px-3 py-1.5 border border-emerald-300 hover:border-emerald-400 text-emerald-700 bg-emerald-50 rounded-xl text-[9px] font-black uppercase transition-colors"
-                              title="Mark as Inspection Finished"
-                            >
-                              Finish Inspection
-                            </button>
-                          )}
-                          <button
-                            onClick={() => window.open('/mobile.html', '_blank')}
-                            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-[10px] font-black uppercase tracking-wider shadow-sm flex items-center gap-1.5"
+                          <a
+                            href="/"
+                            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-[10px] font-black uppercase tracking-wider shadow-sm flex items-center gap-1.5 transition-all"
                           >
-                            Launch Mobile <ExternalLink className="w-3.5 h-3.5" />
-                          </button>
+                            <Upload className="w-3.5 h-3.5" /> Upload KEW-PA 11
+                          </a>
                         </div>
                       )}
                       
