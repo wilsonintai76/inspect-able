@@ -293,6 +293,22 @@ export const patchAuditPermissionGuard = async (c: Context<{ Bindings: Bindings;
     updates.auditor1Id === caller.id ||
     updates.auditor2Id === caller.id;
 
+  // ── PBAC: Upload/Complete restriction (ASSIGNED_AUDITOR_ONLY) ────────
+  // Only admin, coordinator (own dept), or the assigned auditors can
+  // complete an audit by uploading a KEW-PA 11 report.
+  if (updates.status === 'Completed') {
+    const isAllowedToComplete = isAdmin
+      || (isCoordinator && isOwnDept)
+      || existing.auditor1_id === caller.id
+      || existing.auditor2_id === caller.id;
+    if (!isAllowedToComplete) {
+      return c.json({
+        error: 'Forbidden: Only the assigned inspecting officers can upload the KEW-PA 11 report to complete this audit.',
+        code: 'ASSIGNED_AUDITOR_ONLY',
+      }, 403);
+    }
+  }
+
   // Supervisor scope: pick date (first time) is open to Supervisor+Inspector.
   // Change date / unlock is restricted to supervised locations OR assigned audits.
   const supIds = existing.supervisor_id ? existing.supervisor_id.split(',').map(id => id.trim()).filter(Boolean) : [];
