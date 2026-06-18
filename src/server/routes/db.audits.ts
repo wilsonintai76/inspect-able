@@ -37,15 +37,6 @@ router.get('/audits', async (c) => {
       )`
     ).run().catch(() => {});
     await c.env.DB.prepare('ALTER TABLE audit_reports ADD COLUMN content_hash TEXT').run().catch(() => {});
-        id TEXT PRIMARY KEY,
-        audit_id TEXT NOT NULL,
-        file_path TEXT NOT NULL,
-        file_name TEXT,
-        uploaded_by TEXT,
-        uploaded_at TEXT DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (audit_id) REFERENCES audit_schedules(id)
-      )`
-    ).run().catch(() => {});
 
     // ─── KV Read-Through Cache ───
     const cached = await c.env.SETTINGS.get(SCHEDULE_CACHE_KEY, 'json').catch(() => null) as any[];
