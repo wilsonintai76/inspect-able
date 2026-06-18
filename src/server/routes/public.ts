@@ -709,8 +709,9 @@ pub.get('/stats', async (c) => {
  * Edge-cached for 60 seconds (matches kiosk polling interval).
  */
 pub.get('/kiosk-dashboard', async (c) => {
-  // KV read-through cache — drops load latency to ~30ms globally
-  const cachedDashboard = await c.env.SETTINGS.get('kiosk_dashboard_cache');
+  // Allow cache-bust with ?nocache=1
+  const forceRefresh = c.req.query('nocache') === '1';
+  const cachedDashboard = forceRefresh ? null : await c.env.SETTINGS.get('kiosk_dashboard_cache');
   if (cachedDashboard) {
     c.header('Cache-Control', 'public, max-age=60, s-maxage=60');
     return c.json(JSON.parse(cachedDashboard));

@@ -52,7 +52,7 @@ export const KioskApp: React.FC = () => {
 
   const fetchData = useCallback(async () => {
     try {
-      const res = await fetch('/api/public/kiosk-dashboard');
+      const res = await fetch(`/api/public/kiosk-dashboard${data ? '' : '?nocache=1'}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json: KioskData = await res.json();
       setData(json);
