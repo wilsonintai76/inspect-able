@@ -87,7 +87,12 @@ export const KioskApp: React.FC = () => {
   const activeLocationIds = React.useMemo(() => new Set(activeLocations.map(l => l.id)), [activeLocations]);
 
   const allInspectors = React.useMemo(() => {
-    const certified = users.filter(u => u.certificationExpiry && u.certificationExpiry >= today);
+    const certified = users.filter(u => {
+      if (!u.certificationExpiry || u.certificationExpiry < today) return false;
+      const roles = u.roles || [];
+      if (roles.includes('Admin') || roles.includes('Coordinator')) return false;
+      return true;
+    });
     const map = new Map<string, InspectorWorkload>();
     certified.forEach(u => {
       const dept = departments.find(d => d.id === u.departmentId);
@@ -127,7 +132,12 @@ export const KioskApp: React.FC = () => {
       .filter(d => !d.isArchived)
       .map(d => {
         const deptUsers = users.filter(u => u.departmentId === d.id);
-        const certified = deptUsers.filter(u => u.certificationExpiry && u.certificationExpiry >= today);
+        const certified = deptUsers.filter(u => {
+          if (!u.certificationExpiry || u.certificationExpiry < today) return false;
+          const roles = u.roles || [];
+          if (roles.includes('Admin') || roles.includes('Coordinator')) return false;
+          return true;
+        });
         const deptLocs = activeLocations.filter(l => l.departmentId === d.id);
         const deptTotalAssets = deptLocs.reduce((s, l) => s + (l.totalAssets || 0), 0);
         if (deptTotalAssets === 0) return null;
