@@ -655,8 +655,8 @@ export const KioskApp: React.FC = () => {
                         {d.gaps.map((g, i) => <Tag key={i} color="error" style={{ fontSize: 10 }}>{g}</Tag>)}
                       </Space>
                     </div>
-                    {deptStatus && (
-                      <div style={{ marginTop: 6 }}>
+                    <div style={{ marginTop: 4 }}>
+                      {deptStatus && Object.keys(deptStatus.statuses).length > 0 ? (
                         <Space size={2} wrap>
                           {Object.entries(deptStatus.statuses).slice(0, 4).map(([k, v]: any) => (
                             <Tag key={k} style={{ backgroundColor: colors[k] || '#d9d9d9', color: '#fff', border: 'none', fontSize: 9, lineHeight: '14px' }}>
@@ -665,8 +665,10 @@ export const KioskApp: React.FC = () => {
                           ))}
                           <Typography.Text type="secondary" style={{ fontSize: 10 }}>| {deptStatus.total} total</Typography.Text>
                         </Space>
-                      </div>
-                    )}
+                      ) : (
+                        <Typography.Text type="secondary" style={{ fontSize: 10, fontStyle: 'italic' }}>No asset status data</Typography.Text>
+                      )}
+                    </div>
                   </div>
                 );
                 })
