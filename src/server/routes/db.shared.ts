@@ -34,6 +34,7 @@ export function normDate(d: string): string {
 export const invalidateScheduleCache = (kv: KVNamespace) => {
   kv.delete(SCHEDULE_CACHE_KEY).catch(() => {});
   kv.delete('mobile_cache').catch(() => {});
+  kv.delete('kiosk_dashboard_cache').catch(() => {});
 };
 
 export const getRolesForDesignation = (designation?: string | null): string[] | null => {
