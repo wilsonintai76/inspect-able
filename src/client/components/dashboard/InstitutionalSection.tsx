@@ -77,12 +77,12 @@ export const InstitutionalSection: React.FC<InstitutionalSectionProps> = ({
   // ── INSTITUTION VIEW METRICS & DATA ────────────────────────────────
   // ───────────────────────────────────────────────────────────────────
   const allOfficers = useMemo(() => {
-    // Only working inspectors: valid cert + not admin/coordinator (they manage, not inspect)
+    // Only working inspectors: valid cert + NOT admin/coordinator
     const certified = users.filter(u => {
       if (!u.certificationExpiry || u.certificationExpiry < today) return false;
-      const caps = hasCapability({ roles: u.roles || [], qualifications: u.qualifications || [], certificationExpiry: u.certificationExpiry }, 'system:admin')
-        || hasCapability({ roles: u.roles || [], qualifications: u.qualifications || [], certificationExpiry: u.certificationExpiry }, 'manage:departments');
-      return !caps; // exclude admins and coordinators
+      const roles = u.roles || [];
+      if (roles.includes('Admin') || roles.includes('Coordinator')) return false;
+      return true;
     });
     const map = new Map<string, OfficerWorkload>();
     certified.forEach(u => {
@@ -274,9 +274,9 @@ export const InstitutionalSection: React.FC<InstitutionalSectionProps> = ({
     const deptUsers = users.filter(u => u.departmentId === coordDeptId);
     const certified = deptUsers.filter(u => {
       if (!u.certificationExpiry || u.certificationExpiry < today) return false;
-      const caps = hasCapability({ roles: u.roles || [], qualifications: u.qualifications || [], certificationExpiry: u.certificationExpiry }, 'system:admin')
-        || hasCapability({ roles: u.roles || [], qualifications: u.qualifications || [], certificationExpiry: u.certificationExpiry }, 'manage:departments');
-      return !caps; // exclude admins/coordinators from inspector count
+      const roles = u.roles || [];
+      if (roles.includes('Admin') || roles.includes('Coordinator')) return false;
+      return true;
     });
     const hasHod = !!coordDept.headOfDeptId;
     return [
@@ -288,12 +288,12 @@ export const InstitutionalSection: React.FC<InstitutionalSectionProps> = ({
 
   const coordOfficers = useMemo(() => {
     if (!coordDeptId) return [];
-    // Only working inspectors: exclude Admins and Coordinators from workload
+    // Only working inspectors: exclude Admins and Coordinators
     const deptUsers = users.filter(u => {
       if (u.departmentId !== coordDeptId) return false;
-      const caps = hasCapability({ roles: u.roles || [], qualifications: u.qualifications || [], certificationExpiry: u.certificationExpiry }, 'system:admin')
-        || hasCapability({ roles: u.roles || [], qualifications: u.qualifications || [], certificationExpiry: u.certificationExpiry }, 'manage:departments');
-      return !caps;
+      const roles = u.roles || [];
+      if (roles.includes('Admin') || roles.includes('Coordinator')) return false;
+      return true;
     });
     
     return deptUsers.map(u => {
