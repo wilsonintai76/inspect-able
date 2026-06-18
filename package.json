@@ -1,7 +1,7 @@
 {
   "name": "asset-audit-pro",
   "private": true,
-  "version": "1.10.932",
+  "version": "1.10.933",
   "type": "module",
   "scripts": {
     "dev": "vite",
