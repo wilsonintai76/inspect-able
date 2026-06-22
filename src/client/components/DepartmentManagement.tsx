@@ -263,7 +263,86 @@ export const DepartmentManagement: React.FC<DepartmentManagementProps> = ({
         </button>
       </div>
 
-      <div className="bg-white rounded-[32px] border border-slate-200 shadow-sm overflow-hidden">
+      {/* ── Mobile card list (< lg) ── */}
+      <div className="lg:hidden space-y-3">
+        {visibleDepts.map(dept => {
+          const colorClass = AVATAR_COLORS[getColorIndex(dept.name) % AVATAR_COLORS.length];
+          const headUser = users.find(u => u.id === dept.headOfDeptId);
+          const isArchived = dept.isArchived === true;
+          const locCount = deptLocationCounts[dept.id] || 0;
+          const qualifiedInspectors = users.filter(u =>
+            u.departmentId === dept.id &&
+            u.status === 'Active' &&
+            u.certificationExpiry &&
+            u.certificationExpiry >= new Date().toISOString().split('T')[0]
+          ).length;
+          const requiredInspectors = dept.auditorsRequiredOverride ?? (() => {
+            const assets = dept.totalAssets || 0;
+            if (assets === 0) return 0;
+            return Math.max(2, Math.ceil(assets / openAuditThreshold) * 2);
+          })();
+          return (
+            <div key={dept.id} className={`bg-white rounded-2xl border border-slate-200 shadow-sm p-4 ${isArchived ? 'opacity-60' : ''}`}>
+              <div className="flex items-start gap-3">
+                <div className={`w-11 h-11 rounded-full flex items-center justify-center text-xs font-black shadow-sm border ${colorClass} shrink-0`}>
+                  {dept.abbr}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-bold text-slate-900 text-sm leading-tight flex items-center gap-1.5 flex-wrap">
+                    {dept.name}
+                    {isArchived && <span className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-400 text-[9px] font-black border border-slate-200 uppercase tracking-widest">Archived</span>}
+                  </div>
+                  {headUser && <div className="text-[10px] text-slate-500 mt-0.5">{headUser.name}</div>}
+                  <div className="text-[10px] text-slate-400 mt-0.5 line-clamp-2">{dept.description || 'No description'}</div>
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    <span className="flex items-center gap-1 text-[10px] font-bold text-slate-600">
+                      <Boxes className="w-3 h-3 opacity-40" />
+                      {(dept.totalAssets || 0).toLocaleString()} assets
+                    </span>
+                    <span className="flex items-center gap-1 text-[10px] font-bold text-slate-600">
+                      <Layers className="w-3 h-3 opacity-40" />
+                      {locCount} locations
+                    </span>
+                    <span className="text-[10px] font-bold text-indigo-600">{qualifiedInspectors}/{requiredInspectors} inspectors</span>
+                  </div>
+                </div>
+                {canManage && (
+                  <div className="flex flex-col gap-1.5 shrink-0">
+                    <button title="Edit" onClick={() => startEdit(dept)} className="w-8 h-8 flex items-center justify-center bg-white border border-slate-200 text-slate-400 hover:text-blue-600 rounded-xl">
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
+                    {isArchived ? (
+                      <>
+                        <button title="Restore" onClick={() => onUpdate(dept.id, { isArchived: false })} className="w-8 h-8 flex items-center justify-center bg-amber-50 border border-amber-200 text-amber-500 rounded-xl">
+                          <ArchiveRestore className="w-3.5 h-3.5" />
+                        </button>
+                        {canPurge && (
+                          <button title="Purge" onClick={() => setPurgeTarget(dept)} className="w-8 h-8 flex items-center justify-center bg-red-50 border border-red-200 text-red-400 rounded-xl">
+                            <Flame className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </>
+                    ) : (
+                      <button title="Archive" onClick={() => onDelete(dept.id)} className="w-8 h-8 flex items-center justify-center bg-white border border-slate-200 text-slate-400 hover:text-amber-600 rounded-xl">
+                        <Archive className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+        {visibleDepts.length === 0 && (
+          <div className="py-12 text-center">
+            <div className="w-14 h-14 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto mb-3"><Layers className="w-7 h-7 text-slate-200" /></div>
+            <p className="text-sm font-bold text-slate-400">No departments defined</p>
+          </div>
+        )}
+      </div>
+
+      {/* ── Desktop table (lg+) ── */}
+      <div className="bg-white rounded-[32px] border border-slate-200 shadow-sm overflow-hidden hidden lg:block">
         <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-200">
           <table className="w-full text-left min-w-225">
             <thead className="bg-slate-50/50 border-b border-slate-100">

@@ -625,7 +625,71 @@ export const UserManagement: React.FC<UserManagementProps> = ({
         </div>
       )}
 
-      <div className="bg-white rounded-[32px] border border-slate-200 shadow-sm overflow-hidden">
+      {/* ── Mobile card list (< lg) ── */}
+      <div className="lg:hidden space-y-3">
+        {filteredUsers.map(user => {
+          const cert = getCertStatus(user.certificationExpiry);
+          const role = (user.roles && user.roles.length > 0) ? user.roles[0] : 'Guest';
+          return (
+            <div key={user.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4">
+              <div className="flex items-start gap-3">
+                <div className="w-11 h-11 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400 font-black border border-slate-200 shrink-0 text-sm">
+                  {user.name?.[0] || '?'}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-bold text-slate-900 text-sm truncate">{user.name}</div>
+                  <div className="text-[10px] text-slate-400 truncate">{user.email}</div>
+                  <div className="flex flex-wrap gap-1.5 mt-1.5">
+                    <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase border ${getRoleBadgeStyle(role)}`}>{role}</span>
+                    {user.certificationExpiry && user.certificationExpiry >= new Date().toISOString().split('T')[0] && (
+                      <span className="px-2 py-0.5 rounded text-[8px] font-black uppercase border bg-emerald-50 text-emerald-600 border-emerald-200">Inspector</span>
+                    )}
+                    <span className="text-[9px] text-slate-400 font-bold uppercase">{departments.find(d => d.id === user.departmentId)?.name || ''}</span>
+                  </div>
+                  <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[9px] font-black uppercase border w-fit mt-2 ${cert.color}`}>
+                    {cert.label}
+                    {user.certificationExpiry && (
+                      <span className="text-[8px] font-medium opacity-70">· {user.certificationExpiry}</span>
+                    )}
+                  </div>
+                </div>
+                {/* Actions */}
+                {(isAdmin || canEditTeam) && (
+                  <div className="flex flex-col gap-1.5 shrink-0">
+                    {isAdmin && (
+                      <button onClick={() => setCertifyingUser(user)} className="w-8 h-8 flex items-center justify-center bg-blue-50 text-blue-600 border border-blue-100 rounded-xl" title="Issue Certificate">
+                        <Stamp className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                    {canEditTeam && (
+                      <>
+                        <button onClick={() => onResetPassword(user.id)} className="w-8 h-8 flex items-center justify-center bg-amber-50 text-amber-600 border border-amber-100 rounded-xl" title="Reset Password">
+                          <Key className="w-3.5 h-3.5" />
+                        </button>
+                        <button onClick={() => startEdit(user)} className="w-8 h-8 flex items-center justify-center bg-white border border-slate-200 text-slate-400 hover:text-blue-600 rounded-xl" title="Edit">
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                        <button onClick={() => onDeleteMember(user.id)} className="w-8 h-8 flex items-center justify-center bg-white border border-slate-200 text-slate-400 hover:text-red-600 rounded-xl" title="Delete">
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+        {filteredUsers.length === 0 && (
+          <div className="py-12 text-center">
+            <div className="w-14 h-14 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto mb-3"><UserIcon className="w-7 h-7 text-slate-200" /></div>
+            <p className="text-sm font-bold text-slate-400">No members found</p>
+          </div>
+        )}
+      </div>
+
+      {/* ── Desktop table (lg+) ── */}
+      <div className="bg-white rounded-[32px] border border-slate-200 shadow-sm overflow-hidden hidden lg:block">
         <div className="overflow-x-auto">
           <table className="w-full text-left min-w-225">
             <thead className="bg-slate-50/50 border-b border-slate-100">

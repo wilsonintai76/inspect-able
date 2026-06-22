@@ -266,7 +266,92 @@ export const LocationManagement: React.FC<LocationManagementProps> = ({
         </div>
       </div>
 
-      <div className="bg-white rounded-[32px] border border-slate-200 shadow-sm overflow-hidden">
+      {/* ── Mobile card list (< lg) ── */}
+      <div className="lg:hidden space-y-3">
+        {filteredLocations.map(loc => {
+          const dept = departments.find(d => d.id === loc.departmentId);
+          const colorClass = AVATAR_COLORS[getColorIndex(dept?.name || loc.departmentId) % AVATAR_COLORS.length];
+          const isArchivedLoc = loc.status === 'Archived';
+          const bAbbr = getBuildingAbbr(loc.buildingId, loc.building);
+          const supervisorIds = loc.supervisorId ? loc.supervisorId.split(',').map(id => id.trim()).filter(Boolean) : [];
+          const isAssigned = schedules.some(s => s.locationId === loc.id && s.status !== 'Completed' && (s.date || s.auditor1Id || s.auditor2Id));
+          return (
+            <div key={loc.id} className={`bg-white rounded-2xl border border-slate-200 shadow-sm p-4 ${isArchivedLoc ? 'opacity-60' : ''}`}>
+              <div className="flex items-start gap-3">
+                <div className={`w-11 h-11 rounded-xl flex items-center justify-center text-xs font-black shadow-sm border ${colorClass} shrink-0`}>
+                  {loc.abbr}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-bold text-slate-900 text-sm leading-tight flex items-center gap-1.5 flex-wrap">
+                    {loc.name}
+                    {isArchivedLoc && <span className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-400 text-[9px] font-black border border-slate-200 uppercase">Archived</span>}
+                  </div>
+                  <div className="flex flex-wrap gap-2 mt-1">
+                    {bAbbr && <span className="flex items-center gap-1 text-[10px] text-slate-400 font-medium"><Building2 className="w-3 h-3" />{bAbbr}</span>}
+                    {loc.level && <span className="flex items-center gap-1 text-[10px] text-slate-400 font-medium"><Layers className="w-3 h-3" />{loc.level}</span>}
+                    <span className="text-[10px] text-slate-400 font-medium">{dept?.name || ''}</span>
+                  </div>
+                  {supervisorIds.length > 0 && (
+                    <div className="text-[10px] text-slate-500 mt-1 flex items-center gap-1">
+                      <UserIcon className="w-3 h-3 opacity-50" />
+                      {supervisorIds.map(id => users.find(u => u.id === id)?.name || id).join(', ')}
+                    </div>
+                  )}
+                  <div className="flex items-center gap-3 mt-1.5">
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 text-[10px] font-bold border border-slate-200">
+                      {loc.totalAssets || 0} assets
+                    </span>
+                    {(loc.uninspectedAssetCount || 0) > 0 && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-rose-100 text-rose-600 text-[10px] font-bold border border-rose-200">
+                        {loc.uninspectedAssetCount} uninspected
+                      </span>
+                    )}
+                  </div>
+                </div>
+                {canManage && (
+                  <div className="flex flex-col gap-1.5 shrink-0">
+                    <button onClick={() => startEdit(loc)} className="w-8 h-8 flex items-center justify-center bg-white border border-slate-200 text-slate-400 hover:text-blue-600 rounded-xl" title="Edit">
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
+                    {!isSupervisor && (
+                      isArchivedLoc ? (
+                        <>
+                          <button onClick={() => onUpdate(loc.id, { status: 'Active' })} className="w-8 h-8 flex items-center justify-center bg-amber-50 border border-amber-200 text-amber-500 rounded-xl">
+                            <ArchiveRestore className="w-3.5 h-3.5" />
+                          </button>
+                          {canPurge && (
+                            <button onClick={() => setPurgeTarget(loc)} className="w-8 h-8 flex items-center justify-center bg-red-50 border border-red-200 text-red-400 rounded-xl">
+                              <Flame className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </>
+                      ) : (
+                        <button
+                          onClick={() => !isAssigned && onDelete(loc.id)}
+                          disabled={isAssigned}
+                          className={`w-8 h-8 flex items-center justify-center border rounded-xl transition-all ${isAssigned ? 'bg-slate-50 border-slate-100 text-slate-200 cursor-not-allowed' : 'bg-white border-slate-200 text-slate-400 hover:text-amber-600'}`}
+                          title={isAssigned ? 'Cannot archive: active assignments' : 'Archive'}
+                        >
+                          <Archive className="w-3.5 h-3.5" />
+                        </button>
+                      )
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+        {filteredLocations.length === 0 && (
+          <div className="py-12 text-center">
+            <div className="w-14 h-14 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto mb-3"><MapPinned className="w-7 h-7 text-slate-200" /></div>
+            <p className="text-sm font-bold text-slate-400">No locations found</p>
+          </div>
+        )}
+      </div>
+
+      {/* ── Desktop table (lg+) ── */}
+      <div className="bg-white rounded-[32px] border border-slate-200 shadow-sm overflow-hidden hidden lg:block">
         <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-200">
           <table className="w-full text-left min-w-200">
             <thead className="bg-slate-50/50 border-b border-slate-100">

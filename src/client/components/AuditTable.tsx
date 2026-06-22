@@ -24,6 +24,7 @@ import { CertificationBanner } from './audit-table/CertificationBanner';
 import { AuditFiltersBar } from './audit-table/AuditFiltersBar';
 import { AuditPhaseFilter } from './audit-table/AuditPhaseFilter';
 import { AuditTableRow } from './audit-table/AuditTableRow';
+import { AuditCard } from './audit-table/AuditCard';
 
 interface AuditTableProps {
   schedules: AuditSchedule[];
@@ -522,7 +523,63 @@ export const AuditTable: React.FC<AuditTableProps> = ({
         </div>
       </div>
 
-      <div className="bg-white rounded-3xl border border-slate-200 shadow-sm flex flex-col flex-1 min-h-0 overflow-hidden">
+      {/* ── Mobile card view (< lg) ── */}
+      <div className="lg:hidden space-y-3">
+        {displaySchedules.map(audit => (
+          <AuditCard
+            key={audit.id}
+            audit={audit}
+            users={users}
+            currentUser={currentUser}
+            allDepartments={allDepartments}
+            allLocations={allLocations}
+            buildings={buildings}
+            schedules={schedules}
+            todayStr={todayStr}
+            canEditDates={canEditDates}
+            canSelfAssignPerm={canSelfAssignPerm}
+            canAssignOthers={canAssignOthers}
+            hasPhases={hasPhases}
+            auditPhases={auditPhases}
+            maxAssetsPerDay={maxAssetsPerDay}
+            canSelfAssignSelf={canSelfAssignSelf}
+            isAdmin={isAdmin}
+            isCoordinator={isCoordinator}
+            isSupervisor={isSupervisor}
+            isInspector={isInspector}
+            hasFieldRole={hasFieldRole}
+            isCertified={isCertified}
+            canSendApprovalReminder={canSendApprovalReminder}
+            hasSentApprovalReminder={approvalReminderAuditIds.has(audit.id)}
+            isAuditLocked={isAuditLocked}
+            isDateInValidPhase={isDateInValidPhase}
+            getBuildingAbbr={getBuildingAbbr}
+            getUserContact={getUserContact}
+            canAuditDepartment={canAuditDepartment}
+            getStatusBadgeStyles={getStatusBadgeStyles}
+            onDateChange={handleDateChange}
+            onToggleLock={onToggleLock}
+            onAssign={handleSelfAssign}
+            onUnassign={onUnassign}
+            onSetUploadAudit={setUploadAudit}
+            onSetStatusAudit={setStatusAudit}
+            onRevertCompleted={(id: string) => onUpdateAudit(id, { status: 'In Progress' })}
+            onDeleteAudit={onDeleteAudit}
+          />
+        ))}
+        {displaySchedules.length === 0 && (
+          <div className="py-16 text-center">
+            <div className="w-16 h-16 bg-slate-50 rounded-[20px] flex items-center justify-center mx-auto mb-4">
+              <Search className="w-8 h-8 text-slate-200" />
+            </div>
+            <h4 className="text-slate-900 font-bold mb-1">No Inspections Found</h4>
+            <p className="text-xs text-slate-400 font-medium">Try adjusting your filters.</p>
+          </div>
+        )}
+      </div>
+
+      {/* ── Desktop table view (lg+) ── */}
+      <div className="hidden lg:block bg-white rounded-3xl border border-slate-200 shadow-sm flex flex-col flex-1 min-h-0 overflow-hidden">
         <div className="w-full overflow-auto scrollbar-thumb-slate-300 rounded-3xl flex-1">
           <table className="w-full text-left min-w-325 border-separate border-spacing-0">
             <thead className="bg-slate-50/50 border-b border-slate-100 sticky top-0 z-20">

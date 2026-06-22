@@ -4,6 +4,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { User, AppView, SystemActivity, AppNotification } from '@shared/types';
 import { Sidebar } from './Sidebar';
 import { NotificationCenter } from './NotificationCenter';
+import { MobileBottomNav } from './MobileBottomNav';
 
 const VIEW_TITLES: Record<string, string> = {
   dashboard: 'Institutional Dashboard',
@@ -124,7 +125,7 @@ export const MainAppLayout: React.FC<MainAppLayoutProps> = ({
             </div>
           </header>
 
-          <main className="grow p-4 md:p-8 w-full flex flex-col min-h-0 overflow-y-auto">
+          <main className="grow p-4 md:p-8 w-full flex flex-col min-h-0 overflow-y-auto pb-20 lg:pb-8">
             {connectionErrorMessage && (
               <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl flex items-center gap-3 animate-in fade-in slide-in-from-top-2">
                 <AlertCircle className="w-5 h-5 shrink-0" />
@@ -178,6 +179,15 @@ export const MainAppLayout: React.FC<MainAppLayoutProps> = ({
           </footer>
         </div>
       </div>
+
+      {/* ─── Mobile Bottom Nav ─── */}
+      <MobileBottomNav
+        activeView={activeView}
+        onViewChange={handleViewChange}
+        userRoles={currentUser.roles}
+        isCertified={!!(currentUser.certificationExpiry && currentUser.certificationExpiry >= new Date().toISOString().split('T')[0])}
+        qualifications={currentUser.qualifications}
+      />
 
       {/* ─── Global Processing Overlay ─── */}
       {isProcessing && (

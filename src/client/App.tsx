@@ -30,24 +30,12 @@ import { useAppActions } from './hooks/useAppActions';
 import { hasCapability } from './lib/pbacUtils';
 
 // Icons
-import { ShieldCheck, Monitor } from 'lucide-react';
+import { ShieldCheck } from 'lucide-react';
 
 const App: React.FC = () => {
 
 
   const [brandingLoaded, setBrandingLoaded] = useState(false);
-  const [showMobileWarning, setShowMobileWarning] = useState(false);
-
-  useEffect(() => {
-    const checkMobile = () => {
-      const isMobile = window.innerWidth < 1024;
-      const dismissed = sessionStorage.getItem('mobile_device_warning_dismissed');
-      setShowMobileWarning(isMobile && !dismissed);
-    };
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
 
   // Custom Hooks for State and Actions
   const appData = useAppData();
@@ -189,38 +177,6 @@ const App: React.FC = () => {
           activities={hasLiveData ? activities : (publicStats?.activities || [])}
           topDepartments={hasLiveData ? appData.topDepartments : (publicStats?.topDepartments || [])}
         />
-        {showMobileWarning && (
-          <div className="fixed bottom-6 left-6 right-6 z-1000 md:left-auto md:right-6 md:w-96 animate-in slide-in-from-bottom duration-500">
-            <div className="bg-white/95 backdrop-blur-md border border-amber-100 rounded-3xl p-6 shadow-2xl shadow-slate-900/10 relative overflow-hidden">
-              <div className="absolute top-0 left-0 right-0 h-1 bg-linear-to-r from-amber-400 to-orange-500"></div>
-              <div className="flex gap-4">
-                <div className="w-12 h-12 rounded-2xl bg-amber-50 flex items-center justify-center text-amber-600 shrink-0 shadow-inner">
-                  <Monitor className="w-6 h-6" />
-                </div>
-                <div className="grow">
-                  <h4 className="text-sm font-black text-slate-900 mb-1 flex items-center gap-2">
-                    Desktop Recommended
-                    <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
-                  </h4>
-                  <p className="text-xs text-slate-500 leading-relaxed mb-4">
-                    For the best experience auditing assets, configuring schedules, and managing departments, we highly recommend accessing Inspect-able from a desktop screen or landscape tablet.
-                  </p>
-                  <div className="flex justify-end gap-3">
-                    <button
-                      onClick={() => {
-                        sessionStorage.setItem('mobile_device_warning_dismissed', 'true');
-                        setShowMobileWarning(false);
-                      }}
-                      className="px-4 py-2 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-slate-800 transition-colors shadow-lg shadow-slate-900/10 active:scale-95"
-                    >
-                      Continue Anyway
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
       </>
     );
   }
@@ -469,38 +425,7 @@ const App: React.FC = () => {
         showToast={showToast}
         showError={showError}
       />
-      {showMobileWarning && (
-        <div className="fixed bottom-6 left-6 right-6 z-1000 md:left-auto md:right-6 md:w-96 animate-in slide-in-from-bottom duration-500">
-          <div className="bg-white/95 backdrop-blur-md border border-amber-100 rounded-3xl p-6 shadow-2xl shadow-slate-900/10 relative overflow-hidden">
-            <div className="absolute top-0 left-0 right-0 h-1 bg-linear-to-r from-amber-400 to-orange-500"></div>
-            <div className="flex gap-4">
-              <div className="w-12 h-12 rounded-2xl bg-amber-50 flex items-center justify-center text-amber-600 shrink-0 shadow-inner">
-                <Monitor className="w-6 h-6" />
-              </div>
-              <div className="grow">
-                <h4 className="text-sm font-black text-slate-900 mb-1 flex items-center gap-2">
-                  Desktop Recommended
-                  <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
-                </h4>
-                <p className="text-xs text-slate-500 leading-relaxed mb-4">
-                  For the best experience auditing assets, configuring schedules, and managing departments, we highly recommend accessing Inspect-able from a desktop screen or landscape tablet.
-                </p>
-                <div className="flex justify-end gap-3">
-                  <button
-                    onClick={() => {
-                      sessionStorage.setItem('mobile_device_warning_dismissed', 'true');
-                      setShowMobileWarning(false);
-                    }}
-                    className="px-4 py-2 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-slate-800 transition-colors shadow-lg shadow-slate-900/10 active:scale-95"
-                  >
-                    Continue Anyway
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+
     </MainAppLayout>
   );
 };

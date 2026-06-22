@@ -143,7 +143,46 @@ export const BuildingManagement: React.FC<BuildingManagementProps> = ({
         </button>
       </div>
 
-      <div className="bg-white rounded-[32px] border border-slate-200 shadow-sm overflow-hidden">
+      {/* ── Mobile card list (< lg) ── */}
+      <div className="lg:hidden space-y-3">
+        {buildings.map(building => {
+          const colorClass = AVATAR_COLORS[getColorIndex(building.name) % AVATAR_COLORS.length];
+          const linkedCount = locations.filter(l => l.buildingId === building.id).length;
+          return (
+            <div key={building.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4">
+              <div className="flex items-center gap-3">
+                <div className={`w-11 h-11 rounded-full flex items-center justify-center text-xs font-black shadow-sm border ${colorClass} shrink-0`}>
+                  {building.abbr}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-bold text-slate-900 text-sm truncate">{building.name}</div>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="px-2 py-0.5 bg-slate-100 text-[9px] font-black text-slate-500 uppercase rounded-lg border border-slate-200">{building.type || 'Administrative'}</span>
+                    <span className="flex items-center gap-1 text-[10px] font-bold text-slate-500"><MapPin className="w-3 h-3 text-slate-400" />{linkedCount} Locations</span>
+                  </div>
+                </div>
+                <div className="flex gap-1.5 shrink-0">
+                  <button onClick={() => startEdit(building)} className="w-8 h-8 flex items-center justify-center bg-white border border-slate-200 text-slate-400 hover:text-blue-600 rounded-xl" title="Edit">
+                    <Pencil className="w-3.5 h-3.5" />
+                  </button>
+                  <button onClick={() => setBuildingToDelete(building)} className="w-8 h-8 flex items-center justify-center bg-white border border-slate-200 text-slate-400 hover:text-red-600 rounded-xl" title="Delete">
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+        {buildings.length === 0 && (
+          <div className="py-12 text-center">
+            <div className="w-14 h-14 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto mb-3"><Building2 className="w-7 h-7 text-slate-200" /></div>
+            <p className="text-sm font-bold text-slate-400">No buildings defined</p>
+          </div>
+        )}
+      </div>
+
+      {/* ── Desktop table (lg+) ── */}
+      <div className="bg-white rounded-[32px] border border-slate-200 shadow-sm overflow-hidden hidden lg:block">
         <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-slate-200">
           <table className="w-full text-left min-w-200">
             <thead className="bg-slate-50/50 border-b border-slate-100">
