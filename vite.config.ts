@@ -9,7 +9,7 @@ import { cloudflare } from "@cloudflare/vite-plugin";
 const packageJson = JSON.parse(fs.readFileSync('./package.json', 'utf-8'));
 
 export default defineConfig((configEnv) => {
-    const { mode, ssrBuild } = configEnv as any;
+    const { mode, ssrBuild, command } = configEnv as any;
     const env = loadEnv(mode, '.', '');
     const isSSR = ssrBuild || process.env.VITE_SSR_BUILD === 'true' || process.argv.includes('--ssr') || process.argv.includes('src/server/index.ts');
     // Read fresh on every build (not cached)
@@ -29,6 +29,7 @@ export default defineConfig((configEnv) => {
             main: path.resolve(__dirname, 'index.html'),
             mobile: path.resolve(__dirname, 'mobile.html'),
             kiosk: path.resolve(__dirname, 'kiosk.html'),
+            'admin-mobile': path.resolve(__dirname, 'admin-mobile.html'),
           },
           output: {
             manualChunks: {
@@ -43,7 +44,7 @@ export default defineConfig((configEnv) => {
       plugins: [
         react(), 
         tailwindcss(), 
-        isSSR ? cloudflare() : null,
+        (isSSR || command === 'serve') ? cloudflare() : null,
         {
           name: 'dev-mobile-rewrite',
           configureServer(server) {
