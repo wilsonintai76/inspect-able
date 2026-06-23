@@ -58,7 +58,8 @@ export const AdminMobileApp: React.FC = () => {
         window.history.replaceState(null, '', window.location.pathname);
         try {
           const user = await authService.exchangeGoogleToken(exchangeToken);
-          handleLoginSuccess(user);
+          await handleLoginSuccess(user);
+          appData.setIsInitialLoading(false);
           return;
         } catch (e) {
           console.error('[AdminMobile] Google exchange failed:', e);
@@ -67,7 +68,8 @@ export const AdminMobileApp: React.FC = () => {
       await awaitSessionRegistered();
       const user = await authService.getCurrentUser();
       if (user) {
-        handleLoginSuccess(user);
+        await handleLoginSuccess(user);
+        appData.setIsInitialLoading(false);
       } else {
         appData.setIsInitialLoading(false);
       }
