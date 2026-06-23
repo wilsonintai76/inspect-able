@@ -48,10 +48,10 @@ export const AdminMobileLogin: React.FC<Props> = () => {
           <h2 className="text-white font-bold text-lg text-center mb-1">Welcome back</h2>
           <p className="text-blue-200 text-xs text-center mb-6">Sign in with your institutional account</p>
 
-          <button
-            onClick={handleGoogleSignIn}
-            disabled={loading}
-            className="w-full flex items-center justify-center gap-3 py-3.5 px-4 bg-white hover:bg-slate-50 active:scale-95 disabled:opacity-60 rounded-2xl text-sm font-bold text-slate-800 transition-all shadow-lg shadow-black/20"
+          <a
+            href={googleUrl}
+            onClick={() => setLoading(true)}
+            className={`w-full flex items-center justify-center gap-3 py-3.5 px-4 bg-white hover:bg-slate-50 active:scale-95 rounded-2xl text-sm font-bold text-slate-800 transition-all shadow-lg shadow-black/20 ${loading ? 'opacity-60 pointer-events-none' : ''}`}
           >
             {loading ? (
               <span className="w-5 h-5 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin" />
@@ -64,7 +64,7 @@ export const AdminMobileLogin: React.FC<Props> = () => {
               </svg>
             )}
             {loading ? 'Redirecting…' : 'Sign in with Google'}
-          </button>
+          </a>
 
           <p className="text-[10px] text-blue-300 text-center mt-4 font-medium">
             @poliku.edu.my accounts only · Secured via auth.inspect-able.com
