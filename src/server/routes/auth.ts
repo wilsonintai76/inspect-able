@@ -698,7 +698,9 @@ auth.get('/google/callback', async (c) => {
     { expirationTtl: 60 },
   );
 
-  return c.redirect(`${returnTo}/?google_callback=${exchangeToken}`);
+  // If returnTo has .html, just append ?, otherwise append /?
+  const separator = returnTo.includes('.html') ? '?' : '/?';
+  return c.redirect(`${returnTo}${separator}google_callback=${exchangeToken}`);
 });
 
 /**
