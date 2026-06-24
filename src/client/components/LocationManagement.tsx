@@ -274,7 +274,7 @@ export const LocationManagement: React.FC<LocationManagementProps> = ({
           const isArchivedLoc = loc.status === 'Archived';
           const bAbbr = getBuildingAbbr(loc.buildingId, loc.building);
           const supervisorIds = loc.supervisorId ? loc.supervisorId.split(',').map(id => id.trim()).filter(Boolean) : [];
-          const isAssigned = schedules.some(s => s.locationId === loc.id && s.status !== 'Completed' && (s.date || s.auditor1Id || s.auditor2Id));
+          const isAssigned = !isAdmin && schedules.some(s => s.locationId === loc.id && s.status !== 'Completed' && (s.date || s.auditor1Id || s.auditor2Id));
           return (
             <div key={loc.id} className={`bg-white rounded-2xl border border-slate-200 shadow-sm p-4 ${isArchivedLoc ? 'opacity-60' : ''}`}>
               <div className="flex items-start gap-3">
@@ -467,7 +467,7 @@ export const LocationManagement: React.FC<LocationManagementProps> = ({
                           </button>
                           {!isSupervisor && (
                             (() => {
-                              const isAssigned = schedules.some(s => s.locationId === loc.id && s.status !== 'Completed' && (s.date || s.auditor1Id || s.auditor2Id));
+                              const isAssigned = !isAdmin && schedules.some(s => s.locationId === loc.id && s.status !== 'Completed' && (s.date || s.auditor1Id || s.auditor2Id));
                               const isArchived = loc.status === 'Archived';
                               
                               if (isArchived) {

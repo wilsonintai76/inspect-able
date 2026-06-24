@@ -58,8 +58,17 @@ router.get('/audits', async (c) => {
        OR auditor1_id IS NULL OR auditor2_id IS NULL)`
     ).run();
 
+    // Sweep: remove duplicate audit rows — keep only the oldest (MIN id) per location.
+    // Idempotent: no-op when there are no duplicates.
+    await c.env.DB.prepare(
+      `DELETE FROM audit_schedules
+       WHERE id NOT IN (SELECT MIN(id) FROM audit_schedules GROUP BY location_id)`
+    ).run().catch(() => {});
+
     const { results } = await c.env.DB.prepare(
-      'SELECT id, department_id, location_id, supervisor_id, auditor1_id, auditor2_id, date, status, phase_id, report_path, is_locked, total_assets_inspected, asset_status_summary, verified_asset_count, asset_statuses FROM audit_schedules'
+      `SELECT id, department_id, location_id, supervisor_id, auditor1_id, auditor2_id, date, status, phase_id, report_path, is_locked, total_assets_inspected, asset_status_summary, verified_asset_count, asset_statuses
+       FROM audit_schedules
+       WHERE id IN (SELECT MIN(id) FROM audit_schedules GROUP BY location_id)`
     ).all();
     
     const data = (results || []).map((a: any) => ({
