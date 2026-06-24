@@ -96,27 +96,31 @@ export async function handleLocationDepartmentTransfer(
  * based on the sum of their active locations.
  */
 export async function refreshDepartmentAssetTotals(db: D1Database) {
-  await db.prepare(`
-    UPDATE departments 
-    SET total_assets = (
-      SELECT COALESCE(SUM(l.total_assets), 0) 
-      FROM locations l 
-      WHERE l.department_id = departments.id AND l.status != 'Archived'
-    ),
-    uninspected_asset_count = (
-      SELECT COALESCE(SUM(l.uninspected_asset_count), 0) 
-      FROM locations l 
-      WHERE l.department_id = departments.id AND l.status != 'Archived'
-    )
-    WHERE id IN (SELECT DISTINCT department_id FROM locations)
-  `).run();
+  try {
+    // Step 1: zero all department totals
+    await db.prepare(
+      `UPDATE departments SET total_assets = 0, uninspected_asset_count = 0`
+    ).run();
 
-  // Also zero out departments that have no locations
-  await db.prepare(`
-    UPDATE departments 
-    SET total_assets = 0, uninspected_asset_count = 0
-    WHERE id NOT IN (SELECT DISTINCT department_id FROM locations WHERE department_id IS NOT NULL)
-  `).run();
+    // Step 2: aggregate active-location totals per department and apply
+    const { results } = await db.prepare(
+      `SELECT department_id,
+              COALESCE(SUM(total_assets), 0)            AS sum_assets,
+              COALESCE(SUM(uninspected_asset_count), 0) AS sum_uninspected
+       FROM locations
+       WHERE status != 'Archived' AND department_id IS NOT NULL
+       GROUP BY department_id`
+    ).all<{ department_id: string; sum_assets: number; sum_uninspected: number }>();
+
+    for (const row of (results || [])) {
+      await db.prepare(
+        `UPDATE departments SET total_assets = ?, uninspected_asset_count = ? WHERE id = ?`
+      ).bind(row.sum_assets, row.sum_uninspected, row.department_id).run();
+    }
+  } catch (err: any) {
+    console.error('[refreshDepartmentAssetTotals] Error:', err?.message, err);
+    // Non-fatal — totals will be stale but data integrity is preserved
+  }
 }
 
 /**

@@ -228,14 +228,26 @@ router.delete('/locations/:id', requirePolicy('location.manage', emptyContextBui
     }
   }
   try {
+    // Build a safe archived_by string (cap at 200 chars to avoid bind issues)
+    const archivedBy = caller
+      ? (caller.email ? `${caller.name} (${caller.email})` : caller.name || 'Unknown')
+      : 'Unknown';
+
     await c.env.DB.prepare(
       "UPDATE locations SET status = 'Archived', is_active = 0, archived_by = ?, archived_at = ? WHERE id = ?"
-    ).bind(caller ? (caller.email ? `${caller.name} (${caller.email})` : caller.name) : 'Unknown', new Date().toISOString(), id).run();
-    // Refresh department asset totals after archiving a location
+    ).bind(archivedBy.substring(0, 200), new Date().toISOString(), id).run();
+
+    // Clean up non-completed audits for the archived location
+    await cleanupAuditsForArchivedLocation(c.env.DB, id);
+    invalidateScheduleCache(c.env.SETTINGS);
+
+    // Refresh department asset totals
     await refreshDepartmentAssetTotals(c.env.DB);
+
     return c.json({ success: true });
   } catch (err: any) {
-    return c.json({ error: err.message }, 500);
+    console.error('[DELETE /locations/:id] Error:', err?.message, err);
+    return c.json({ error: err?.message || 'Internal server error archiving location' }, 500);
   }
 });
 
