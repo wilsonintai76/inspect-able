@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Location, UserRole, Department, User, AuditPhase, Building, AuditSchedule } from '@shared/types';
 import { hasCapability, CAP_PURGE_DATA } from '../lib/pbacUtils';
-import { Network, ChevronDown, Landmark, User as UserIcon, Phone, Pencil, Archive, ArchiveRestore, MapPinned, Building2, Layers, Plus, Flame } from 'lucide-react';
+import { Network, ChevronDown, Landmark, User as UserIcon, Phone, Pencil, Archive, ArchiveRestore, MapPinned, Building2, Layers, Plus, Flame, Search } from 'lucide-react';
 import { LocationModal } from './LocationModal';
 import { PurgeConfirmModal } from './PurgeConfirmModal';
 
@@ -39,6 +39,7 @@ export const LocationManagement: React.FC<LocationManagementProps> = ({
   const [purgeTarget, setPurgeTarget] = useState<Location | null>(null);
   const [selectedLevelFilter, setSelectedLevelFilter] = useState('All');
   const [showArchived, setShowArchived] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const LEVELS = ["LEVEL 1", "LEVEL 2", "LEVEL 3", "LEVEL 4", "LEVEL 5"];
 
@@ -77,6 +78,10 @@ export const LocationManagement: React.FC<LocationManagementProps> = ({
     if (selectedLevelFilter !== 'All') {
       base = base.filter(l => l.level === selectedLevelFilter);
     }
+    if (searchQuery.trim() !== '') {
+      const q = searchQuery.toLowerCase().trim();
+      base = base.filter(l => l.name.toLowerCase().includes(q) || (l.description && l.description.toLowerCase().includes(q)));
+    }
 
     return [...base].sort((a, b) => {
       if (a.departmentId !== b.departmentId) {
@@ -92,7 +97,7 @@ export const LocationManagement: React.FC<LocationManagementProps> = ({
       if (indexA !== -1 && indexB !== -1) return indexA - indexB;
       return (a.level || '').localeCompare(b.level || '');
     });
-  }, [locations, showArchived, isCoordinator, isSupervisor, isAdmin, userDeptId, selectedDeptFilter, selectedBlockFilter, selectedLevelFilter]);
+  }, [locations, showArchived, isCoordinator, isSupervisor, isAdmin, userDeptId, selectedDeptFilter, selectedBlockFilter, selectedLevelFilter, searchQuery]);
 
   const availableBlocks = useMemo(() => {
     let base = ((isCoordinator || isSupervisor) && !isAdmin) ? locations.filter(l => l.departmentId === userDeptId) : locations;
@@ -203,7 +208,18 @@ export const LocationManagement: React.FC<LocationManagementProps> = ({
       </div>
 
       {/* FILTERS BAR */}
-      <div className="flex flex-col sm:flex-row items-center gap-3 bg-white p-2 rounded-[24px] border border-slate-100 shadow-sm sm:w-fit">
+      <div className="flex flex-col sm:flex-row items-center gap-3 bg-white p-2 rounded-[24px] border border-slate-100 shadow-sm sm:w-fit flex-wrap">
+        <div className="relative min-w-45 w-full sm:w-auto">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-3.5 h-3.5" />
+          <input
+            type="text"
+            placeholder="Search locations..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-10 pr-4 py-2 bg-slate-50/50 border border-slate-100 rounded-xl text-xs font-bold focus:ring-2 focus:ring-blue-500/10 outline-none transition-all placeholder:text-slate-400 hover:bg-white"
+          />
+        </div>
+
         {isAdmin && (
           <div className="relative min-w-45 w-full sm:w-auto">
             <Network className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-3.5 h-3.5" />
