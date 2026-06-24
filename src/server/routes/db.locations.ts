@@ -258,7 +258,9 @@ router.delete('/locations/:id/purge', requirePolicy('data.purge', emptyContextBu
     const row = await c.env.DB.prepare("SELECT status FROM locations WHERE id = ? LIMIT 1").bind(id).first<{ status: string }>();
     if (!row) return c.json({ error: 'Not found' }, 404);
     if (row.status !== 'Archived') return c.json({ error: 'Location must be archived before purging' }, 400);
+    await c.env.DB.prepare('DELETE FROM audit_reports WHERE audit_id IN (SELECT id FROM audit_schedules WHERE location_id = ?)').bind(id).run();
     await c.env.DB.prepare('DELETE FROM audit_schedules WHERE location_id = ?').bind(id).run();
+    await c.env.DB.prepare('DELETE FROM location_mappings WHERE target_location_id = ?').bind(id).run();
     await c.env.DB.prepare('DELETE FROM locations WHERE id = ?').bind(id).run();
     await refreshDepartmentAssetTotals(c.env.DB);
     return c.json({ success: true });
@@ -307,9 +309,21 @@ router.post('/locations/merge', requirePolicy('location.manage', emptyContextBui
 
     // 3. Re-link Schedules
     const sourcePlaceholders = sourceIds.map(() => '?').join(',');
+    const targetSchedule = await c.env.DB.prepare('SELECT id FROM audit_schedules WHERE location_id = ? LIMIT 1').bind(targetId).first<{ id: string }>();
+    
+    if (targetSchedule) {
+      statements.push(c.env.DB.prepare(
+        `UPDATE audit_reports SET audit_id = ? WHERE audit_id IN (SELECT id FROM audit_schedules WHERE location_id IN (${sourcePlaceholders}))`
+      ).bind(targetSchedule.id, ...sourceIds));
+    } else {
+      // Unlikely edge case where target has no schedule: we must delete reports to avoid FK failure
+      statements.push(c.env.DB.prepare(
+        `DELETE FROM audit_reports WHERE audit_id IN (SELECT id FROM audit_schedules WHERE location_id IN (${sourcePlaceholders}))`
+      ).bind(...sourceIds));
+    }
     statements.push(c.env.DB.prepare(
-      `UPDATE audit_schedules SET location_id = ?, supervisor_id = ? WHERE location_id IN (${sourcePlaceholders})`
-    ).bind(targetId, target.supervisor_id || null, ...sourceIds));
+      `DELETE FROM audit_schedules WHERE location_id IN (${sourcePlaceholders})`
+    ).bind(...sourceIds));
 
     // 4. Update Mappings (so old sources now map to target)
     statements.push(c.env.DB.prepare(
@@ -342,6 +356,9 @@ router.post('/locations/merge', requirePolicy('location.manage', emptyContextBui
 router.delete('/locations/:id/force', requirePolicy('system.reset', emptyContextBuilder()), async (c) => {
   const id = c.req.param('id');
   try {
+    await c.env.DB.prepare('DELETE FROM audit_reports WHERE audit_id IN (SELECT id FROM audit_schedules WHERE location_id = ?)').bind(id).run();
+    await c.env.DB.prepare('DELETE FROM audit_schedules WHERE location_id = ?').bind(id).run();
+    await c.env.DB.prepare('DELETE FROM location_mappings WHERE target_location_id = ?').bind(id).run();
     await c.env.DB.prepare('DELETE FROM locations WHERE id = ?').bind(id).run();
     await refreshDepartmentAssetTotals(c.env.DB);
     return c.json({ success: true });
