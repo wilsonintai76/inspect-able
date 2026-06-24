@@ -73,21 +73,21 @@ export async function handleLocationDepartmentTransfer(
       ).bind(audit.auditor2_id).first<{ department_id: string }>();
       if (u2 && u2.department_id === newDepartmentId) clear2 = true;
     }
-    if (clear1 || clear2) {
-      let newStatus = audit.status;
-      let newLocked = audit.is_locked;
-      if (audit.status === 'In Progress') newStatus = 'Pending';
-      if (audit.is_locked) newLocked = null;
-      await db.prepare(
-        'UPDATE audit_schedules SET auditor1_id = ?, auditor2_id = ?, status = ?, is_locked = ? WHERE id = ?'
-      ).bind(
-        clear1 ? null : audit.auditor1_id,
-        clear2 ? null : audit.auditor2_id,
-        newStatus,
-        newLocked,
-        audit.id
-      ).run();
-    }
+    
+    // Always reset lock and status on department transfer, because
+    // the audit context fundamentally changes to the new department.
+    let newStatus = audit.status === 'In Progress' ? 'Pending' : audit.status;
+    let newLocked = null;
+
+    await db.prepare(
+      'UPDATE audit_schedules SET auditor1_id = ?, auditor2_id = ?, status = ?, is_locked = ? WHERE id = ?'
+    ).bind(
+      clear1 ? null : audit.auditor1_id,
+      clear2 ? null : audit.auditor2_id,
+      newStatus,
+      newLocked,
+      audit.id
+    ).run();
   }
 }
 

@@ -209,7 +209,8 @@ router.patch('/locations/:id', requirePolicy('location.manage', emptyContextBuil
 
     return c.json({ success: true });
   } catch (err: any) {
-    return c.json({ error: err.message }, 500);
+    console.error('[PATCH /locations/:id] Error:', err?.message, err);
+    return c.json({ error: err?.message || 'Internal server error updating location' }, 500);
   }
 });
 
