@@ -49,6 +49,56 @@ router.get('/locations', async (c) => {
   }
 });
 
+router.get('/locations/duplicates', requirePolicy('system.admin', emptyContextBuilder()), async (c) => {
+  try {
+    const { results: duplicates } = await c.env.DB.prepare(`
+      SELECT LOWER(TRIM(name)) as normalized_name, COUNT(*) as count 
+      FROM locations 
+      WHERE status != 'Archived' 
+      GROUP BY normalized_name 
+      HAVING count > 1
+    `).all();
+
+    if (!duplicates || duplicates.length === 0) {
+      return c.json([]);
+    }
+
+    const duplicateNames = duplicates.map((d: any) => d.normalized_name);
+    const placeholders = duplicateNames.map(() => '?').join(',');
+    
+    const { results: locations } = await c.env.DB.prepare(`
+      SELECT l.*, d.name as department_name, b.name as building_name
+      FROM locations l
+      LEFT JOIN departments d ON l.department_id = d.id
+      LEFT JOIN buildings b ON l.building_id = b.id
+      WHERE LOWER(TRIM(l.name)) IN (${placeholders})
+      AND l.status != 'Archived'
+      ORDER BY LOWER(TRIM(l.name)), d.name
+    `).bind(...duplicateNames).all();
+
+    const grouped = duplicateNames.map((name: string) => {
+      const locs = locations.filter((l: any) => l.name.toLowerCase().trim() === name);
+      return {
+        name: locs[0]?.name || name,
+        locations: locs.map((l: any) => ({
+          id: l.id,
+          name: l.name,
+          departmentId: l.department_id,
+          departmentName: l.department_name,
+          buildingName: l.building_name,
+          totalAssets: l.total_assets || 0,
+          uninspectedAssetCount: l.uninspected_asset_count || 0,
+          status: l.status
+        }))
+      };
+    });
+
+    return c.json(grouped);
+  } catch (err: any) {
+    return c.json({ error: err.message }, 500);
+  }
+});
+
 router.post('/locations', requirePolicy('location.manage', emptyContextBuilder()), async (c) => {
   const loc = await c.req.json();
   const id = loc.id || crypto.randomUUID();

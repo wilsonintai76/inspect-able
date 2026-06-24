@@ -8,10 +8,11 @@ import { KPISettings } from './KPISettings';
 import { suggestThresholds } from '../services/aiService';
 
 import { ArchivedLocationsPanel } from './ArchivedLocationsPanel';
-import { Zap, Sliders, AlertCircle, Eye, Calendar, UserCheck, Users, UserPlus, Edit, ShieldAlert, ShieldCheck, Network, Lock, Unlock, RotateCcw, Building2, Trash2, Database, RefreshCcw, HardDrive, FileArchive } from 'lucide-react';
+import { Zap, Sliders, AlertCircle, Eye, Calendar, UserCheck, Users, UserPlus, Edit, ShieldAlert, ShieldCheck, Network, Lock, Unlock, RotateCcw, Building2, Trash2, Database, RefreshCcw, HardDrive, FileArchive, Combine } from 'lucide-react';
 import { BackupManager } from './BackupManager';
 import { AuditConstraints } from './AuditConstraints';
 import { BrandingSettings } from './BrandingSettings';
+import { DuplicateLocationsMergeTool } from './DuplicateLocationsMergeTool';
 
 interface SystemSettingsProps {
   departments: Department[];
@@ -118,6 +119,7 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
   const isAdmin = hasCapability(pbacUser, 'system:admin');
   const isCoordinator = hasCapability(pbacUser, 'manage:departments') && !isAdmin;
   const [isProcessing, setIsProcessing] = React.useState(false);
+  const [showMergeTool, setShowMergeTool] = React.useState(false);
   const [isSuggestingAI, setIsSuggestingAI] = React.useState(false);
   const [strictAuditorRule, setStrictAuditorRule] = React.useState(true);
 
@@ -372,6 +374,12 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
             >
               <Trash2 className="w-3.5 h-3.5" /> Clean Orphaned R2 Reports
             </button>
+            <button
+              onClick={() => setShowMergeTool(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl text-xs font-bold hover:bg-emerald-100 transition-colors"
+            >
+              <Combine className="w-3.5 h-3.5" /> Find & Merge Duplicate Locations
+            </button>
           </div>
           <p className="text-[10px] text-slate-400 mt-3">
             Step 1: "Move" migrates old root-level KEWPA files to kewpa/ folder. Step 2: "Sync" imports report paths into history. Step 3: "Clean" removes unreferenced R2 files.
@@ -381,7 +389,12 @@ export const SystemSettings: React.FC<SystemSettingsProps> = ({
 
       {isAdmin && <BackupManager />}
 
-
+      {showMergeTool && (
+        <DuplicateLocationsMergeTool
+          onClose={() => setShowMergeTool(false)}
+          showToast={showToast || (() => {})}
+        />
+      )}
     </div>
   );
 };
