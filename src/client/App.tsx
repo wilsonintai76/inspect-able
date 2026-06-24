@@ -258,6 +258,7 @@ const App: React.FC = () => {
           onToggleStatus={handleToggleStatus}
           onToggleLock={handleToggleLock}
           onUpdateLocation={handleUpdateLoc}
+          showToast={appData.showToast}
         />
       )}
       {activeView === 'schedule' && (

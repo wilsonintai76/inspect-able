@@ -9,7 +9,8 @@ import {
   Trophy, 
   MapPin, 
   CheckCircle2,
-  Activity
+  Activity,
+  Combine
 } from 'lucide-react';
 import { 
   User, 
@@ -34,6 +35,7 @@ import { CoordinatorView } from './views/CoordinatorView';
 import { SupervisorView } from './views/SupervisorView';
 import { InspectorView } from './views/InspectorView';
 import { AuditUploadModal } from '../AuditUploadModal';
+import { DuplicateLocationsMergeTool } from '../DuplicateLocationsMergeTool';
 
 interface InstitutionalSectionProps {
   currentUser: User;
@@ -52,6 +54,7 @@ interface InstitutionalSectionProps {
   onToggleStatus?: (id: string) => Promise<void>;
   onToggleLock?: (id: string) => Promise<void>;
   onUpdateLocation?: (id: string, updates: Partial<Location>) => Promise<void>;
+  showToast?: (message: string, type?: any) => void;
 }
 
 interface OfficerWorkload {
@@ -67,14 +70,28 @@ interface OfficerWorkload {
 export const InstitutionalSection: React.FC<InstitutionalSectionProps> = ({
   currentUser, users, departments, locations, schedules, phases, kpiTiers, kpiTierTargets,
   institutionKPIs, activities, buildings, openAuditThreshold,
-  onUpdateAudit, onToggleStatus, onToggleLock, onUpdateLocation
+  onUpdateAudit, onToggleStatus, onToggleLock, onUpdateLocation, showToast
 }) => {
   const [uploadAudit, setUploadAudit] = useState<AuditSchedule | null>(null);
+  const [showMergeTool, setShowMergeTool] = useState(false);
   const today = new Date().toISOString().split('T')[0];
 
   // Determine active view elements based on locations and schedules
   const activeLocationIds = useMemo(() => new Set(locations.filter(l => l.status !== 'Archived').map(l => l.id)), [locations]);
   const activeLocations = useMemo(() => locations.filter(l => l.status !== 'Archived'), [locations]);
+
+  const duplicateLocationGroups = useMemo(() => {
+    const nameMap = new Map<string, number>();
+    for (const loc of activeLocations) {
+      const n = (loc.name || '').trim().toLowerCase();
+      nameMap.set(n, (nameMap.get(n) || 0) + 1);
+    }
+    let groups = 0;
+    nameMap.forEach(count => {
+      if (count > 1) groups++;
+    });
+    return groups;
+  }, [activeLocations]);
 
   // ───────────────────────────────────────────────────────────────────
   // ── INSTITUTION VIEW METRICS & DATA ────────────────────────────────
@@ -511,6 +528,24 @@ export const InstitutionalSection: React.FC<InstitutionalSectionProps> = ({
       {/* Tab content rendering */}
       {activeTab === 'institution' && (
         <div className="space-y-6">
+          {hasCapability(currentUser, 'system:admin') && duplicateLocationGroups > 0 && (
+            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+              <div className="flex items-center gap-3 text-amber-800 text-sm">
+                <AlertTriangle className="w-5 h-5 shrink-0" />
+                <div>
+                  <p className="font-bold">Duplicate Locations Detected</p>
+                  <p className="opacity-90">There are {duplicateLocationGroups} groups of locations with duplicate names. Consolidate them to keep your database clean.</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowMergeTool(true)}
+                className="px-4 py-2 shrink-0 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition-colors flex items-center gap-2 shadow-sm"
+              >
+                <Combine className="w-3.5 h-3.5" /> Open Merge Tool
+              </button>
+            </div>
+          )}
+
           {/* KPI Progress */}
           <div className="rounded-3xl border border-slate-200 bg-white shadow-sm p-6">
             <h3 className="text-sm font-black text-slate-900 mb-4 flex items-center gap-2">
@@ -734,6 +769,13 @@ export const InstitutionalSection: React.FC<InstitutionalSectionProps> = ({
             }
             setUploadAudit(null);
           }}
+        />
+      )}
+
+      {showMergeTool && (
+        <DuplicateLocationsMergeTool
+          onClose={() => setShowMergeTool(false)}
+          showToast={showToast || (() => {})}
         />
       )}
     </div>
