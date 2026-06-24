@@ -167,7 +167,11 @@ export const AuditorAssignmentSlot: React.FC<AuditorAssignmentSlotProps> = ({
           {canAssignOthers && (
             <div className="relative">
               <input
-                title="Search QAI"
+                title={
+                  !audit.date ? "Please set an inspection date first before assigning an auditor." :
+                  isPast ? "Cannot assign auditors for past dates." :
+                  "Search QAI"
+                }
                 placeholder="Type officer name..."
                 value={officerQuery}
                 disabled={!canUseAssignOthers}
@@ -223,7 +227,10 @@ export const AuditorAssignmentSlot: React.FC<AuditorAssignmentSlotProps> = ({
                     ))
                   ) : (
                     <div className="px-3 py-2 text-[10px] text-slate-400 font-medium">
-                      No matching QAI
+                      No matching QAI.<br/>
+                      <span className="text-[8px] text-slate-300">
+                        (Note: QAIs cannot audit their own department or a location where they are the supervisor)
+                      </span>
                     </div>
                   )}
                 </div>
