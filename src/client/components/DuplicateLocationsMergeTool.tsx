@@ -31,12 +31,12 @@ export const DuplicateLocationsMergeTool: React.FC<DuplicateLocationsMergeToolPr
     try {
       const res = await fetch('/api/db/locations/duplicates');
       if (res.ok) {
-        const data = await res.json();
+        const data = (await res.json()) as DuplicateGroup[];
         setDuplicates(data);
         
         // Auto-select the one with the most assets as master for each group
         const newSelections: Record<string, string> = {};
-        data.forEach((group: DuplicateGroup) => {
+        data.forEach((group) => {
           if (group.locations.length > 0) {
             const master = group.locations.reduce((prev, current) => 
               (current.totalAssets > prev.totalAssets) ? current : prev

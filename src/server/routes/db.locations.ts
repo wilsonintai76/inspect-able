@@ -49,7 +49,7 @@ router.get('/locations', async (c) => {
   }
 });
 
-router.get('/locations/duplicates', requirePolicy('system.admin', emptyContextBuilder()), async (c) => {
+router.get('/locations/duplicates', requirePolicy('location.manage', emptyContextBuilder()), async (c) => {
   try {
     const { results: duplicates } = await c.env.DB.prepare(`
       SELECT LOWER(TRIM(name)) as normalized_name, COUNT(*) as count 
