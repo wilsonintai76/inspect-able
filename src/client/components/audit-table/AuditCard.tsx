@@ -95,7 +95,8 @@ export const AuditCard: React.FC<AuditCardProps> = ({
   const canEditThisDate = canEditDates && (isPrivileged || (!isLocked && audit.status !== 'Completed'));
   const isPast = !!(audit.date && audit.date < todayStr);
   const canComplete = isAdmin || (isCoordinator && isOwnDept) || (isCertified && isCurrentUserAssigned);
-  const allFieldsSet = !!(audit.date && audit.supervisorId && audit.auditor1Id && audit.auditor2Id);
+  // Ready to lock once a date and both inspecting officers are set; site supervisor is optional.
+  const allFieldsSet = !!(audit.date && audit.auditor1Id && audit.auditor2Id);
   const canToggleLock = isEffectivelyLocked || allFieldsSet;
   const canLock = isAdmin || isCoordinator || isSupervisor || isInspector;
   const isDateValid = !audit.date || auditPhases.some(p => norm(audit.date!) >= norm(p.startDate) && norm(audit.date!) <= norm(p.endDate));

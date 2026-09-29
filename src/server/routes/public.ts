@@ -427,7 +427,7 @@ pub.patch('/kiosk/schedules/:id', async (c) => {
 
       if (updatedSchedule) {
         if (updatedSchedule.status === 'Pending') {
-          if (updatedSchedule.date && updatedSchedule.supervisor_id && updatedSchedule.auditor1_id && updatedSchedule.auditor2_id) {
+          if (updatedSchedule.date && updatedSchedule.auditor1_id && updatedSchedule.auditor2_id) {
             // Auto-resolve phaseId from the date when all fields are complete
             let phaseUpdate = '';
             const phaseValues: any[] = [];
@@ -445,7 +445,7 @@ pub.patch('/kiosk/schedules/:id', async (c) => {
             ).bind(...phaseValues, scheduleId).run();
           }
         } else if (updatedSchedule.status === 'In Progress') {
-          if (!updatedSchedule.date || !updatedSchedule.supervisor_id || !updatedSchedule.auditor1_id || !updatedSchedule.auditor2_id) {
+          if (!updatedSchedule.date || !updatedSchedule.auditor1_id || !updatedSchedule.auditor2_id) {
             await c.env.DB.prepare(
               "UPDATE audit_schedules SET status = 'Pending', is_locked = 0 WHERE id = ?"
             ).bind(scheduleId).run();
@@ -484,7 +484,7 @@ pub.patch('/kiosk/schedules/:id', async (c) => {
         `SELECT status, date, supervisor_id, auditor1_id, auditor2_id FROM audit_schedules WHERE id = ?`
       ).bind(scheduleId).first<{ status: string; date: string | null; supervisor_id: string | null; auditor1_id: string | null; auditor2_id: string | null }>();
       if (remaining && remaining.status === 'In Progress') {
-        if (!remaining.date || !remaining.supervisor_id || !remaining.auditor1_id || !remaining.auditor2_id) {
+        if (!remaining.date || !remaining.auditor1_id || !remaining.auditor2_id) {
           await c.env.DB.prepare(
             `UPDATE audit_schedules SET status = 'Pending', is_locked = 0 WHERE id = ?`
           ).bind(scheduleId).run();
@@ -567,7 +567,7 @@ pub.patch('/kiosk/schedules/:id/date', async (c) => {
 
     if (updatedSchedule) {
       if (updatedSchedule.status === 'Pending') {
-        if (updatedSchedule.date && updatedSchedule.supervisor_id && updatedSchedule.auditor1_id && updatedSchedule.auditor2_id) {
+        if (updatedSchedule.date && updatedSchedule.auditor1_id && updatedSchedule.auditor2_id) {
           // Auto-resolve phaseId from the date when all fields are complete
           let phaseUpdate = '';
           const phaseValues: any[] = [];
@@ -585,7 +585,7 @@ pub.patch('/kiosk/schedules/:id/date', async (c) => {
           ).bind(...phaseValues, scheduleId).run();
         }
       } else if (updatedSchedule.status === 'In Progress') {
-        if (!updatedSchedule.date || !updatedSchedule.supervisor_id || !updatedSchedule.auditor1_id || !updatedSchedule.auditor2_id) {
+        if (!updatedSchedule.date || !updatedSchedule.auditor1_id || !updatedSchedule.auditor2_id) {
           await c.env.DB.prepare(
             "UPDATE audit_schedules SET status = 'Pending', is_locked = 0 WHERE id = ?"
           ).bind(scheduleId).run();

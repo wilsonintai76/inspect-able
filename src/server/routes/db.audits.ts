@@ -44,17 +44,17 @@ router.get('/audits', async (c) => {
       return c.json(cached);
     }
 
-    // Sweep: auto-lock and set status to 'In Progress' for any Pending records that already have all required fields set.
+    // Sweep: auto-lock and set status to 'In Progress' for any Pending records with a date and both inspecting officers.
     await c.env.DB.prepare(
       `UPDATE audit_schedules SET status = 'In Progress', is_locked = 1
-       WHERE status = 'Pending' AND date IS NOT NULL AND supervisor_id IS NOT NULL
+       WHERE status = 'Pending' AND date IS NOT NULL
        AND auditor1_id IS NOT NULL AND auditor2_id IS NOT NULL`
     ).run();
 
     // Sweep: unlock and demote any In Progress records that are missing required fields
     await c.env.DB.prepare(
       `UPDATE audit_schedules SET status = 'Pending', is_locked = 0
-       WHERE status = 'In Progress' AND (date IS NULL OR supervisor_id IS NULL
+       WHERE status = 'In Progress' AND (date IS NULL
        OR auditor1_id IS NULL OR auditor2_id IS NULL)`
     ).run();
 
@@ -266,12 +266,12 @@ router.patch('/audits/:id', zValidator('json', patchAuditSchema), patchAuditPerm
     }
 
     const currentStatus = updates.status || existingForActivation.status;
-    const finalSupervisor = updates.supervisorId !== undefined ? updates.supervisorId : existingForActivation.supervisor_id;
+    // Site supervisor is optional for activation — only the date and both officers are required.
     const finalAuditor1 = updates.auditor1Id !== undefined ? updates.auditor1Id : existingForActivation.auditor1_id;
     const finalAuditor2 = updates.auditor2Id !== undefined ? updates.auditor2Id : existingForActivation.auditor2_id;
 
     if (currentStatus === 'Pending') {
-      if (finalDate && finalSupervisor && finalAuditor1 && finalAuditor2) {
+      if (finalDate && finalAuditor1 && finalAuditor2) {
         if (updates.isLocked !== false) {
           updates.status = 'In Progress';
           updates.isLocked = true;
@@ -288,7 +288,7 @@ router.patch('/audits/:id', zValidator('json', patchAuditSchema), patchAuditPerm
         }
       }
     } else if (currentStatus === 'In Progress') {
-      if (!finalDate || !finalSupervisor || !finalAuditor1 || !finalAuditor2 || updates.isLocked === false) {
+      if (!finalDate || !finalAuditor1 || !finalAuditor2 || updates.isLocked === false) {
         updates.status = 'Pending';
         updates.isLocked = false;
       }

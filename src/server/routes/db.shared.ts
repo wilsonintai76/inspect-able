@@ -216,14 +216,14 @@ export const statusTransitionGuard = async (c: Context<{ Bindings: Bindings; Var
 
   if (updates.status === 'In Progress') {
     const finalDate = updates.date !== undefined ? updates.date : existing.date;
-    const finalSupervisor = updates.supervisorId !== undefined ? updates.supervisorId : existing.supervisor_id;
     const finalAuditor1 = updates.auditor1Id !== undefined ? updates.auditor1Id : existing.auditor1_id;
     const finalAuditor2 = updates.auditor2Id !== undefined ? updates.auditor2Id : existing.auditor2_id;
 
-    if (!finalDate || !finalSupervisor || !finalAuditor1 || !finalAuditor2) {
+    // Site supervisor is optional; only the date and both inspecting officers are required.
+    if (!finalDate || !finalAuditor1 || !finalAuditor2) {
       return c.json(
         {
-          error: 'ACTION BLOCKED: Date, Site Supervisor, and both Inspecting Officers must all be assigned before starting the inspection.',
+          error: 'ACTION BLOCKED: A Date and both Inspecting Officers must be assigned before starting the inspection.',
           code: 'ASSIGNMENT_INCOMPLETE'
         },
         422

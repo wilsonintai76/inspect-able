@@ -15,7 +15,7 @@ const FROM_ADDRESS = 'Inspect-Able <noreply@inspect-able.com>';
 
 /**
  * Sends a supervisor approval email when an audit schedule transitions to
- * "In Progress" (all 4 fields filled: date, supervisor, auditor1, auditor2).
+ * "In Progress" (date + both inspecting officers; site supervisor optional).
  *
  * The supervisor is asked to log in and click the Lock button to confirm.
  */

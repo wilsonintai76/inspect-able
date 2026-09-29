@@ -140,7 +140,8 @@ export const AuditTableRow: React.FC<AuditTableRowProps> = ({
   const isDateValid = !audit.date || auditPhases.some(p => norm(audit.date!) >= norm(p.startDate) && norm(audit.date!) <= norm(p.endDate));
   const locationLevel = loc?.level;
   const canLock = isAdmin || isCoordinator || isSupervisor || isInspector; // Admin, Coordinator, Supervisor & Inspector can unlock
-  const allFieldsSet = !!(audit.date && audit.supervisorId && audit.auditor1Id && audit.auditor2Id);
+  // Ready to lock once a date and both inspecting officers are set; site supervisor is optional.
+  const allFieldsSet = !!(audit.date && audit.auditor1Id && audit.auditor2Id);
   // Allow toggling if: already effectively locked (any privileged role can unlock),
   // OR all fields are set and it's not yet locked (ready to lock).
   const canToggleLock = isEffectivelyLocked || allFieldsSet;
@@ -243,7 +244,7 @@ export const AuditTableRow: React.FC<AuditTableRowProps> = ({
                   isEffectivelyLocked
                     ? isLocked ? 'Unlock Inspection (currently locked)' : 'Lock Inspection (legacy slot — click to formally lock)'
                     : !canToggleLock
-                    ? 'Fill all fields (date, supervisor, 2 officers) before locking'
+                    ? 'Fill the date and both inspecting officers before locking'
                     : 'Lock — Freezes date & assignments, begins inspection'
                 }
               >

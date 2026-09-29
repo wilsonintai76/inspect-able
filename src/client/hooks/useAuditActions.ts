@@ -51,7 +51,7 @@ export const useAuditActions = (props: UseAuditActionsProps) => {
       setSchedules(prev => prev.map(s => {
         if (s.id !== id) return s;
         const updated = { ...s, ...slotUpdate };
-        if (updated.status === 'Pending' && updated.date && updated.supervisorId && updated.auditor1Id && updated.auditor2Id) {
+        if (updated.status === 'Pending' && updated.date && updated.auditor1Id && updated.auditor2Id) {
           updated.status = 'In Progress';
           updated.isLocked = true;
           const matchingPhase = auditPhases.find(p => {
@@ -60,7 +60,7 @@ export const useAuditActions = (props: UseAuditActionsProps) => {
             return d >= new Date(ns(p.startDate)) && d <= new Date(ns(p.endDate));
           });
           if (matchingPhase) updated.phaseId = matchingPhase.id;
-        } else if (updated.status === 'In Progress' && (!updated.date || !updated.supervisorId || !updated.auditor1Id || !updated.auditor2Id)) {
+        } else if (updated.status === 'In Progress' && (!updated.date || !updated.auditor1Id || !updated.auditor2Id)) {
           updated.status = 'Pending';
         }
         return updated;
@@ -69,7 +69,7 @@ export const useAuditActions = (props: UseAuditActionsProps) => {
       await gateway.updateAudit(id, slotUpdate);
       
       const projected = { ...audit, ...slotUpdate };
-      const willStart = projected.date && projected.supervisorId && projected.auditor1Id && projected.auditor2Id;
+      const willStart = projected.date && projected.auditor1Id && projected.auditor2Id;
       showToast(willStart ? 'Assigned and scheduled!' : 'Assigned');
     } catch (e) {
       // Rollback
@@ -87,7 +87,7 @@ export const useAuditActions = (props: UseAuditActionsProps) => {
       setSchedules(prev => prev.map(s => {
         if (s.id !== id) return s;
         const updated = { ...s, ...slotUpdate };
-        if (updated.status === 'In Progress' && (!updated.date || !updated.supervisorId || !updated.auditor1Id || !updated.auditor2Id)) {
+        if (updated.status === 'In Progress' && (!updated.date || !updated.auditor1Id || !updated.auditor2Id)) {
           updated.status = 'Pending';
         }
         return updated;
@@ -115,10 +115,9 @@ export const useAuditActions = (props: UseAuditActionsProps) => {
       if (audit) {
         const currentStatus = updates.status || audit.status;
         const finalDate = updates.date !== undefined ? updates.date : audit.date;
-        const finalSupervisor = updates.supervisorId !== undefined ? updates.supervisorId : audit.supervisorId;
         const finalAuditor1 = updates.auditor1Id !== undefined ? updates.auditor1Id : audit.auditor1Id;
         const finalAuditor2 = updates.auditor2Id !== undefined ? updates.auditor2Id : audit.auditor2Id;
-        if (currentStatus === 'Pending' && finalDate && finalSupervisor && finalAuditor1 && finalAuditor2) {
+        if (currentStatus === 'Pending' && finalDate && finalAuditor1 && finalAuditor2) {
           updates.status = 'In Progress';
           updates.isLocked = true;
           // Phase assigned only now — when all slots filled and status → In Progress
@@ -129,7 +128,7 @@ export const useAuditActions = (props: UseAuditActionsProps) => {
             return d >= new Date(ns(p.startDate)) && d <= new Date(ns(p.endDate));
           });
           if (matchingPhase) updates.phaseId = matchingPhase.id;
-        } else if (currentStatus === 'In Progress' && (!finalDate || !finalSupervisor || !finalAuditor1 || !finalAuditor2)) {
+        } else if (currentStatus === 'In Progress' && (!finalDate || !finalAuditor1 || !finalAuditor2)) {
           updates.status = 'Pending';
         }
       }
@@ -155,12 +154,12 @@ export const useAuditActions = (props: UseAuditActionsProps) => {
       let updates: Partial<AuditSchedule> = { date };
       if (audit) {
         const currentStatus = updates.status || audit.status;
-        if (currentStatus === 'Pending' && date && audit.supervisorId && audit.auditor1Id && audit.auditor2Id) {
+        if (currentStatus === 'Pending' && date && audit.auditor1Id && audit.auditor2Id) {
           updates.status = 'In Progress';
           updates.isLocked = true;
           // Phase only assigned when transitioning to In Progress (all slots filled)
           if (resolvedPhaseId) updates.phaseId = resolvedPhaseId;
-        } else if (currentStatus === 'In Progress' && (!date || !audit.supervisorId || !audit.auditor1Id || !audit.auditor2Id)) {
+        } else if (currentStatus === 'In Progress' && (!date || !audit.auditor1Id || !audit.auditor2Id)) {
           updates.status = 'Pending';
         }
       }

@@ -363,7 +363,7 @@ export const MobileApp: React.FC = () => {
           ? (user?.contactNumber || s.supervisorContact || '')
           : (user?.contactNumber ?? ''),
       };
-      const hasAll = updated.date && updated.supervisorId && updated.auditor1Id && updated.auditor2Id;
+      const hasAll = updated.date && updated.auditor1Id && updated.auditor2Id;
       if (hasAll && updated.status === 'Pending') updated.status = 'In Progress';
       return updated;
     }));
@@ -420,7 +420,7 @@ export const MobileApp: React.FC = () => {
         [`${role}Name`]: null,
         [`${role}Contact`]: role === 'supervisor' ? s.supervisorContact : null,
       };
-      if (updated.status === 'In Progress' && (!updated.date || !updated.supervisorId || !updated.auditor1Id || !updated.auditor2Id)) {
+      if (updated.status === 'In Progress' && (!updated.date || !updated.auditor1Id || !updated.auditor2Id)) {
         updated.status = 'Pending';
       }
       return updated;
@@ -522,7 +522,7 @@ showToast(`Plan Overwritten: Inspection reassigned from ${targetSchedule.phaseNa
             phaseStart: matchingPhase.startDate,
             phaseEnd: matchingPhase.endDate
           };
-          const hasAll = updated.date && updated.supervisorId && updated.auditor1Id && updated.auditor2Id;
+          const hasAll = updated.date && updated.auditor1Id && updated.auditor2Id;
           if (hasAll && updated.status === 'Pending') {
             updated.status = 'In Progress';
           } else if (!hasAll && updated.status === 'In Progress') {
@@ -575,7 +575,7 @@ showToast(`Plan Overwritten: Inspection reassigned from ${targetSchedule.phaseNa
               phaseEnd: matchingPhase.endDate
             }
           : { ...s, date };
-        const hasAll = updated.date && updated.supervisorId && updated.auditor1Id && updated.auditor2Id;
+        const hasAll = updated.date && updated.auditor1Id && updated.auditor2Id;
         if (hasAll && updated.status === 'Pending') {
           updated.status = 'In Progress';
         } else if (!hasAll && updated.status === 'In Progress') {
